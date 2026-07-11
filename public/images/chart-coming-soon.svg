@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450" viewBox="0 0 800 450" fill="none">
+  <rect width="800" height="450" fill="#0a0a12"/>
+  <rect x="1" y="1" width="798" height="448" rx="11" stroke="#39ff14" stroke-opacity="0.3" stroke-width="2"/>
+  <line x1="0" y1="80" x2="800" y2="80" stroke="#9d4edd" stroke-opacity="0.2" stroke-width="1"/>
+  <circle cx="24" cy="40" r="6" fill="#ff5f57"/>
+  <circle cx="44" cy="40" r="6" fill="#febc2e"/>
+  <circle cx="64" cy="40" r="6" fill="#28c840"/>
+  <text x="90" y="45" fill="#666" font-family="monospace" font-size="13">tired-chart.exe  not deployed yet</text>
+  <text x="400" y="200" fill="#39ff14" font-family="monospace" font-size="42" font-weight="bold" text-anchor="middle">$TIRED</text>
+  <text x="400" y="250" fill="#e8e8f0" font-family="monospace" font-size="22" text-anchor="middle">chart, coming soon.</text>
+  <text x="400" y="310" fill="#ff2d95" font-family="monospace" font-size="14" text-anchor="middle">we're too tired to deploy rn</text>
+  <polyline points="120,360 200,340 280,355 360,300 440,320 520,280 600,290 680,250" stroke="#39ff14" stroke-opacity="0.15" stroke-width="2" fill="none"/>
+  <line x1="80" y1="380" x2="720" y2="380" stroke="#9d4edd" stroke-opacity="0.15" stroke-width="1"/>
+</svg>
