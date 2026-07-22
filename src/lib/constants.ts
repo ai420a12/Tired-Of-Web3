@@ -2,8 +2,7 @@ export const CONTRACT_ADDRESS = "TBA";
 
 export const LINKS = {
   x: "https://x.com/TiredOfWeb3",
-  /** Update this to your actual pinned tweet URL when ready */
-  pinnedPost: "https://x.com/TiredOfWeb3",
+  pinnedPost: "https://x.com/TiredOfWeb3/status/2080066033159635353",
   telegram: null as string | null,
   discord: null as string | null,
   opensea: null as string | null,
