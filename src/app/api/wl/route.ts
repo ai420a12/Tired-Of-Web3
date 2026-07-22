@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { addSubmission, readSubmissions } from "@/lib/wl-store";
+import { addSubmission, readSubmissions, usingCloudStore } from "@/lib/wl-store";
 import {
   isValidEthWallet,
   isValidXPostUrl,
@@ -8,10 +8,23 @@ import {
   type WlSubmission,
 } from "@/lib/wl";
 
-export async function GET() {
+export async function GET(request: Request) {
+  // Don't expose the full WL list publicly on the live site
+  if (usingCloudStore()) {
+    const secret = process.env.WL_ADMIN_SECRET;
+    const header = request.headers.get("x-wl-admin-secret");
+    if (!secret || header !== secret) {
+      return NextResponse.json(
+        { error: "Forbidden. View submissions in the Supabase dashboard." },
+        { status: 403 },
+      );
+    }
+  }
+
   const submissions = await readSubmissions();
   return NextResponse.json({
     count: submissions.length,
+    store: usingCloudStore() ? "supabase" : "local",
     submissions,
   });
 }
