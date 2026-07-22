@@ -56,8 +56,17 @@ export default function Hero() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.7 }}
+          className="flex flex-wrap items-center justify-center gap-3"
         >
           <BuyButton />
+          <motion.a
+            href="/wl"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="rounded-lg border border-neon-pink/50 bg-neon-pink/10 px-8 py-4 font-mono text-xl font-bold text-neon-pink transition-all hover:bg-neon-pink/20"
+          >
+            GET WL
+          </motion.a>
         </motion.div>
 
         <motion.div

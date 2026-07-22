@@ -2,9 +2,14 @@ export const CONTRACT_ADDRESS = "TBA";
 
 export const LINKS = {
   x: "https://x.com/TiredOfWeb3",
-  telegram: "https://t.me/tiredofweb3",
+  /** Update this to your actual pinned tweet URL when ready */
+  pinnedPost: "https://x.com/TiredOfWeb3",
+  telegram: null as string | null,
+  discord: null as string | null,
+  opensea: null as string | null,
   dexscreener: `https://dexscreener.com/solana/${CONTRACT_ADDRESS}`,
   buy: `https://pump.fun/coin/${CONTRACT_ADDRESS}`,
+  wl: "/wl",
 } as const;
 
 export const MASCOT_QUOTES = [
@@ -92,7 +97,7 @@ export const ROADMAP = [
     phase: "Phase 3",
     title: "Tired of Earth → Mars",
     items: [
-      "ETH NFT collection on OpenSea — minted direct, no Discord role required. Snapshot your $TIRED bags: more tokens = free mint, fewer tokens = still cheaper than public. Zero tokens = pay full price and reflect.",
+      "10K ETH NFT collection — minted directly on OpenSea. No Discord roles needed. A secret snapshot of your $TIRED bags decides your mint: more tokens = more free mints, fewer tokens = still cheaper than public, zero tokens = full price (time to reflect). Splitting across wallets won't work — there's a secret minimum hold, and a cluster agent flags linked wallets on-chain.",
       "Elon tweets about us (he won't)",
       "Actually leave Earth (we won't)",
       "Mars colony for people tired of rugs",

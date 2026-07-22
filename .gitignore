@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local WL submissions (localhost data store)
+/data/wl-submissions.json
