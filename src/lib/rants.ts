@@ -95,5 +95,5 @@ export const MANIFESTO_LINES = [
   "But if we do go to Mars,",
   "it's because Earth ran out of rugs to pull.",
   "",
-  "Stay tired. Stay real. Stay $TIRED.",
+  "Stay Safe, Stay Real, Stay $TIRED.",
 ] as const;

@@ -212,7 +212,7 @@ export const TOKENOMICS = [
     value: "1,000,000,000",
     unit: "$TIRED",
     reaction: "A billion tokens. A billion disappointments. Familiar.",
-    emoji: "😮‍💨",
+    emoji: "💪",
   },
   {
     title: "Buy Tax",
