@@ -43,15 +43,11 @@ export default function Tokenomics() {
               </p>
               <p className="mt-1 text-xs text-foreground/50">{item.unit}</p>
 
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                whileHover={{ opacity: 1, height: "auto" }}
-                className="mt-4 overflow-hidden border-t border-neon-purple/20 pt-4"
-              >
+              <div className="mt-4 max-h-0 overflow-hidden border-t border-transparent opacity-0 transition-all duration-300 ease-out group-hover:max-h-24 group-hover:border-neon-purple/20 group-hover:pt-4 group-hover:opacity-100">
                 <p className="font-mono text-xs text-neon-pink italic">
                   &ldquo;{item.reaction}&rdquo;
                 </p>
-              </motion.div>
+              </div>
             </motion.div>
           ))}
         </div>
