@@ -72,7 +72,7 @@ export const MANIFESTO_LINES = [
   "Diamond hands? Nah.",
   "Depleted uranium hands.",
   "Hands that have seen too much.",
-  "Hands that typed 'gm' at 6am for 400 days straight.",
+  "Hands that typed 'gm' at 6am for 4000 days straight.",
   "",
   "We're not bullish.",
   "We're not bearish.",
