@@ -22,6 +22,7 @@ type SocialCard = {
 };
 
 export default function Community() {
+  // tg-live
   const [copied, setCopied] = useState(false);
 
   const copyContract = () => {
