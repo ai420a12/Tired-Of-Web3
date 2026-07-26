@@ -4,6 +4,12 @@ import { motion } from "framer-motion";
 import { ROADMAP } from "@/lib/constants";
 import GlitchText from "@/components/effects/GlitchText";
 
+const phaseDotColors = [
+  "border-neon-green",
+  "border-neon-purple",
+  "border-neon-pink",
+] as const;
+
 export default function Roadmap() {
   return (
     <section id="roadmap" className="relative px-4 py-24">
@@ -20,7 +26,7 @@ export default function Roadmap() {
           </p>
         </div>
 
-        <div className="relative">
+        <div className="relative pb-6">
           <div className="absolute top-0 bottom-0 left-8 hidden w-px bg-gradient-to-b from-neon-green via-neon-purple to-neon-pink sm:block" />
 
           <div className="space-y-12">
@@ -33,7 +39,11 @@ export default function Roadmap() {
                 transition={{ delay: i * 0.2 }}
                 className="relative flex flex-col gap-6 sm:flex-row sm:items-start"
               >
-                <div className="absolute left-6 hidden h-5 w-5 rounded-full border-2 border-neon-green bg-background sm:block" />
+                <div
+                  className={`absolute left-6 hidden h-5 w-5 rounded-full border-2 bg-background sm:block ${
+                    phaseDotColors[i] ?? "border-neon-pink"
+                  }`}
+                />
 
                 <div className="sm:ml-16 sm:flex-1">
                   <div className="neon-border rounded-2xl bg-deep-purple/30 p-6 backdrop-blur-sm">
@@ -66,6 +76,8 @@ export default function Roadmap() {
               </motion.div>
             ))}
           </div>
+
+          <div className="absolute bottom-0 left-6 hidden h-5 w-5 rounded-full border-2 border-neon-pink bg-background sm:block" />
         </div>
       </div>
     </section>
