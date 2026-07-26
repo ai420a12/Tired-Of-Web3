@@ -6,7 +6,6 @@ import { CONTRACT_ADDRESS, LINKS, TESTIMONIALS } from "@/lib/constants";
 import { playClick } from "@/lib/sounds";
 import GlitchText from "@/components/effects/GlitchText";
 import BuyButton from "@/components/ui/BuyButton";
-import Mascot from "@/components/mascot/Mascot";
 import {
   IconDiscord,
   IconOpenSea,
@@ -73,13 +72,6 @@ export default function Community() {
           >
             JOIN THE TIRED ARMY
           </GlitchText>
-          <p className="mt-2 font-mono text-sm text-foreground/50">
-            misery loves company
-          </p>
-        </div>
-
-        <div className="mb-12 flex justify-center">
-          <Mascot size="lg" pose="idle" showSpeech quote="We're all tired here. Welcome." />
         </div>
 
         <div className="mb-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
