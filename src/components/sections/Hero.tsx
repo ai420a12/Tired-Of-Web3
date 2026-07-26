@@ -41,7 +41,7 @@ export default function Hero() {
             transition={{ delay: 0.5 }}
             className="mt-4 max-w-2xl text-lg text-foreground/80 sm:text-xl"
           >
-            Finally, a coin that&apos;s as tired of this shit as you are.
+            Finally, a project that&apos;s as tired of this shit as you are.
           </motion.p>
         </motion.div>
 

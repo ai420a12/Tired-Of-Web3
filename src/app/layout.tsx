@@ -18,7 +18,7 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://tiredofweb3.xyz"),
   title: "$TIRED — I'm Tired of Web3",
   description:
-    "Finally, a coin that's as tired of this shit as you are. $TIRED — the memecoin for everyone exhausted by rugs, influencers, and Web3 hype.",
+    "Finally, a project that's as tired of this shit as you are. $TIRED — the memecoin for everyone exhausted by rugs, influencers, and Web3 hype.",
   keywords: [
     "TIRED",
     "memecoin",
@@ -31,7 +31,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "$TIRED — I'm Tired of Web3",
     description:
-      "Finally, a coin that's as tired of this shit as you are.",
+      "Finally, a project that's as tired of this shit as you are.",
     images: ["/images/banner.jpg"],
     type: "website",
   },
@@ -39,7 +39,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "$TIRED — I'm Tired of Web3",
     description:
-      "Finally, a coin that's as tired of this shit as you are.",
+      "Finally, a project that's as tired of this shit as you are.",
     images: ["/images/banner.jpg"],
     creator: "@TiredOfWeb3",
   },
