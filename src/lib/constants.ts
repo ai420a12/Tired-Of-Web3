@@ -26,6 +26,7 @@ export const LINKS = {
   jorgeX: "https://x.com/Ai420a12",
   jorgeInstagram: "https://www.instagram.com/ai420a12/",
   jorgeLinkedIn: "https://www.linkedin.com/in/jorge-m-b22512423/",
+  sneakpeeks: "/sneakpeeks",
 } as const;
 
 export const FACTORY_MACHINES = [

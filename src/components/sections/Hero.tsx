@@ -68,19 +68,19 @@ export default function Hero() {
           >
             GET WL
           </motion.a>
-          <motion.div
-            whileHover={{ scale: 1.02 }}
-            className="flex cursor-default flex-col items-center justify-center rounded-lg border border-[#2081E2]/50 bg-[#2081E2]/10 px-6 py-3 text-center font-mono"
-            aria-disabled="true"
-            title="Coming soon"
+          <motion.a
+            href="/sneakpeeks"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="flex min-w-[11.5rem] flex-col items-center justify-center rounded-lg border border-[#2081E2]/50 bg-[#2081E2]/10 px-5 py-3 text-center font-mono transition-all hover:bg-[#2081E2]/20"
           >
             <span className="text-sm font-bold leading-tight text-[#2081E2] sm:text-base">
-              OpenSea TIRED Collection
+              OpenSea Collection
             </span>
-            <span className="mt-1 text-[10px] uppercase tracking-wide text-[#2081E2]/70 sm:text-xs">
-              coming soon
+            <span className="mt-1 text-[10px] leading-tight text-[#2081E2]/80 sm:text-xs">
+              Coming soon · View sneak peeks
             </span>
-          </motion.div>
+          </motion.a>
         </motion.div>
 
         <motion.div
