@@ -23,6 +23,9 @@ export const LINKS = {
   wl: "/wl",
   nfc: "https://x.com/NFCSummit",
   johnKarp: "https://x.com/johnkarp",
+  jorgeX: "https://x.com/Ai420a12",
+  jorgeInstagram: "https://www.instagram.com/ai420a12/",
+  jorgeLinkedIn: "https://www.linkedin.com/in/jorge-m-b22512423/",
 } as const;
 
 export const FACTORY_MACHINES = [

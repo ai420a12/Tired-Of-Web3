@@ -10,6 +10,7 @@ import Tokenomics from "@/components/sections/Tokenomics";
 import TiredAgent from "@/components/sections/TiredAgent";
 import Whitepaper from "@/components/sections/Whitepaper";
 import Roadmap from "@/components/sections/Roadmap";
+import AboutMe from "@/components/sections/AboutMe";
 import Community from "@/components/sections/Community";
 import { playSigh } from "@/lib/sounds";
 
@@ -38,6 +39,7 @@ export default function Home() {
         <TiredAgent />
         <Whitepaper />
         <Roadmap />
+        <AboutMe />
         <Community />
       </main>
 

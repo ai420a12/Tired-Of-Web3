@@ -11,6 +11,7 @@ const navItems = [
   { label: "AI Agent", href: "/#agent" },
   { label: "Whitepaper", href: "/#whitepaper" },
   { label: "Roadmap", href: "/#roadmap" },
+  { label: "About Me", href: "/#about" },
   { label: "Community", href: "/#community" },
 ];
 
