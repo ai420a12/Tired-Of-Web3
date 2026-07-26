@@ -93,26 +93,9 @@ export default function AboutMe() {
             </p>
           </div>
 
-          <div className="mt-8 flex flex-wrap items-stretch justify-center gap-4 sm:gap-6">
-            {socials.map(({ label, href, Icon }) => (
-              <a
-                key={label}
-                href={href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="neon-border group flex w-[120px] flex-col items-center gap-2 rounded-xl bg-background/40 px-4 py-4 transition-colors hover:border-neon-pink/50 hover:bg-neon-pink/10 sm:w-[140px]"
-              >
-                <Icon className="h-8 w-8 text-neon-green transition-colors group-hover:text-neon-pink" />
-                <span className="font-mono text-xs font-bold text-foreground/70 group-hover:text-neon-pink">
-                  {label}
-                </span>
-              </a>
-            ))}
-          </div>
-
           <div className="mt-8 space-y-4 border-t border-neon-purple/25 pt-8 font-mono text-sm leading-relaxed text-foreground/75 sm:text-base">
             <p>
-              Words can claim how genuine I am about this — but{" "}
+              Words can&apos;t show how genuine I am about this — but{" "}
               <span className="text-neon-pink">time will prove it</span>. I
               promise that{" "}
               <span className="font-bold text-neon-green">
@@ -142,6 +125,23 @@ export default function AboutMe() {
               Thank you a million times if you&apos;re supporting us and made it
               this far. If you&apos;re tired too — welcome home.
             </p>
+          </div>
+
+          <div className="mt-8 flex flex-wrap items-stretch justify-center gap-4 sm:gap-6">
+            {socials.map(({ label, href, Icon }) => (
+              <a
+                key={label}
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="neon-border group flex w-[120px] flex-col items-center gap-2 rounded-xl bg-background/40 px-4 py-4 transition-colors hover:border-neon-pink/50 hover:bg-neon-pink/10 sm:w-[140px]"
+              >
+                <Icon className="h-8 w-8 text-neon-green transition-colors group-hover:text-neon-pink" />
+                <span className="font-mono text-xs font-bold text-foreground/70 group-hover:text-neon-pink">
+                  {label}
+                </span>
+              </a>
+            ))}
           </div>
         </motion.article>
       </div>
