@@ -204,6 +204,10 @@ export default function Whitepaper() {
                   {FACTORY_WALLET}
                 </span>
               </p>
+              <p className="text-center font-mono text-xs leading-relaxed text-neon-pink sm:text-sm">
+                Anyone who would like to donate ETH to the cause and help us
+                reach our goal faster can also use this wallet for donations.
+              </p>
             </div>
           </motion.article>
 
