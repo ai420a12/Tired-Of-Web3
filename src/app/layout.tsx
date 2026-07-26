@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { JetBrains_Mono, Space_Grotesk } from "next/font/google";
 import "./globals.css";
+// Favicon refresh for Google Search
+
 
 const spaceGrotesk = Space_Grotesk({
   variable: "--font-space-grotesk",
