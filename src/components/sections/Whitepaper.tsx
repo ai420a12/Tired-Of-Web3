@@ -7,7 +7,6 @@ import GoalBar from "@/components/ui/GoalBar";
 import {
   FACTORY_GOAL_USD,
   FACTORY_MACHINES,
-  FACTORY_WALLET,
   LINKS,
   MERCH_CATALOG,
 } from "@/lib/constants";
@@ -198,16 +197,6 @@ export default function Whitepaper() {
               <div className="pt-2">
                 <GoalBar />
               </div>
-              <p className="rounded-lg border border-neon-purple/30 bg-background/40 px-4 py-3 text-xs text-foreground/60 sm:text-sm">
-                Fee wallet:{" "}
-                <span className="break-all text-neon-purple">
-                  {FACTORY_WALLET}
-                </span>
-              </p>
-              <p className="text-center font-mono text-xs leading-relaxed text-neon-pink sm:text-sm">
-                Anyone who would like to donate ETH to the cause and help us
-                reach our goal faster can also use this wallet for donations.
-              </p>
             </div>
           </motion.article>
 

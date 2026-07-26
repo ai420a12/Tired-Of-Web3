@@ -1,11 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import { motion } from "framer-motion";
 import {
   FACTORY_GOAL_USD,
   FACTORY_RAISED_USD,
   FACTORY_WALLET,
 } from "@/lib/constants";
+import { playClick } from "@/lib/sounds";
 
 function formatUsd(value: number) {
   return new Intl.NumberFormat("en-US", {
@@ -16,13 +18,25 @@ function formatUsd(value: number) {
 }
 
 export default function GoalBar() {
+  const [copied, setCopied] = useState(false);
   const raised = Math.max(0, FACTORY_RAISED_USD);
   const goal = FACTORY_GOAL_USD;
   const pct = Math.min(100, (raised / goal) * 100);
   const walletShort =
-    FACTORY_WALLET === "TBA"
-      ? "TBA"
-      : `${FACTORY_WALLET.slice(0, 4)}…${FACTORY_WALLET.slice(-4)}`;
+    FACTORY_WALLET.length > 12
+      ? `${FACTORY_WALLET.slice(0, 6)}…${FACTORY_WALLET.slice(-4)}`
+      : FACTORY_WALLET;
+
+  const copyWallet = async () => {
+    try {
+      await navigator.clipboard.writeText(FACTORY_WALLET);
+      playClick();
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // ignore clipboard failures
+    }
+  };
 
   return (
     <div className="neon-border-green w-full rounded-xl bg-deep-purple/40 p-4 backdrop-blur-sm sm:p-5">
@@ -65,6 +79,27 @@ export default function GoalBar() {
           LP loading… fees fill this bar toward the factory
         </p>
       )}
+
+      <div className="mt-4 space-y-2 border-t border-neon-green/20 pt-3">
+        <button
+          type="button"
+          onClick={copyWallet}
+          className="w-full rounded-lg border border-neon-purple/30 bg-background/40 px-3 py-2.5 text-left font-mono text-[10px] transition-colors hover:border-neon-pink/40 hover:bg-neon-pink/5 sm:text-xs"
+          title="Click to copy wallet"
+        >
+          <span className="text-foreground/60">Fee wallet: </span>
+          <span className="break-all font-bold text-neon-pink">
+            {FACTORY_WALLET}
+          </span>
+          <span className="mt-1 block text-[10px] text-neon-purple">
+            {copied ? "Copied ✓" : "Click to copy"}
+          </span>
+        </button>
+        <p className="text-center font-mono text-[10px] leading-relaxed text-neon-pink sm:text-xs">
+          Anyone who would like to donate ETH to the cause and help us reach our
+          goal faster can also use this wallet for donations.
+        </p>
+      </div>
     </div>
   );
 }

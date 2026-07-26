@@ -1,7 +1,8 @@
 export const CONTRACT_ADDRESS = "TBA";
 
 /** Factory funding wallet — 100% of trading fees land here. Swap TBA when ready. */
-export const FACTORY_WALLET: string = "TBA";
+export const FACTORY_WALLET: string =
+  "0xC21fdf9b3B878f56207Be8a286b19dB1d5cd9F97";
 
 /** USD goal to open the Tired factory (warehouse + machines). */
 export const FACTORY_GOAL_USD = 250_000;
