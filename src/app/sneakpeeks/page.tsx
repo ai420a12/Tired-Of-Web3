@@ -83,14 +83,14 @@ export default function SneakPeeksPage() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: i * 0.04 }}
-              className="overflow-hidden rounded-xl border border-[#2081E2]/30 bg-background/50"
+              className="overflow-hidden rounded-xl border border-[#2081E2]/30 bg-[#0a0a12]"
             >
               <div className="relative aspect-square">
                 <Image
                   src={item.src}
                   alt={item.alt}
                   fill
-                  className="object-cover"
+                  className="object-contain p-1"
                   sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                 />
               </div>
