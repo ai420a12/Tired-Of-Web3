@@ -20,6 +20,7 @@ const SNEAK_PEEKS = [
   { src: "/images/sneakpeeks/tired-crown.png", alt: "Tired crown laser eyes sneak peek" },
   { src: "/images/sneakpeeks/starmind-flag.png", alt: "Starmind Mars robot sneak peek" },
   { src: "/images/sneakpeeks/multiplanetary.png", alt: "Multiplanetary species sneak peek" },
+  { src: "/images/sneakpeeks/support-communities.png", alt: "Support real communities sneak peek" },
 ] as const;
 
 export default function SneakPeeksPage() {
