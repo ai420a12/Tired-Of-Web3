@@ -78,28 +78,28 @@ export default function Whitepaper() {
             </div>
 
             <div className="mt-8 flex flex-wrap items-stretch justify-center gap-4 sm:gap-6">
-              <figure className="w-full max-w-[280px] overflow-hidden rounded-xl border border-neon-purple/30 bg-background/40 sm:max-w-[320px]">
-                <div className="relative aspect-[4/3]">
+              <figure className="w-full max-w-[280px] overflow-hidden rounded-xl border border-neon-purple/30 bg-background/40 sm:max-w-[360px]">
+                <div className="relative aspect-[5/4] bg-[#0a0a12]">
                   <Image
                     src="/images/boxes/tiredboxes.png"
                     alt="Tiredboxes — TiredOfWeb3 packing boxes"
                     fill
-                    className="object-cover"
-                    sizes="320px"
+                    className="object-contain p-2"
+                    sizes="360px"
                   />
                 </div>
                 <figcaption className="px-3 py-2 text-center font-mono text-xs font-bold text-neon-green sm:text-sm">
                   Tiredboxes
                 </figcaption>
               </figure>
-              <figure className="w-full max-w-[280px] overflow-hidden rounded-xl border border-neon-purple/30 bg-background/40 sm:max-w-[320px]">
-                <div className="relative aspect-[4/3]">
+              <figure className="w-full max-w-[280px] overflow-hidden rounded-xl border border-neon-purple/30 bg-background/40 sm:max-w-[360px]">
+                <div className="relative aspect-[5/4] bg-[#0a0a12]">
                   <Image
                     src="/images/boxes/peniboxes.png"
                     alt="Peniboxes — The Penimals packing boxes"
                     fill
-                    className="object-cover"
-                    sizes="320px"
+                    className="object-contain p-2"
+                    sizes="360px"
                   />
                 </div>
                 <figcaption className="px-3 py-2 text-center font-mono text-xs font-bold text-neon-green sm:text-sm">
