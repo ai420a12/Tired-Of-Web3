@@ -68,6 +68,19 @@ export default function Hero() {
           >
             GET WL
           </motion.a>
+          <motion.div
+            whileHover={{ scale: 1.02 }}
+            className="flex cursor-default flex-col items-center justify-center rounded-lg border border-[#2081E2]/50 bg-[#2081E2]/10 px-6 py-3 text-center font-mono"
+            aria-disabled="true"
+            title="Coming soon"
+          >
+            <span className="text-sm font-bold leading-tight text-[#2081E2] sm:text-base">
+              OpenSea TIRED Collection
+            </span>
+            <span className="mt-1 text-[10px] uppercase tracking-wide text-[#2081E2]/70 sm:text-xs">
+              coming soon
+            </span>
+          </motion.div>
         </motion.div>
 
         <motion.div
