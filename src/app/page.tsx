@@ -8,6 +8,7 @@ import Hero from "@/components/sections/Hero";
 import Manifesto from "@/components/sections/Manifesto";
 import Tokenomics from "@/components/sections/Tokenomics";
 import TiredAgent from "@/components/sections/TiredAgent";
+import Whitepaper from "@/components/sections/Whitepaper";
 import Roadmap from "@/components/sections/Roadmap";
 import Community from "@/components/sections/Community";
 import { playSigh } from "@/lib/sounds";
@@ -35,6 +36,7 @@ export default function Home() {
         <Manifesto />
         <Tokenomics />
         <TiredAgent />
+        <Whitepaper />
         <Roadmap />
         <Community />
       </main>

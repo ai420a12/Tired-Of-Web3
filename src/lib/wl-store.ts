@@ -143,8 +143,11 @@ async function addSupabase(
       }
       return { ok: false, error: "This application was already submitted." };
     }
-    console.error("Supabase insert error:", error.message);
-    return { ok: false, error: "Could not save application. Try again." };
+    console.error("Supabase insert error:", error.message, error.code, error.details);
+    return {
+      ok: false,
+      error: `Could not save application. (${error.message})`,
+    };
   }
 
   return { ok: true };

@@ -5,15 +5,6 @@ import { useRef } from "react";
 import { MANIFESTO_LINES } from "@/lib/rants";
 import GlitchText from "@/components/effects/GlitchText";
 
-const memeRotations = [-2, 1.5, -1, 2];
-
-const memeReactions = [
-  { text: "me watching another '100x gem' thread", emoji: "💀" },
-  { text: "my portfolio after 'diamond hands'", emoji: "📉" },
-  { text: "influencer posting 'still bullish'", emoji: "🤡" },
-  { text: "dev wallet after 'community vote'", emoji: "🏃‍♂️💨" },
-];
-
 export default function Manifesto() {
   const ref = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({
@@ -59,25 +50,6 @@ export default function Manifesto() {
                 {line}
               </motion.p>
             ))}
-        </div>
-
-        <div className="mt-12 grid grid-cols-2 gap-4 sm:grid-cols-4">
-          {memeReactions.map((meme, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.1 }}
-              whileHover={{ scale: 1.05, rotate: memeRotations[i] }}
-              className="neon-border rounded-xl bg-background/50 p-4 text-center"
-            >
-              <span className="text-3xl">{meme.emoji}</span>
-              <p className="mt-2 font-mono text-xs text-foreground/60">
-                {meme.text}
-              </p>
-            </motion.div>
-          ))}
         </div>
       </div>
     </section>

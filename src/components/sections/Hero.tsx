@@ -6,6 +6,7 @@ import GlitchText from "@/components/effects/GlitchText";
 import MascotSpeech from "@/components/mascot/MascotSpeech";
 import BuyButton from "@/components/ui/BuyButton";
 import DexChart from "@/components/ui/DexChart";
+import GoalBar from "@/components/ui/GoalBar";
 
 export default function Hero() {
   return (
@@ -73,9 +74,10 @@ export default function Hero() {
           initial={{ opacity: 0, y: 40 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 1 }}
-          className="w-full max-w-2xl"
+          className="flex w-full max-w-2xl flex-col gap-4"
         >
           <DexChart />
+          <GoalBar />
         </motion.div>
 
         <motion.div

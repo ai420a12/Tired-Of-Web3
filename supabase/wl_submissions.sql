@@ -24,3 +24,7 @@ create unique index if not exists wl_submissions_handle_unique
 -- Lock the table from public browser access.
 -- Your Next.js API uses the service role key (server-only).
 alter table public.wl_submissions enable row level security;
+
+-- Required when "Automatically expose new tables" is OFF
+grant select, insert, update, delete on table public.wl_submissions to service_role;
+grant usage on schema public to service_role;

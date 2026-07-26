@@ -3,13 +3,6 @@
 import { motion } from "framer-motion";
 import { ROADMAP } from "@/lib/constants";
 import GlitchText from "@/components/effects/GlitchText";
-import Mascot from "@/components/mascot/Mascot";
-
-const moodPoses = {
-  exhausted: "idle" as const,
-  cynical: "facepalm" as const,
-  delusional: "complaining" as const,
-};
 
 export default function Roadmap() {
   return (
@@ -44,19 +37,13 @@ export default function Roadmap() {
 
                 <div className="sm:ml-16 sm:flex-1">
                   <div className="neon-border rounded-2xl bg-deep-purple/30 p-6 backdrop-blur-sm">
-                    <div className="mb-4 flex items-center justify-between">
-                      <div>
-                        <span className="font-mono text-xs text-neon-green">
-                          {phase.phase}
-                        </span>
-                        <h3 className="font-mono text-2xl font-bold text-foreground">
-                          {phase.title}
-                        </h3>
-                      </div>
-                      <Mascot
-                        size="md"
-                        pose={moodPoses[phase.mood]}
-                      />
+                    <div className="mb-4">
+                      <span className="font-mono text-xs text-neon-green">
+                        {phase.phase}
+                      </span>
+                      <h3 className="font-mono text-2xl font-bold text-foreground">
+                        {phase.title}
+                      </h3>
                     </div>
 
                     <ul className="space-y-2">

@@ -9,6 +9,7 @@ const navItems = [
   { label: "Manifesto", href: "/#manifesto" },
   { label: "Tokenomics", href: "/#tokenomics" },
   { label: "AI Agent", href: "/#agent" },
+  { label: "Whitepaper", href: "/#whitepaper" },
   { label: "Roadmap", href: "/#roadmap" },
   { label: "Community", href: "/#community" },
 ];

@@ -20,7 +20,7 @@ export default function Tokenomics() {
           </p>
         </div>
 
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="flex flex-wrap justify-center gap-6">
           {TOKENOMICS.map((item, i) => (
             <motion.div
               key={item.title}
@@ -29,7 +29,7 @@ export default function Tokenomics() {
               viewport={{ once: true }}
               transition={{ delay: i * 0.1 }}
               whileHover={{ y: -5, boxShadow: "0 0 30px rgba(157,78,221,0.3)" }}
-              className="neon-border group relative overflow-hidden rounded-2xl bg-deep-purple/40 p-6 backdrop-blur-sm"
+              className="neon-border group relative w-full overflow-hidden rounded-2xl bg-deep-purple/40 p-6 backdrop-blur-sm sm:w-[calc(50%-0.75rem)] lg:w-[calc((100%-3rem)/3)]"
             >
               <div className="mb-4">
                 <span className="text-2xl">{item.emoji}</span>
