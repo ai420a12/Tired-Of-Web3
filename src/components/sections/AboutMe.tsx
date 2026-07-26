@@ -109,6 +109,40 @@ export default function AboutMe() {
               </a>
             ))}
           </div>
+
+          <div className="mt-8 space-y-4 border-t border-neon-purple/25 pt-8 font-mono text-sm leading-relaxed text-foreground/75 sm:text-base">
+            <p>
+              Words can claim how genuine I am about this — but{" "}
+              <span className="text-neon-pink">time will prove it</span>. I
+              promise that{" "}
+              <span className="font-bold text-neon-green">
+                100% of any LP made by this project
+              </span>{" "}
+              will be invested into making this factory possible. You will never
+              see me buying stupid cars, watches, or holidays with this
+              liquidity. I&apos;m truly grateful to everyone who has supported
+              me to this day, and to anyone who helps make this real. I promise
+              you will never be exploited by me — and you will never catch me in
+              a lie. I don&apos;t do lies. I see lying as a mental issue.
+            </p>
+            <p>
+              I&apos;m tired of reaching out to VCs and investors, begging for a
+              chance to make this possible. I&apos;m tired of watching those same
+              people blow LP into things that make no sense — or into projects
+              owned by bad actors. Nevertheless, I&apos;m not wasting any more
+              time. I will do this with or without them. I will never pay for
+              KOLs. I will never pay for manipulation or fake status. Everything
+              you see from me is{" "}
+              <span className="text-neon-green">
+                100% organic, on-chain, and with good intentions
+              </span>
+              .
+            </p>
+            <p className="font-bold text-neon-pink">
+              Thank you a million times if you&apos;re supporting us and made it
+              this far. If you&apos;re tired too — welcome home.
+            </p>
+          </div>
         </motion.article>
       </div>
     </section>
