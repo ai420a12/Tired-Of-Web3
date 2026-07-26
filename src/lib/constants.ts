@@ -15,7 +15,7 @@ export const FACTORY_RAISED_USD = 0;
 export const LINKS = {
   x: "https://x.com/TiredOfWeb3",
   pinnedPost: "https://x.com/TiredOfWeb3/status/2080066033159635353",
-  telegram: null as string | null,
+  telegram: "https://t.me/+5Jy_7NyrhU5kOGM0" as string | null,
   discord: null as string | null,
   opensea: null as string | null,
   dexscreener: `https://dexscreener.com/solana/${CONTRACT_ADDRESS}`,

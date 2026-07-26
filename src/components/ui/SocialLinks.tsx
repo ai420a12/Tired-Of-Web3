@@ -30,7 +30,7 @@ const socials = [
     id: "tg",
     label: "Telegram",
     href: LINKS.telegram,
-    title: "Telegram — coming soon",
+    title: "Join Telegram",
     Icon: IconTelegram,
     iconClass: "text-[#2AABEE]",
   },

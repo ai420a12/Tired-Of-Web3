@@ -42,7 +42,7 @@ export default function Community() {
     {
       label: "Telegram",
       href: LINKS.telegram,
-      live: false,
+      live: Boolean(LINKS.telegram),
       Icon: IconTelegram,
       iconClass: "text-[#2AABEE]",
     },
