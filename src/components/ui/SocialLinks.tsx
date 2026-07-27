@@ -22,7 +22,7 @@ const socials = [
     id: "discord",
     label: "Discord",
     href: LINKS.discord,
-    title: "Discord — coming soon",
+    title: "Join Discord",
     Icon: IconDiscord,
     iconClass: "text-[#5865F2]",
   },

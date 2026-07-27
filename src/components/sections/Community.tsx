@@ -57,7 +57,7 @@ export default function Community() {
     {
       label: "Discord",
       href: LINKS.discord,
-      live: false,
+      live: Boolean(LINKS.discord),
       Icon: IconDiscord,
       iconClass: "text-[#5865F2]",
     },

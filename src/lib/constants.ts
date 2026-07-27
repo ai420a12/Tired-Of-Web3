@@ -17,7 +17,7 @@ export const LINKS = {
   x: "https://x.com/TiredOfWeb3",
   pinnedPost: "https://x.com/TiredOfWeb3/status/2080066033159635353",
   telegram: "https://t.me/+5Jy_7NyrhU5kOGM0" as string | null,
-  discord: null as string | null,
+  discord: "https://discord.gg/mSSPdAprp2" as string | null,
   opensea: null as string | null,
   dexscreener: `https://dexscreener.com/solana/${CONTRACT_ADDRESS}`,
   buy: `https://pump.fun/coin/${CONTRACT_ADDRESS}`,
