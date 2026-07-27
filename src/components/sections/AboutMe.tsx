@@ -61,7 +61,8 @@ export default function AboutMe() {
           <div className="mt-5 space-y-4 font-mono text-sm leading-relaxed text-foreground/75 sm:text-base">
             <p>
               You can even ask Grok about me — he&apos;ll probably only mention
-              the biggest ones. I&apos;ve worked with dozens of NFT projects.
+              the biggest I worked with, but in the last 10 years I&apos;ve
+              worked with dozens of NFT &amp; Crypto projects.
             </p>
             <p>
               I&apos;ve been in Web3 since 2017. I was CEO of{" "}
