@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import {
+  FACTORY_GOAL_POLL_MS,
   FACTORY_GOAL_USD,
-  FACTORY_RAISED_USD,
   FACTORY_WALLET,
 } from "@/lib/constants";
 import { playClick } from "@/lib/sounds";
@@ -17,10 +17,60 @@ function formatUsd(value: number) {
   }).format(value);
 }
 
+type GoalState = {
+  raised: number;
+  goal: number;
+  loading: boolean;
+  error: boolean;
+};
+
 export default function GoalBar() {
   const [copied, setCopied] = useState(false);
-  const raised = Math.max(0, FACTORY_RAISED_USD);
-  const goal = FACTORY_GOAL_USD;
+  const [goalState, setGoalState] = useState<GoalState>({
+    raised: 0,
+    goal: FACTORY_GOAL_USD,
+    loading: true,
+    error: false,
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      try {
+        const res = await fetch("/api/factory-goal", { cache: "no-store" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = (await res.json()) as {
+          raisedUsd?: number;
+          goalUsd?: number;
+        };
+        if (cancelled) return;
+        setGoalState({
+          raised: Math.max(0, Number(data.raisedUsd) || 0),
+          goal: Math.max(1, Number(data.goalUsd) || FACTORY_GOAL_USD),
+          loading: false,
+          error: false,
+        });
+      } catch {
+        if (cancelled) return;
+        setGoalState((prev) => ({
+          ...prev,
+          loading: false,
+          error: true,
+        }));
+      }
+    }
+
+    void load();
+    const id = window.setInterval(() => void load(), FACTORY_GOAL_POLL_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, []);
+
+  const raised = goalState.raised;
+  const goal = goalState.goal;
   const pct = Math.min(100, (raised / goal) * 100);
   const walletShort =
     FACTORY_WALLET.length > 12
@@ -56,7 +106,11 @@ export default function GoalBar() {
             <span className="text-neon-green">{formatUsd(goal)}</span>
           </p>
           <p className="text-[10px] text-neon-purple sm:text-xs">
-            {pct.toFixed(1)}% funded
+            {goalState.loading
+              ? "syncing…"
+              : goalState.error
+                ? "live sync paused"
+                : `${pct.toFixed(1)}% funded`}
           </p>
         </div>
       </div>
@@ -76,7 +130,7 @@ export default function GoalBar() {
 
       {pct < 2 && (
         <p className="mt-2 text-center font-mono text-[10px] text-foreground/35 sm:text-xs">
-          LP loading… fees fill this bar toward the factory
+          Live ETH balance fills this bar toward the factory
         </p>
       )}
 

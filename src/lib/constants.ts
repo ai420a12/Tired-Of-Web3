@@ -7,11 +7,8 @@ export const FACTORY_WALLET: string =
 /** USD goal to open the Tired factory (warehouse + machines). */
 export const FACTORY_GOAL_USD = 250_000;
 
-/**
- * Current LP / fee-wallet value in USD.
- * Wire this to a live balance fetch once FACTORY_WALLET is set.
- */
-export const FACTORY_RAISED_USD = 0;
+/** How often the GoalBar refreshes live ETH → USD from /api/factory-goal. */
+export const FACTORY_GOAL_POLL_MS = 3 * 60 * 1000;
 
 export const LINKS = {
   x: "https://x.com/TiredOfWeb3",
