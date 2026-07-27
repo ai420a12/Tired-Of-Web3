@@ -60,26 +60,40 @@ export default function AboutMe() {
 
           <div className="mt-5 space-y-4 font-mono text-sm leading-relaxed text-foreground/75 sm:text-base">
             <p>
-              I&apos;ve been in Web3 since 2017. I started on BNB memecoins as
-              COO of AngelsClan, then moved into NFTs in 2020 when Mike
-              (Beeple) started posting about OpenSea. Since then I&apos;ve been
-              CMO and COO across dozens of projects — responsible for hundreds
-              of millions in volume across OpenSea and memecoins.
+              You can even ask Grok about me — he&apos;ll probably only mention
+              the biggest ones. I&apos;ve worked with dozens of NFT projects.
             </p>
             <p>
-              One of the biggest projects I led was{" "}
-              <span className="text-neon-pink">DMAGA</span>, where I got Elon
-              Musk to change his PFP to a red-themed character with blue laser
-              eyes. That sparked a massive Web3 trend — hundreds of thousands
-              followed the same path, and the project went{" "}
-              <span className="font-bold text-neon-green">800x</span> almost
-              overnight… only to be exploited by its own core team.
+              I&apos;ve been in Web3 since 2017. I was CEO of{" "}
+              <span className="text-neon-pink">AngelsClan</span> during the BNB
+              memecoin era, before OpenSea was even a thing. I created the very
+              first <span className="text-neon-pink">BabyDoge</span>. I was CMO
+              for <span className="text-neon-pink">Collect a Particle</span>{" "}
+              with Beeple, and CTO of{" "}
+              <span className="text-neon-pink">UBER</span> — where we bought a
+              Banksy for $1.29 million, sold the digital version on AVAX for
+              $1,500 each × 10k, and still kept the physical piece in a
+              non-profit. I was COO for{" "}
+              <span className="text-neon-pink">SWAGGY</span>, the celebrity dog.
+              I helped Sutter Systems with{" "}
+              <span className="text-neon-pink">CryptoBatz</span>. And the list
+              goes on.
             </p>
             <p>
-              Most recently I was hired as CMO of The Penimals — and once again
-              exploited by its own core team. I&apos;m tired of making other
-              people money with my knowledge and labour. I&apos;m tired of being
-              left behind with the communities those bad actors wreck.
+              I was also the guy who got Elon to change his PFP to a red-themed
+              one with blue laser eyes around Trump&apos;s election — and
+              started the Dark Maga movement in Web3. Tens of thousands followed
+              with red laser-eye PFPs.{" "}
+              <span className="text-neon-pink">DMAGA</span> did an{" "}
+              <span className="font-bold text-neon-green">800x</span> in 24
+              hours… only to be exploited by its own core team.
+            </p>
+            <p>
+              Most recently I was hired as CMO of{" "}
+              <span className="text-neon-pink">The Penimals</span> — and once
+              again exploited by its own core team. I&apos;m tired of making
+              other people money with my knowledge and labour. I&apos;m tired of
+              being left behind with the communities those bad actors wreck.
             </p>
             <p>
               It&apos;s time to build something I can fully control — something
