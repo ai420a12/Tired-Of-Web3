@@ -42,3 +42,6 @@ next-env.d.ts
 
 # local WL submissions (localhost data store)
 /data/wl-submissions.json
+
+# sticker pack tooling
+stickers/.venv/
