@@ -45,3 +45,12 @@ next-env.d.ts
 
 # sticker pack tooling
 stickers/.venv/
+
+/stickers/
+/tmp/
+
+# local snapshot tooling outputs
+/data/og-*
+/data/penimals-holders.txt
+/data/top30-meta.json
+/data/og-wallets-raw.txt
