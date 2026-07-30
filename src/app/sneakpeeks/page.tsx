@@ -12,7 +12,7 @@ const SNEAK_PEEKS = [
   { src: "/images/sneakpeeks/mars.png", alt: "Mars astronaut hoodie sneak peek" },
   { src: "/images/sneakpeeks/hope.png", alt: "Hope character sneak peek" },
   { src: "/images/sneakpeeks/love-community.png", alt: "Love community sneak peek" },
-  { src: "/images/sneakpeeks/maybe.png", alt: "Maybe hoodie sneak peek" },
+  { src: "/images/sneakpeeks/make-2026.png", alt: "Make 2026 gorilla cowboy sneak peek" },
   { src: "/images/sneakpeeks/maybe-lasers.png", alt: "Maybe laser eyes sneak peek" },
   { src: "/images/sneakpeeks/silence.png", alt: "Silence sneak peek" },
   { src: "/images/sneakpeeks/heart.png", alt: "Heart astronaut sneak peek" },
