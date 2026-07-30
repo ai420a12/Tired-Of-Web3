@@ -38,7 +38,7 @@ const socials = [
     id: "opensea",
     label: "OpenSea",
     href: LINKS.opensea,
-    title: "OpenSea — coming soon",
+    title: "OpenSea collection",
     Icon: IconOpenSea,
     iconClass: "text-[#2081E2]",
   },

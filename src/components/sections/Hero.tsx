@@ -7,6 +7,10 @@ import MascotSpeech from "@/components/mascot/MascotSpeech";
 import BuyButton from "@/components/ui/BuyButton";
 import DexChart from "@/components/ui/DexChart";
 import GoalBar from "@/components/ui/GoalBar";
+import { LINKS } from "@/lib/constants";
+
+const ctaClass =
+  "inline-flex h-14 min-w-[10.5rem] items-center justify-center rounded-lg px-6 py-4 font-mono text-xl font-bold transition-all";
 
 export default function Hero() {
   return (
@@ -59,27 +63,32 @@ export default function Hero() {
           transition={{ delay: 0.7 }}
           className="flex flex-wrap items-center justify-center gap-3"
         >
-          <BuyButton />
+          <BuyButton className={ctaClass} />
           <motion.a
-            href="/wl"
+            href={LINKS.wl}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            className="rounded-lg border border-neon-pink/50 bg-neon-pink/10 px-8 py-4 font-mono text-xl font-bold text-neon-pink transition-all hover:bg-neon-pink/20"
+            className={`${ctaClass} border border-neon-pink/50 bg-neon-pink/10 text-neon-pink hover:bg-neon-pink/20`}
           >
             GET WL
           </motion.a>
           <motion.a
-            href="/sneakpeeks"
+            href={LINKS.opensea}
+            target="_blank"
+            rel="noopener noreferrer"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            className="flex min-w-[11.5rem] flex-col items-center justify-center rounded-lg border border-[#2081E2]/50 bg-[#2081E2]/10 px-5 py-3 text-center font-mono transition-all hover:bg-[#2081E2]/20"
+            className={`${ctaClass} border border-[#2081E2]/50 bg-[#2081E2]/10 text-[#2081E2] hover:bg-[#2081E2]/20`}
           >
-            <span className="text-sm font-bold leading-tight text-[#2081E2] sm:text-base">
-              OpenSea Collection
-            </span>
-            <span className="mt-1 text-[10px] leading-tight text-[#2081E2]/80 sm:text-xs">
-              Coming soon · View sneak peeks
-            </span>
+            OpenSea
+          </motion.a>
+          <motion.a
+            href={LINKS.sneakpeeks}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className={`${ctaClass} border border-neon-purple/50 bg-neon-purple/10 text-neon-purple hover:bg-neon-purple/20`}
+          >
+            Sneak Peek
           </motion.a>
         </motion.div>
 

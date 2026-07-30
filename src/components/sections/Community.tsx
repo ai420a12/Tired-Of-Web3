@@ -50,7 +50,7 @@ export default function Community() {
     {
       label: "OpenSea",
       href: LINKS.opensea,
-      live: false,
+      live: Boolean(LINKS.opensea),
       Icon: IconOpenSea,
       iconClass: "text-[#2081E2]",
     },

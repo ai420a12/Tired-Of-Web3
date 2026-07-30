@@ -59,7 +59,7 @@ export default function SneakPeeksPage() {
             TIRED COLLECTION
           </GlitchText>
           <p className="mt-2 font-mono text-sm text-foreground/50">
-            OpenSea sneak peeks — coming soon
+            OpenSea sneak peeks
           </p>
         </div>
 
