@@ -10,7 +10,7 @@ import GoalBar from "@/components/ui/GoalBar";
 import { LINKS } from "@/lib/constants";
 
 const ctaClass =
-  "inline-flex h-14 min-w-[10.5rem] items-center justify-center rounded-lg px-6 py-4 font-mono text-xl font-bold transition-all";
+  "box-border inline-flex h-14 w-full min-w-0 items-center justify-center rounded-lg border px-2 font-mono text-sm font-bold whitespace-nowrap transition-all sm:text-base";
 
 export default function Hero() {
   return (
@@ -61,14 +61,14 @@ export default function Hero() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.7 }}
-          className="flex flex-wrap items-center justify-center gap-3"
+          className="grid w-full max-w-2xl grid-cols-2 gap-3 sm:grid-cols-4"
         >
-          <BuyButton className={ctaClass} />
+          <BuyButton className={`${ctaClass} border-neon-green/50 bg-neon-green/10 text-neon-green hover:bg-neon-green/20`} />
           <motion.a
             href={LINKS.wl}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            className={`${ctaClass} border border-neon-pink/50 bg-neon-pink/10 text-neon-pink hover:bg-neon-pink/20`}
+            className={`${ctaClass} border-neon-pink/50 bg-neon-pink/10 text-neon-pink hover:bg-neon-pink/20`}
           >
             GET WL
           </motion.a>
@@ -78,7 +78,7 @@ export default function Hero() {
             rel="noopener noreferrer"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            className={`${ctaClass} border border-[#2081E2]/50 bg-[#2081E2]/10 text-[#2081E2] hover:bg-[#2081E2]/20`}
+            className={`${ctaClass} border-[#2081E2]/50 bg-[#2081E2]/10 text-[#2081E2] hover:bg-[#2081E2]/20`}
           >
             OpenSea
           </motion.a>
@@ -86,7 +86,7 @@ export default function Hero() {
             href={LINKS.sneakpeeks}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            className={`${ctaClass} border border-neon-purple/50 bg-neon-purple/10 text-neon-purple hover:bg-neon-purple/20`}
+            className={`${ctaClass} border-neon-purple/50 bg-neon-purple/10 text-neon-purple hover:bg-neon-purple/20`}
           >
             Sneak Peek
           </motion.a>

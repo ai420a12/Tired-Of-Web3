@@ -33,7 +33,11 @@ export default function BuyButton({ className = "", size = "lg" }: BuyButtonProp
       whileHover={{ scale: 1.05, boxShadow: "0 0 40px rgba(57,255,20,0.5)" }}
       whileTap={{ scale: 0.95 }}
       onClick={handleBuy}
-      className={`neon-border-green rounded-lg bg-neon-green/10 font-mono font-bold text-neon-green transition-all hover:bg-neon-green/20 ${className || sizeClasses}`}
+      className={
+        className
+          ? `rounded-lg font-mono font-bold transition-all ${className}`
+          : `neon-border-green rounded-lg bg-neon-green/10 font-mono font-bold text-neon-green transition-all hover:bg-neon-green/20 ${sizeClasses}`
+      }
     >
       BUY $TIRED
     </motion.button>
