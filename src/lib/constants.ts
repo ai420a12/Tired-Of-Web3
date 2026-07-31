@@ -12,7 +12,7 @@ export const FACTORY_GOAL_POLL_MS = 3 * 60 * 1000;
 
 export const LINKS = {
   x: "https://x.com/TiredOfWeb3",
-  pinnedPost: "https://x.com/TiredOfWeb3/status/2082547809119613391",
+  pinnedPost: "https://x.com/TiredOfWeb3/status/2083286180485902574",
   telegram: "https://t.me/+5Jy_7NyrhU5kOGM0" as string | null,
   discord: "https://discord.gg/tiredofweb3" as string | null,
   opensea: "https://opensea.io/collection/tired-of-web3/overview",
