@@ -3,10 +3,10 @@
 import { motion } from "framer-motion";
 import Image from "next/image";
 import GlitchText from "@/components/effects/GlitchText";
-import MascotSpeech from "@/components/mascot/MascotSpeech";
 import BuyButton from "@/components/ui/BuyButton";
 import DexChart from "@/components/ui/DexChart";
 import GoalBar from "@/components/ui/GoalBar";
+import Trailer from "@/components/ui/Trailer";
 import { LINKS } from "@/lib/constants";
 
 const ctaClass =
@@ -50,11 +50,12 @@ export default function Hero() {
         </motion.div>
 
         <motion.div
-          initial={{ opacity: 0, scale: 0.8 }}
+          initial={{ opacity: 0, scale: 0.96 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.3, duration: 0.6 }}
+          className="w-full max-w-2xl"
         >
-          <MascotSpeech />
+          <Trailer />
         </motion.div>
 
         <motion.div
