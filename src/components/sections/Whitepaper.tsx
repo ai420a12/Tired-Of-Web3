@@ -76,6 +76,18 @@ export default function Whitepaper() {
               </p>
             </div>
 
+            <div className="mx-auto mt-8 w-full max-w-[320px] overflow-hidden rounded-xl border border-neon-purple/30 bg-black/60 sm:max-w-[360px]">
+              <video
+                className="aspect-[9/16] w-full bg-black object-cover"
+                src="/videos/tiredboxes-demo.mp4"
+                controls
+                playsInline
+                preload="metadata"
+              >
+                Your browser does not support the video tag.
+              </video>
+            </div>
+
             <div className="mt-8 flex flex-wrap items-stretch justify-center gap-4 sm:gap-6">
               <figure className="w-full max-w-[280px] overflow-hidden rounded-xl border border-neon-purple/30 bg-background/40 sm:max-w-[360px]">
                 <div className="relative aspect-[5/4] bg-[#0a0a12]">
