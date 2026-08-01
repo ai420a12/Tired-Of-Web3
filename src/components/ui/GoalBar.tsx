@@ -123,7 +123,7 @@ export default function GoalBar() {
           transition={{ duration: 1.2, ease: "easeOut" }}
           style={{
             boxShadow:
-              pct > 0 ? "0 0 16px rgba(212, 253, 54, 0.55)" : undefined,
+              pct > 0 ? "0 0 16px rgba(0, 200, 5, 0.55)" : undefined,
           }}
         />
       </div>
