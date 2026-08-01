@@ -215,14 +215,14 @@ export const TOKENOMICS = [
   },
   {
     title: "Buy Tax",
-    value: "5%",
+    value: "1%",
     unit: "on every buy",
-    reaction: "5% to keep the lights on. We're tired, not broke.",
+    reaction: "1% to keep the lights on. We're tired, not broke.",
     emoji: "🫠",
   },
   {
     title: "Sell Tax",
-    value: "5%",
+    value: "1%",
     unit: "on every sell",
     reaction: "Paper hands pay the toll. We're all tired here.",
     emoji: "📄",
