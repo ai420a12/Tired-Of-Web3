@@ -84,7 +84,7 @@ export default function Mascot({
             background:
               pose === "facepalm"
                 ? "radial-gradient(circle, rgba(255,45,149,0.3) 0%, transparent 70%)"
-                : "radial-gradient(circle, rgba(0,255,65,0.2) 0%, transparent 70%)",
+                : "radial-gradient(circle, rgba(212,253,54,0.2) 0%, transparent 70%)",
           }}
         />
         <Image
@@ -92,7 +92,7 @@ export default function Mascot({
           alt="TIRED mascot — exhausted silhouette leaning on fence"
           width={dim}
           height={dim}
-          className="relative z-10 drop-shadow-[0_0_15px_rgba(0,255,65,0.4)]"
+          className="relative z-10 drop-shadow-[0_0_15px_rgba(212,253,54,0.4)]"
           style={{
             filter:
               pose === "facepalm"

@@ -17,7 +17,7 @@ export default function BuyButton({ className = "", size = "lg" }: BuyButtonProp
       particleCount: 150,
       spread: 80,
       origin: { y: 0.6 },
-      colors: ["#00FF41", "#ff2d95", "#9d4edd", "#ffffff"],
+      colors: ["#d4fd36", "#ff2d95", "#9d4edd", "#ffffff"],
     });
 
     setTimeout(() => playSadTrombone(), 300);
@@ -30,7 +30,7 @@ export default function BuyButton({ className = "", size = "lg" }: BuyButtonProp
 
   return (
     <motion.button
-      whileHover={{ scale: 1.05, boxShadow: "0 0 40px rgba(0,255,65,0.5)" }}
+      whileHover={{ scale: 1.05, boxShadow: "0 0 40px rgba(212,253,54,0.5)" }}
       whileTap={{ scale: 0.95 }}
       onClick={handleBuy}
       className={
