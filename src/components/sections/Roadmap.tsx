@@ -84,7 +84,9 @@ export default function Roadmap() {
                           className="flex items-start gap-2 font-mono text-sm text-foreground/70"
                         >
                           <span className="text-neon-pink">✗</span>
-                          {formatRoadmapItem(item)}
+                          <span className="min-w-0 flex-1">
+                            {formatRoadmapItem(item)}
+                          </span>
                         </motion.li>
                       ))}
                     </ul>
