@@ -13,7 +13,7 @@ const SNEAK_PEEKS: {
   alt: string;
   oneOfOne?: boolean;
 }[] = [
-  { src: "/images/sneakpeeks/mars.png", alt: "Mars astronaut hoodie sneak peek", oneOfOne: true },
+  { src: "/images/sneakpeeks/mars.png", alt: "Mars astronaut hoodie sneak peek" },
   { src: "/images/sneakpeeks/dont-be-a-pussy.png", alt: "Don't be a pussy monkey sneak peek", oneOfOne: true },
   { src: "/images/sneakpeeks/gorilla-tired-af-halo.png", alt: "TIRED AF orange halo gorilla sneak peek" },
   { src: "/images/sneakpeeks/scams-red.png", alt: "SCAMS red female sneak peek" },
@@ -35,7 +35,7 @@ const SNEAK_PEEKS: {
   { src: "/images/sneakpeeks/silence.png", alt: "Silence sneak peek" },
   { src: "/images/sneakpeeks/love-community.png", alt: "Love community sneak peek" },
   { src: "/images/sneakpeeks/tired-crown.png", alt: "Tired crown laser eyes sneak peek" },
-  { src: "/images/sneakpeeks/multiplanetary.png", alt: "Multiplanetary species sneak peek" },
+  { src: "/images/sneakpeeks/multiplanetary.png", alt: "Multiplanetary species sneak peek", oneOfOne: true },
   { src: "/images/sneakpeeks/support-communities.png", alt: "Support real communities sneak peek" },
 ];
 
@@ -84,10 +84,9 @@ export default function SneakPeeksPage() {
             Disclaimer
           </p>
           <p className="mt-2 font-mono text-sm leading-relaxed text-foreground/75 sm:text-base">
-            This artwork is only an illustration of how the $TIRED NFTs may look
-            while our artists finish the collection by hand — with full layers /
-            PSD files and metadata. Final traits, rarity, and mint details will
-            be confirmed closer to launch.
+            This artwork is only an illustration of how the $TIRED NFTs will look
+            while we finish the collection, with full layers / PSD files and
+            metadata.
           </p>
         </div>
 
