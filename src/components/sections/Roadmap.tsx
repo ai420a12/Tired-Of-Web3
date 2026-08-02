@@ -67,7 +67,16 @@ export default function Roadmap() {
                           className="flex items-start gap-2 font-mono text-sm text-foreground/70"
                         >
                           <span className="text-neon-pink">✗</span>
-                          {item}
+                          {item.includes("Ethereum/Robinhood") ? (
+                            <>
+                              {item.split("Ethereum/Robinhood")[0]}
+                              Ethereum/
+                              <span className="text-neon-green">Robinhood</span>
+                              {item.split("Ethereum/Robinhood")[1]}
+                            </>
+                          ) : (
+                            item
+                          )}
                         </motion.li>
                       ))}
                     </ul>

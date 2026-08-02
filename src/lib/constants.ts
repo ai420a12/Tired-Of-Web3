@@ -248,7 +248,7 @@ export const ROADMAP = [
     phase: "Phase 1",
     title: "Tired Launch",
     items: [
-      "Deploy the $TIRED memecoin on Ethereum while half asleep",
+      "Deploy the $TIRED memecoin on Ethereum/Robinhood while half asleep",
       "Pay for DEX before our eyes close",
       "Survive the first 24 hours without rugging",
       "Lock the supply and renounce ownership of the CA",
