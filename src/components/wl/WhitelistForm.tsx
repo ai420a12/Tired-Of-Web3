@@ -34,6 +34,7 @@ export default function WhitelistForm() {
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [intakeDown, setIntakeDown] = useState(false);
   const [success, setSuccess] = useState(false);
   const [submittedHandle, setSubmittedHandle] = useState("");
   const [submittedWallet, setSubmittedWallet] = useState("");
@@ -104,6 +105,7 @@ export default function WhitelistForm() {
     if (!canSubmit || !xHandle) return;
     setSubmitting(true);
     setError("");
+    setIntakeDown(false);
     playTyping();
 
     try {
@@ -124,7 +126,15 @@ export default function WhitelistForm() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || "Submission failed.");
+        if (res.status === 503 || data.code === "WL_MISCONFIGURED") {
+          setIntakeDown(true);
+          setError(
+            data.error ||
+              "WL intake is temporarily down — ping us on X @TiredOfWeb3 and we'll sort it.",
+          );
+        } else {
+          setError(data.error || "Submission failed.");
+        }
         playSigh();
         return;
       }
@@ -331,9 +341,19 @@ export default function WhitelistForm() {
       </div>
 
       {error && (
-        <p className="mb-4 text-center font-mono text-sm text-neon-pink">
-          {error}
-        </p>
+        <div className="mb-4 text-center">
+          <p className="font-mono text-sm text-neon-pink">{error}</p>
+          {intakeDown && (
+            <a
+              href={LINKS.x}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-2 inline-block font-mono text-xs text-neon-green underline-offset-2 hover:underline"
+            >
+              Open @TiredOfWeb3 on X ↗
+            </a>
+          )}
+        </div>
       )}
 
       <div className="flex flex-col items-center gap-3">

@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { addSubmission, readSubmissions, usingCloudStore } from "@/lib/wl-store";
+import {
+  addSubmission,
+  getStoreStatus,
+  readSubmissions,
+} from "@/lib/wl-store";
 import {
   isValidEthWallet,
   isValidXPostUrl,
@@ -8,29 +12,49 @@ import {
   type WlSubmission,
 } from "@/lib/wl";
 
+/**
+ * GET /api/wl — health / store status (safe for public).
+ * With x-wl-admin-secret (or local store), also returns submissions.
+ */
 export async function GET(request: Request) {
-  // Don't expose the full WL list publicly on the live site
-  if (usingCloudStore()) {
-    const secret = process.env.WL_ADMIN_SECRET;
-    const header = request.headers.get("x-wl-admin-secret");
-    if (!secret || header !== secret) {
-      return NextResponse.json(
-        { error: "Forbidden. View submissions in the Supabase dashboard." },
-        { status: 403 },
-      );
-    }
+  const status = getStoreStatus();
+
+  const secret = process.env.WL_ADMIN_SECRET;
+  const header = request.headers.get("x-wl-admin-secret");
+  const adminOk = Boolean(secret && header === secret);
+  const allowList = adminOk || status.store === "local";
+
+  if (!allowList) {
+    return NextResponse.json(status);
   }
 
   const submissions = await readSubmissions();
   return NextResponse.json({
+    ...status,
     count: submissions.length,
-    store: usingCloudStore() ? "supabase" : "local",
     submissions,
   });
 }
 
 export async function POST(request: Request) {
   try {
+    const status = getStoreStatus();
+    if (!status.ok) {
+      console.error(
+        "POST /api/wl rejected: store misconfigured",
+        JSON.stringify(status),
+      );
+      return NextResponse.json(
+        {
+          error:
+            "WL intake is temporarily down — ping us on X @TiredOfWeb3 and we'll sort it.",
+          code: "WL_MISCONFIGURED",
+          store: status.store,
+        },
+        { status: 503 },
+      );
+    }
+
     const body = await request.json();
     const xProfile =
       typeof body.xProfile === "string" ? body.xProfile.trim() : "";
@@ -114,15 +138,36 @@ export async function POST(request: Request) {
 
     const result = await addSubmission(submission);
     if (!result.ok) {
-      const status = result.error.includes("temporarily unavailable")
-        ? 503
-        : 409;
-      return NextResponse.json({ error: result.error }, { status });
+      const statusCode = result.status ?? 409;
+      return NextResponse.json(
+        {
+          error: result.error,
+          ...(result.code ? { code: result.code } : {}),
+        },
+        { status: statusCode },
+      );
     }
 
-    return NextResponse.json({ ok: true, submission });
+    return NextResponse.json({
+      ok: true,
+      store: result.store,
+      submission,
+    });
   } catch (err) {
-    console.error("POST /api/wl failed:", err);
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("POST /api/wl failed:", message, err);
+
+    if (message.includes("LOCAL_WL_STORE_FORBIDDEN")) {
+      return NextResponse.json(
+        {
+          error:
+            "WL intake is temporarily down — ping us on X @TiredOfWeb3 and we'll sort it.",
+          code: "WL_MISCONFIGURED",
+        },
+        { status: 503 },
+      );
+    }
+
     return NextResponse.json(
       { error: "Something broke. Try again when you're less tired." },
       { status: 500 },
