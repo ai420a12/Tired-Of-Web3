@@ -261,8 +261,8 @@ export const ROADMAP = [
     items: [
       "Secure the funding to open the factory and buy the machines",
       "Offer free 1:1 support for anyone in the space who's feeling down",
-      "Prepare our own ETH NFT collection",
-      "Deploy the $TIRED collection — 10K ETH NFTs minted directly on OpenSea. A secret snapshot of your $TIRED bags decides your mint: more tokens = more free mints, fewer tokens = still cheaper than public, zero tokens = full price (time to reflect). Splitting across wallets won't work — there's a secret minimum hold, and a cluster agent flags linked wallets on-chain.",
+      "Prepare our own Ethereum/Robinhood NFT collection",
+      "Deploy the $TIRED collection — 10K Ethereum/Robinhood NFTs minted directly on OpenSea. A secret snapshot of your $TIRED bags decides your mint: Bigger WL for the Tired NFT collection, fewer tokens = still cheaper than public, zero tokens = full price (time to reflect). Splitting across wallets won't work — there's a secret minimum hold, and a cluster agent flags linked wallets on-chain.",
     ],
     mood: "cynical",
   },
