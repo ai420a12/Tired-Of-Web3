@@ -70,7 +70,7 @@ export default function AboutMe() {
               memecoin era, before OpenSea was even a thing. I created the very
               first <span className="text-neon-pink">BabyDoge</span>. I was CMO
               for <span className="text-neon-pink">Collect a Particle</span>{" "}
-              with Beeple, and CTO of{" "}
+              with Beeple, and the CTO of{" "}
               <span className="text-neon-pink">UBER</span> — where we bought a
               Banksy for $1.29 million, sold the digital version on AVAX for
               $1,500 each × 10k, and still kept the physical piece in a
