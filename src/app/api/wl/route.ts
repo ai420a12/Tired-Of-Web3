@@ -114,11 +114,15 @@ export async function POST(request: Request) {
 
     const result = await addSubmission(submission);
     if (!result.ok) {
-      return NextResponse.json({ error: result.error }, { status: 409 });
+      const status = result.error.includes("temporarily unavailable")
+        ? 503
+        : 409;
+      return NextResponse.json({ error: result.error }, { status });
     }
 
     return NextResponse.json({ ok: true, submission });
-  } catch {
+  } catch (err) {
+    console.error("POST /api/wl failed:", err);
     return NextResponse.json(
       { error: "Something broke. Try again when you're less tired." },
       { status: 500 },

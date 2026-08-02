@@ -158,10 +158,28 @@ export async function readSubmissions(): Promise<WlSubmission[]> {
   return readLocal();
 }
 
+function isServerlessRuntime() {
+  return Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+}
+
 export async function addSubmission(
   submission: WlSubmission,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   if (hasSupabase()) return addSupabase(submission);
+
+  // Local JSON file store only works on a writable disk (localhost).
+  // On Vercel/serverless the FS is read-only, so writes throw EROFS and
+  // used to surface as a generic 500 from the API catch block.
+  if (isServerlessRuntime()) {
+    console.error(
+      "WL store misconfigured: set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in Vercel env, then redeploy.",
+    );
+    return {
+      ok: false,
+      error: "Applications are temporarily unavailable. Try again later.",
+    };
+  }
+
   return addLocal(submission);
 }
 
