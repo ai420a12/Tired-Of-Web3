@@ -74,18 +74,6 @@ export default function SneakPeeksPage() {
           </p>
         </div>
 
-        <div className="neon-border mb-10 rounded-2xl bg-deep-purple/40 p-5 backdrop-blur-sm sm:p-6">
-          <p className="font-mono text-xs font-bold tracking-wide text-neon-pink uppercase sm:text-sm">
-            Disclaimer
-          </p>
-          <p className="mt-2 font-mono text-sm leading-relaxed text-foreground/75 sm:text-base">
-            This artwork is only an illustration of how the $TIRED NFTs may look
-            while our artists finish the collection by hand — with full layers /
-            PSD files and metadata. Final traits, rarity, and mint details will
-            be confirmed closer to launch.
-          </p>
-        </div>
-
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {SNEAK_PEEKS.map((item, i) => (
             <motion.figure
