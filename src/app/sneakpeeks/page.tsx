@@ -21,6 +21,17 @@ const SNEAK_PEEKS = [
   { src: "/images/sneakpeeks/starmind-flag.png", alt: "Starmind Mars robot sneak peek" },
   { src: "/images/sneakpeeks/multiplanetary.png", alt: "Multiplanetary species sneak peek" },
   { src: "/images/sneakpeeks/support-communities.png", alt: "Support real communities sneak peek" },
+  { src: "/images/sneakpeeks/scams-red.png", alt: "SCAMS red female sneak peek" },
+  { src: "/images/sneakpeeks/burnout-purple.png", alt: "BURNOUT purple female sneak peek" },
+  { src: "/images/sneakpeeks/fomo-orange-punk.png", alt: "FOMO orange punk male sneak peek" },
+  { src: "/images/sneakpeeks/gorilla-tired-af-halo.png", alt: "TIRED AF orange halo gorilla sneak peek" },
+  { src: "/images/sneakpeeks/gorilla-dont-ape-horns.png", alt: "DONT APE blue horns gorilla sneak peek" },
+  { src: "/images/sneakpeeks/gorilla-ape-safe.png", alt: "APE SAFE purple gorilla sneak peek" },
+  { src: "/images/sneakpeeks/gorilla-ape-late-lasers.png", alt: "APE LATE yellow laser gorilla sneak peek" },
+  { src: "/images/sneakpeeks/gorilla-no-kols-lasers.png", alt: "NO KOLS red laser gorilla sneak peek" },
+  { src: "/images/sneakpeeks/gorilla-hold-tired-lasers.png", alt: "HOLD TIRED purple laser gorilla sneak peek" },
+  { src: "/images/sneakpeeks/gorilla-no-rugs.png", alt: "NO RUGS red beanie gorilla sneak peek" },
+  { src: "/images/sneakpeeks/gorilla-banana-tax.png", alt: "BANANA TAX yellow gorilla sneak peek" },
 ] as const;
 
 export default function SneakPeeksPage() {
