@@ -8,8 +8,13 @@ import GlitchText from "@/components/effects/GlitchText";
 import SocialLinks from "@/components/ui/SocialLinks";
 import { playClick } from "@/lib/sounds";
 
-const SNEAK_PEEKS = [
-  { src: "/images/sneakpeeks/mars.png", alt: "Mars astronaut hoodie sneak peek" },
+const SNEAK_PEEKS: {
+  src: string;
+  alt: string;
+  oneOfOne?: boolean;
+}[] = [
+  { src: "/images/sneakpeeks/mars.png", alt: "Mars astronaut hoodie sneak peek", oneOfOne: true },
+  { src: "/images/sneakpeeks/dont-be-a-pussy.png", alt: "Don't be a pussy monkey sneak peek", oneOfOne: true },
   { src: "/images/sneakpeeks/gorilla-tired-af-halo.png", alt: "TIRED AF orange halo gorilla sneak peek" },
   { src: "/images/sneakpeeks/scams-red.png", alt: "SCAMS red female sneak peek" },
   { src: "/images/sneakpeeks/gorilla-dont-ape-horns.png", alt: "DONT APE blue horns gorilla sneak peek" },
@@ -17,7 +22,7 @@ const SNEAK_PEEKS = [
   { src: "/images/sneakpeeks/gorilla-ape-safe.png", alt: "APE SAFE purple gorilla sneak peek" },
   { src: "/images/sneakpeeks/heart.png", alt: "Heart astronaut sneak peek" },
   { src: "/images/sneakpeeks/gorilla-ape-late-lasers.png", alt: "APE LATE yellow laser gorilla sneak peek" },
-  { src: "/images/sneakpeeks/starmind-flag.png", alt: "Starmind Mars robot sneak peek" },
+  { src: "/images/sneakpeeks/starmind-flag.png", alt: "Starmind Mars robot sneak peek", oneOfOne: true },
   { src: "/images/sneakpeeks/gorilla-no-kols-lasers.png", alt: "NO KOLS red laser gorilla sneak peek" },
   { src: "/images/sneakpeeks/burnout-purple.png", alt: "BURNOUT purple female sneak peek" },
   { src: "/images/sneakpeeks/gorilla-hold-tired-lasers.png", alt: "HOLD TIRED purple laser gorilla sneak peek" },
@@ -32,7 +37,7 @@ const SNEAK_PEEKS = [
   { src: "/images/sneakpeeks/tired-crown.png", alt: "Tired crown laser eyes sneak peek" },
   { src: "/images/sneakpeeks/multiplanetary.png", alt: "Multiplanetary species sneak peek" },
   { src: "/images/sneakpeeks/support-communities.png", alt: "Support real communities sneak peek" },
-] as const;
+];
 
 export default function SneakPeeksPage() {
   return (
@@ -74,6 +79,18 @@ export default function SneakPeeksPage() {
           </p>
         </div>
 
+        <div className="neon-border mb-10 rounded-2xl bg-deep-purple/40 p-5 backdrop-blur-sm sm:p-6">
+          <p className="font-mono text-xs font-bold tracking-wide text-neon-pink uppercase sm:text-sm">
+            Disclaimer
+          </p>
+          <p className="mt-2 font-mono text-sm leading-relaxed text-foreground/75 sm:text-base">
+            This artwork is only an illustration of how the $TIRED NFTs may look
+            while our artists finish the collection by hand — with full layers /
+            PSD files and metadata. Final traits, rarity, and mint details will
+            be confirmed closer to launch.
+          </p>
+        </div>
+
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {SNEAK_PEEKS.map((item, i) => (
             <motion.figure
@@ -92,6 +109,11 @@ export default function SneakPeeksPage() {
                   className="object-contain p-1"
                   sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                 />
+                {item.oneOfOne && (
+                  <span className="absolute top-2 right-2 z-10 rounded-md border border-neon-purple bg-black/70 px-1.5 py-0.5 font-mono text-[10px] font-bold tracking-wide text-neon-purple shadow-[0_0_8px_var(--neon-purple)] sm:text-xs">
+                    1.1
+                  </span>
+                )}
               </div>
             </motion.figure>
           ))}
