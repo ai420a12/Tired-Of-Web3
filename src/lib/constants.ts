@@ -2,7 +2,7 @@ export const CONTRACT_ADDRESS = "TBA";
 
 /** Factory funding wallet — 100% of trading fees land here. Swap TBA when ready. */
 export const FACTORY_WALLET: string =
-  "0xC21fdf9b3B878f56207Be8a286b19dB1d5cd9F97";
+  "0xe4716f28d07497F71F275c7dd1962E94B37cf849";
 
 /** USD goal to open the Tired factory (warehouse + machines). */
 export const FACTORY_GOAL_USD = 250_000;
@@ -15,7 +15,7 @@ export const LINKS = {
   pinnedPost: "https://x.com/TiredOfWeb3/status/2083286180485902574",
   telegram: "https://t.me/+5Jy_7NyrhU5kOGM0" as string | null,
   discord: "https://discord.gg/tiredofweb3" as string | null,
-  opensea: "https://opensea.io/collection/tired-of-web3/overview",
+  opensea: "https://opensea.io/collection/tired-of-web3-/overview",
   dexscreener: `https://dexscreener.com/solana/${CONTRACT_ADDRESS}`,
   buy: `https://pump.fun/coin/${CONTRACT_ADDRESS}`,
   wl: "/wl",
