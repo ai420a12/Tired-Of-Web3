@@ -4,6 +4,7 @@
   --background: #050508;
   --foreground: #e8e8f0;
   --neon-green: #d4fd36;
+  --matrix-green: #00ff41;
   --neon-pink: #ff2d95;
   --neon-purple: #9d4edd;
   --neon-red: #ff0033;
@@ -15,6 +16,7 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-neon-green: var(--neon-green);
+  --color-matrix-green: var(--matrix-green);
   --color-neon-pink: var(--neon-pink);
   --color-neon-purple: var(--neon-purple);
   --color-neon-red: var(--neon-red);
@@ -166,6 +168,12 @@ body {
 .neon-border-green {
   border: 1px solid rgba(212, 253, 54, 0.4);
   box-shadow: 0 0 15px rgba(212, 253, 54, 0.2);
+}
+
+.neon-border-matrix {
+  border: 1px solid rgba(0, 255, 65, 0.55);
+  box-shadow: 0 0 8px rgba(0, 255, 65, 0.45), 0 0 18px rgba(0, 255, 65, 0.28),
+    0 0 28px rgba(0, 255, 65, 0.15);
 }
 
 .neon-border-red {

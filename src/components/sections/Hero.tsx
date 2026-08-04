@@ -117,11 +117,11 @@ export default function Hero() {
               type="button"
               disabled
               aria-disabled="true"
-              className={`${ctaClass} neon-border-green cursor-not-allowed bg-neon-green/10 text-neon-green opacity-90`}
+              className={`${ctaClass} neon-border-matrix cursor-not-allowed bg-matrix-green/10 text-matrix-green opacity-90`}
             >
               MarketPlace
             </button>
-            <span className="mt-1 font-mono text-[10px] leading-none text-neon-green/80">
+            <span className="mt-1 font-mono text-[10px] leading-none text-matrix-green/80">
               ComingSoon
             </span>
           </div>
