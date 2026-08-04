@@ -133,25 +133,34 @@ export default function WhatCanTiredDo() {
             <div className="overflow-x-auto">
               <table className="w-full min-w-[260px] border-collapse text-left text-[11px] leading-snug sm:text-xs">
                 <thead>
-                  <tr className="border-b border-neon-purple/40">
-                    <th className="px-2 py-2 font-mono font-bold text-neon-green">
+                  <tr>
+                    <th className="border-b-2 border-neon-purple/55 px-2 py-3.5 font-mono font-bold text-neon-green">
                       Lock Duration
                     </th>
-                    <th className="px-2 py-2 font-mono font-bold text-neon-green">
+                    <th className="border-b-2 border-neon-purple/55 px-2 py-3.5 font-mono font-bold text-neon-green">
                       Reward Tier
                     </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {stakeTiers.map((tier) => (
-                    <tr
-                      key={tier.duration}
-                      className="border-b border-neon-purple/20 align-top"
-                    >
-                      <td className="px-2 py-2.5 font-mono font-semibold text-neon-pink whitespace-nowrap">
+                  {stakeTiers.map((tier, i) => (
+                    <tr key={tier.duration} className="align-middle">
+                      <td
+                        className={`px-2 py-4 font-mono font-semibold text-neon-pink whitespace-nowrap ${
+                          i < stakeTiers.length - 1
+                            ? "border-b-2 border-neon-pink/50"
+                            : ""
+                        }`}
+                      >
                         {tier.duration}
                       </td>
-                      <td className="px-2 py-2.5 font-mono text-foreground/80">
+                      <td
+                        className={`px-2 py-4 font-mono text-foreground/80 ${
+                          i < stakeTiers.length - 1
+                            ? "border-b-2 border-neon-pink/50"
+                            : ""
+                        }`}
+                      >
                         {tier.reward}
                       </td>
                     </tr>
