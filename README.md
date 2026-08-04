@@ -102,7 +102,7 @@ export const CONTRACT_ADDRESS = "4WzLp3sV5uReVvxatfYmxoJWH7fY65QZBbcSAF76pump";
 
 export const LINKS = {
   x: "https://x.com/TiredOfWeb3",
-  telegram: "https://t.me/tiredofweb3",
+  telegram: "https://t.me/TiredOfWeb3Factory",
   dexscreener: `https://dexscreener.com/solana/${CONTRACT_ADDRESS}`,
   buy: `https://pump.fun/coin/${CONTRACT_ADDRESS}`,
 };
