@@ -13,19 +13,16 @@ const SNEAK_PEEKS: {
   alt: string;
   oneOfOne?: boolean;
 }[] = [
-  { src: "/images/sneakpeeks/mars.png", alt: "Mars astronaut hoodie sneak peek" },
   { src: "/images/sneakpeeks/dont-be-a-pussy.png", alt: "Don't be a pussy monkey sneak peek", oneOfOne: true },
   { src: "/images/sneakpeeks/gorilla-tired-af-halo.png", alt: "TIRED AF orange halo gorilla sneak peek" },
   { src: "/images/sneakpeeks/scams-red.png", alt: "SCAMS red female sneak peek" },
   { src: "/images/sneakpeeks/gorilla-dont-ape-horns.png", alt: "DONT APE blue horns gorilla sneak peek" },
   { src: "/images/sneakpeeks/fomo-orange-punk.png", alt: "FOMO orange punk male sneak peek" },
-  { src: "/images/sneakpeeks/gorilla-ape-safe.png", alt: "APE SAFE purple gorilla sneak peek" },
   { src: "/images/sneakpeeks/heart.png", alt: "Heart astronaut sneak peek" },
   { src: "/images/sneakpeeks/gorilla-ape-late-lasers.png", alt: "APE LATE yellow laser gorilla sneak peek" },
   { src: "/images/sneakpeeks/starmind-flag.png", alt: "Starmind Mars robot sneak peek", oneOfOne: true },
   { src: "/images/sneakpeeks/gorilla-no-kols-lasers.png", alt: "NO KOLS red laser gorilla sneak peek" },
   { src: "/images/sneakpeeks/burnout-purple.png", alt: "BURNOUT purple female sneak peek" },
-  { src: "/images/sneakpeeks/gorilla-hold-tired-lasers.png", alt: "HOLD TIRED purple laser gorilla sneak peek" },
   { src: "/images/sneakpeeks/hope.png", alt: "Hope character sneak peek" },
   { src: "/images/sneakpeeks/gorilla-no-rugs.png", alt: "NO RUGS red beanie gorilla sneak peek" },
   { src: "/images/sneakpeeks/smiley.png", alt: "Orange smiley hoodie sneak peek" },
