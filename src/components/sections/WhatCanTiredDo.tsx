@@ -131,13 +131,13 @@ export default function WhatCanTiredDo() {
 
           <UtilityCard index="02">
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[260px] border-collapse border border-neon-pink text-left text-[11px] leading-snug sm:text-xs">
+              <table className="w-full min-w-[260px] border-collapse border border-neon-pink/45 text-left font-mono text-[11px] leading-relaxed sm:text-xs">
                 <thead>
                   <tr>
-                    <th className="border-r border-b border-neon-pink px-2 py-3 font-mono font-bold text-neon-green">
+                    <th className="border-r border-b border-neon-pink/45 px-3 py-2 font-semibold tracking-wide text-neon-green">
                       Lock Duration
                     </th>
-                    <th className="border-b border-neon-pink px-2 py-3 font-mono font-bold text-neon-green">
+                    <th className="border-b border-neon-pink/45 px-3 py-2 font-semibold tracking-wide text-neon-green">
                       Reward Tier
                     </th>
                   </tr>
@@ -146,15 +146,19 @@ export default function WhatCanTiredDo() {
                   {stakeTiers.map((tier, i) => (
                     <tr key={tier.duration} className="align-middle">
                       <td
-                        className={`border-r border-neon-pink px-2 py-3.5 font-mono text-sm font-black text-neon-pink whitespace-nowrap sm:text-base ${
-                          i < stakeTiers.length - 1 ? "border-b border-neon-pink" : ""
+                        className={`border-r border-neon-pink/45 px-3 py-2.5 font-semibold text-neon-pink whitespace-nowrap ${
+                          i < stakeTiers.length - 1
+                            ? "border-b border-neon-pink/45"
+                            : ""
                         }`}
                       >
                         {tier.duration}
                       </td>
                       <td
-                        className={`px-2 py-3.5 font-mono text-foreground/80 ${
-                          i < stakeTiers.length - 1 ? "border-b border-neon-pink" : ""
+                        className={`px-3 py-2.5 text-foreground/75 ${
+                          i < stakeTiers.length - 1
+                            ? "border-b border-neon-pink/45"
+                            : ""
                         }`}
                       >
                         {tier.reward}
