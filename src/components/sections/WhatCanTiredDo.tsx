@@ -22,7 +22,7 @@ const stakeTiers = [
   {
     duration: "6 months",
     reward:
-      "Full Bundle: Tier 3 + Teddy Bear + Bottoms + scarf + surprise goodies",
+      "Full Bundle: Tier 3 + Bottoms + scarf + surprise goodies",
   },
 ] as const;
 
@@ -89,7 +89,7 @@ export default function WhatCanTiredDo() {
           <UtilityCard index="01">
             <p>
               {highlightBrand(
-                "$TIRED will fund buybacks and RobinHood Stock buys, stocks will be distributed between our holders depending on how many $TIRED tokens you hold. (This will be done manually)",
+                "$TIRED will fund buybacks and RobinHood Stock buys, stocks will be distributed between our holders depending on how many $TIRED tokens you hold. (This will be done manually & after we reach our factory goal)",
               )}
             </p>
           </UtilityCard>
