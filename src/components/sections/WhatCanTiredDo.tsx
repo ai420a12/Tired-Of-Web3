@@ -3,7 +3,6 @@
 import type { ReactNode } from "react";
 import { motion } from "framer-motion";
 import GlitchText from "@/components/effects/GlitchText";
-import { IconOpenSea } from "@/components/ui/SocialIcons";
 
 const stakeTiers = [
   {
@@ -46,36 +45,22 @@ function highlightBrand(text: string): ReactNode[] {
 function UtilityCard({
   index,
   children,
-  variant = "default",
-  header,
 }: {
   index: string;
   children: ReactNode;
-  variant?: "default" | "opensea";
-  header?: ReactNode;
 }) {
-  const borderClass =
-    variant === "opensea"
-      ? "border border-[#2081E2]/50 shadow-[0_0_20px_rgba(32,129,226,0.2)]"
-      : "neon-border";
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 24 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       transition={{ duration: 0.45 }}
-      className={`${borderClass} flex h-full flex-col rounded-2xl bg-deep-purple/40 p-6 backdrop-blur-sm`}
+      className="neon-border flex h-full flex-col rounded-2xl bg-deep-purple/40 p-6 backdrop-blur-sm"
     >
       <div className="mb-4 flex items-center justify-between gap-3">
-        <span
-          className={`font-mono text-xs tracking-widest ${
-            variant === "opensea" ? "text-[#2081E2]" : "text-neon-purple"
-          }`}
-        >
+        <span className="font-mono text-xs tracking-widest text-neon-purple">
           {index}
         </span>
-        {header}
       </div>
       <div className="font-mono text-sm leading-relaxed text-foreground/85">
         {children}
@@ -104,7 +89,7 @@ export default function WhatCanTiredDo() {
           <UtilityCard index="01">
             <p>
               {highlightBrand(
-                "$TIRED will fund buybacks and RobinHood Stock buys, stocks will be distributed between our holders depending on how many $TIRED tokens you hold.",
+                "$TIRED will fund buybacks and RobinHood Stock buys, stocks will be distributed between our holders depending on how many $TIRED tokens you hold. (This will be done manually)",
               )}
             </p>
           </UtilityCard>
@@ -112,18 +97,12 @@ export default function WhatCanTiredDo() {
           <UtilityCard index="02">
             <p>
               {highlightBrand(
-                "By Holding your $TIRED memecoin you will be able to mint The Tired NFT collection September 11th, the more memecoins you have the more NFTs you get. (min 1M $TIRED to qualify)",
+                "By holding your $TIRED memecoin you will be able to mint The Tired NFT collection on September 11th — the more tokens you hold, the more NFTs you get and the bigger your WL allocation. (min 500k $TIRED to qualify)",
               )}
             </p>
           </UtilityCard>
 
-          <UtilityCard
-            index="03"
-            variant="opensea"
-            header={
-              <IconOpenSea className="h-6 w-6 text-[#2081E2]" />
-            }
-          >
+          <UtilityCard index="03">
             <p>
               {highlightBrand(
                 "You will be able to pay for merch with $TIRED once our collection goes live and we unlock our Marketplace and staking mechanism for The Tired NFT collection",
@@ -145,7 +124,7 @@ export default function WhatCanTiredDo() {
           <UtilityCard index="01">
             <p>
               {highlightBrand(
-                "You will be able to mint the NFTs based on how many $TIRED tokens you hold — the more tokens, the bigger the WL allocation.",
+                "You will be able to stake the NFTs and get the TiredBoxes for free based on that exact NFT, and will only need to pay for shipping with the $TIRED memecoin. The longer you stake your NFTs, the more merch you get. Stack multiple TIRED NFTs to get multiple TiredBoxes. Real utility. Real ownership. Real merch.",
               )}
             </p>
           </UtilityCard>
@@ -191,7 +170,7 @@ export default function WhatCanTiredDo() {
           <UtilityCard index="03">
             <p>
               {highlightBrand(
-                "By staking the NFTs you will get the TiredBoxes for free, and will only need to pay for shipping with the $TIRED memecoin, the longer you stake your NFTs the more merch you get. Stack multiple TIRED NFTs to get multiple TiredBoxes. Real utility. Real ownership. Real merch.",
+                "Want merch or physicals based on other NFTs you own — or something totally custom? No problem. Order a TiredBox from us, send the content, pay with $TIRED, and we'll make it for you.",
               )}
             </p>
           </UtilityCard>
