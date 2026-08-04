@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { FACTORY_GOAL_USD } from "@/lib/constants";
-import { getFactoryBalanceSnapshot } from "@/lib/factory-balance";
+import {
+  getFactoryBalanceSnapshot,
+  ROBINHOOD_CHAIN_ID,
+} from "@/lib/factory-balance";
 
 /** Cache on the edge/CDN for a few minutes so visitors share one RPC pull. */
 export const revalidate = 180;
@@ -16,9 +19,22 @@ export async function GET() {
         goalUsd: FACTORY_GOAL_USD,
         raisedUsd,
         ethBalance: snap.ethBalance,
+        ethMainnet: snap.ethMainnet.eth,
+        ethRobinhood: snap.ethRobinhood.eth,
         ethPriceUsd: snap.ethPriceUsd,
         pct,
         wallet: snap.wallet,
+        partial: snap.partial,
+        chains: {
+          ethereum: {
+            chainId: 1,
+            ...snap.ethMainnet,
+          },
+          robinhood: {
+            chainId: ROBINHOOD_CHAIN_ID,
+            ...snap.ethRobinhood,
+          },
+        },
         updatedAt: snap.updatedAt,
       },
       {

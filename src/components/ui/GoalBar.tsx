@@ -31,9 +31,16 @@ type GoalState = {
   raised: number;
   goal: number;
   ethBalance: number | null;
+  ethMainnet: number | null;
+  ethRobinhood: number | null;
+  partial: boolean;
   loading: boolean;
   error: boolean;
 };
+
+function formatEth(value: number) {
+  return value.toLocaleString("en-US", { maximumFractionDigits: 6 });
+}
 
 export default function GoalBar() {
   const [copied, setCopied] = useState(false);
@@ -41,6 +48,9 @@ export default function GoalBar() {
     raised: 0,
     goal: FACTORY_GOAL_USD,
     ethBalance: null,
+    ethMainnet: null,
+    ethRobinhood: null,
+    partial: false,
     loading: true,
     error: false,
   });
@@ -56,15 +66,20 @@ export default function GoalBar() {
           raisedUsd?: number;
           goalUsd?: number;
           ethBalance?: number;
+          ethMainnet?: number;
+          ethRobinhood?: number;
+          partial?: boolean;
         };
         if (cancelled) return;
+        const asEth = (v: unknown) =>
+          typeof v === "number" && Number.isFinite(v) ? Math.max(0, v) : null;
         setGoalState({
           raised: Math.max(0, Number(data.raisedUsd) || 0),
           goal: Math.max(1, Number(data.goalUsd) || FACTORY_GOAL_USD),
-          ethBalance:
-            typeof data.ethBalance === "number" && Number.isFinite(data.ethBalance)
-              ? Math.max(0, data.ethBalance)
-              : null,
+          ethBalance: asEth(data.ethBalance),
+          ethMainnet: asEth(data.ethMainnet),
+          ethRobinhood: asEth(data.ethRobinhood),
+          partial: Boolean(data.partial),
           loading: false,
           error: false,
         });
@@ -133,10 +148,18 @@ export default function GoalBar() {
             !goalState.error &&
             goalState.ethBalance != null && (
               <p className="text-[10px] text-foreground/40 sm:text-xs">
-                {goalState.ethBalance.toLocaleString("en-US", {
-                  maximumFractionDigits: 6,
-                })}{" "}
-                ETH on-chain
+                {formatEth(goalState.ethBalance)} ETH total
+                {goalState.ethMainnet != null &&
+                  goalState.ethRobinhood != null && (
+                    <span className="text-foreground/30">
+                      {" "}
+                      ({formatEth(goalState.ethMainnet)} ETH +{" "}
+                      {formatEth(goalState.ethRobinhood)} Robinhood)
+                    </span>
+                  )}
+                {goalState.partial && (
+                  <span className="text-neon-pink/70"> · partial sync</span>
+                )}
               </p>
             )}
         </div>
@@ -160,7 +183,7 @@ export default function GoalBar() {
 
       {pct < 2 && (
         <p className="mt-2 text-center font-mono text-[10px] text-foreground/35 sm:text-xs">
-          Live ETH balance fills this bar toward the factory
+          Live ETH on Ethereum + Robinhood fills this bar toward the factory
         </p>
       )}
 
