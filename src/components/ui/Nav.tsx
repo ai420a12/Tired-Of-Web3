@@ -52,7 +52,7 @@ export default function Nav({ onVentClick }: NavProps) {
           ))}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-start justify-end gap-2">
           <Link
             href="/wl"
             onClick={() => playClick()}
@@ -71,6 +71,19 @@ export default function Nav({ onVentClick }: NavProps) {
           >
             VENT 😤
           </motion.button>
+          <div className="flex flex-col items-center">
+            <button
+              type="button"
+              aria-disabled="true"
+              disabled
+              className="neon-border-red cursor-not-allowed rounded-full bg-neon-red/10 px-3 py-1.5 font-mono text-xs font-bold text-neon-red sm:px-4"
+            >
+              STAKING
+            </button>
+            <span className="mt-0.5 font-mono text-[9px] leading-none text-neon-red/80">
+              ComingSoon
+            </span>
+          </div>
         </div>
       </div>
     </motion.nav>
