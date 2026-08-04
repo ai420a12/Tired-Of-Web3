@@ -1,0 +1,202 @@
+"use client";
+
+import type { ReactNode } from "react";
+import { motion } from "framer-motion";
+import GlitchText from "@/components/effects/GlitchText";
+import { IconOpenSea } from "@/components/ui/SocialIcons";
+
+const stakeTiers = [
+  {
+    duration: "2 weeks (Tier 1)",
+    reward:
+      "Free Tired T-Shirt of your exact NFT + The Tired souvenirs",
+  },
+  {
+    duration: "1 month (Tier 2)",
+    reward:
+      "Tier 1 + Cap + Physical Print Signed by the Artists of that exact Stacked NFT",
+  },
+  {
+    duration: "3 months (Tier 3)",
+    reward: "Tier 2 + Hoodie + 3D print of Stacked NFT",
+  },
+  {
+    duration: "6 months",
+    reward:
+      "Full Bundle: Tier 3 + Teddy Bear + Bottoms + scarf + surprise goodies",
+  },
+] as const;
+
+function highlightBrand(text: string): ReactNode[] {
+  const pattern = /(\$TIRED|RobinHood|Robinhood)/g;
+  const parts = text.split(pattern);
+
+  return parts.map((part, i) => {
+    if (part === "$TIRED" || part === "RobinHood" || part === "Robinhood") {
+      return (
+        <span key={i} className="font-bold text-neon-green">
+          {part}
+        </span>
+      );
+    }
+    return part;
+  });
+}
+
+function UtilityCard({
+  index,
+  children,
+  variant = "default",
+  header,
+}: {
+  index: string;
+  children: ReactNode;
+  variant?: "default" | "opensea";
+  header?: ReactNode;
+}) {
+  const borderClass =
+    variant === "opensea"
+      ? "border border-[#2081E2]/50 shadow-[0_0_20px_rgba(32,129,226,0.2)]"
+      : "neon-border";
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 24 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      transition={{ duration: 0.45 }}
+      className={`${borderClass} flex h-full flex-col rounded-2xl bg-deep-purple/40 p-6 backdrop-blur-sm`}
+    >
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <span
+          className={`font-mono text-xs tracking-widest ${
+            variant === "opensea" ? "text-[#2081E2]" : "text-neon-purple"
+          }`}
+        >
+          {index}
+        </span>
+        {header}
+      </div>
+      <div className="font-mono text-sm leading-relaxed text-foreground/85">
+        {children}
+      </div>
+    </motion.div>
+  );
+}
+
+export default function WhatCanTiredDo() {
+  return (
+    <section id="utility" className="relative px-4 py-24">
+      <div className="mx-auto max-w-6xl">
+        <div className="mb-12 text-center">
+          <GlitchText
+            as="h2"
+            className="font-mono text-4xl font-bold text-neon-green neon-green-glow sm:text-5xl"
+          >
+            What Can $TIRED Do?
+          </GlitchText>
+          <p className="mt-2 font-mono text-sm text-foreground/50">
+            real bags. real utility. still tired.
+          </p>
+        </div>
+
+        <div className="grid gap-6 md:grid-cols-3">
+          <UtilityCard index="01">
+            <p>
+              {highlightBrand(
+                "$TIRED will fund buybacks and RobinHood Stock buys, stocks will be distributed between our holders depending on how many $TIRED tokens you hold.",
+              )}
+            </p>
+          </UtilityCard>
+
+          <UtilityCard index="02">
+            <p>
+              {highlightBrand(
+                "By Holding your $TIRED memecoin you will be able to mint The Tired NFT collection September 11th, the more memecoins you have the more NFTs you get. (min 1M $TIRED to qualify)",
+              )}
+            </p>
+          </UtilityCard>
+
+          <UtilityCard
+            index="03"
+            variant="opensea"
+            header={
+              <IconOpenSea className="h-6 w-6 text-[#2081E2]" />
+            }
+          >
+            <p>
+              {highlightBrand(
+                "You will be able to pay for merch with $TIRED once our collection goes live and we unlock our Marketplace and staking mechanism for The Tired NFT collection",
+              )}
+            </p>
+          </UtilityCard>
+        </div>
+
+        <div className="mt-20 mb-12 text-center">
+          <h3 className="font-mono text-2xl font-bold text-neon-pink neon-pink-glow sm:text-3xl">
+            What can The Tired NFT collection do?
+          </h3>
+          <p className="mt-2 font-mono text-sm text-foreground/50">
+            stake longer. stack more. get the goods.
+          </p>
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-3">
+          <UtilityCard index="01">
+            <p>
+              {highlightBrand(
+                "You will be able to mint the NFTs based on how many $TIRED tokens you hold — the more tokens, the bigger the WL allocation.",
+              )}
+            </p>
+          </UtilityCard>
+
+          <UtilityCard index="02">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[260px] border-collapse text-left text-[11px] leading-snug sm:text-xs">
+                <thead>
+                  <tr className="border-b border-neon-purple/40">
+                    <th className="px-2 py-2 font-mono font-bold text-neon-green">
+                      Lock Duration
+                    </th>
+                    <th className="px-2 py-2 font-mono font-bold text-neon-green">
+                      Reward Tier
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {stakeTiers.map((tier) => (
+                    <tr
+                      key={tier.duration}
+                      className="border-b border-neon-purple/20 align-top"
+                    >
+                      <td className="px-2 py-2.5 font-mono font-semibold text-neon-pink whitespace-nowrap">
+                        {tier.duration}
+                      </td>
+                      <td className="px-2 py-2.5 font-mono text-foreground/80">
+                        {tier.reward}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-4 text-xs leading-relaxed text-foreground/70">
+              The longer you stake your NFTs the more merch you get. Stack
+              multiple Tired NFTs to get multiple{" "}
+              <span className="font-bold text-neon-green">TiredBoxes</span>. Real
+              utility. Real ownership. Real merch.
+            </p>
+          </UtilityCard>
+
+          <UtilityCard index="03">
+            <p>
+              {highlightBrand(
+                "By staking the NFTs you will get the TiredBoxes for free, and will only need to pay for shipping with the $TIRED memecoin, the longer you stake your NFTs the more merch you get. Stack multiple TIRED NFTs to get multiple TiredBoxes. Real utility. Real ownership. Real merch.",
+              )}
+            </p>
+          </UtilityCard>
+        </div>
+      </div>
+    </section>
+  );
+}

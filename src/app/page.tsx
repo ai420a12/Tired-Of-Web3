@@ -7,6 +7,7 @@ import VentModal from "@/components/ui/VentModal";
 import Hero from "@/components/sections/Hero";
 import Manifesto from "@/components/sections/Manifesto";
 import Tokenomics from "@/components/sections/Tokenomics";
+import WhatCanTiredDo from "@/components/sections/WhatCanTiredDo";
 import TiredAgent from "@/components/sections/TiredAgent";
 import Whitepaper from "@/components/sections/Whitepaper";
 import Roadmap from "@/components/sections/Roadmap";
@@ -36,6 +37,7 @@ export default function Home() {
         <Hero />
         <Manifesto />
         <Tokenomics />
+        <WhatCanTiredDo />
         <TiredAgent />
         <Whitepaper />
         <Roadmap />

@@ -94,6 +94,40 @@ export default function Hero() {
         </motion.div>
 
         <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.85 }}
+          className="grid w-full max-w-md grid-cols-2 gap-3"
+        >
+          <div className="flex flex-col items-center">
+            <button
+              type="button"
+              disabled
+              aria-disabled="true"
+              className={`${ctaClass} neon-border-red cursor-not-allowed bg-neon-red/10 text-neon-red opacity-90`}
+            >
+              STAKING
+            </button>
+            <span className="mt-1 font-mono text-[10px] leading-none text-neon-red/80">
+              ComingSoon
+            </span>
+          </div>
+          <div className="flex flex-col items-center">
+            <button
+              type="button"
+              disabled
+              aria-disabled="true"
+              className={`${ctaClass} neon-border-green cursor-not-allowed bg-neon-green/10 text-neon-green opacity-90`}
+            >
+              MarketPlace
+            </button>
+            <span className="mt-1 font-mono text-[10px] leading-none text-neon-green/80">
+              ComingSoon
+            </span>
+          </div>
+        </motion.div>
+
+        <motion.div
           initial={{ opacity: 0, y: 40 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 1 }}
