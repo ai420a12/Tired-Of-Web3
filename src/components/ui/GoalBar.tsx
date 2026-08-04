@@ -9,17 +9,28 @@ import {
 } from "@/lib/constants";
 import { playClick } from "@/lib/sounds";
 
-function formatUsd(value: number) {
+function formatUsd(value: number, { whole = false } = {}) {
+  // Whole dollars for the goal; cents for early raised balances so $0.07 ≠ "$0"
+  const fractionDigits = whole || value >= 100 ? 0 : 2;
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
-    maximumFractionDigits: 0,
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
   }).format(value);
+}
+
+function formatPct(pct: number) {
+  if (pct <= 0) return "0%";
+  if (pct < 0.01) return "<0.01%";
+  if (pct < 1) return `${pct.toFixed(2)}%`;
+  return `${pct.toFixed(1)}%`;
 }
 
 type GoalState = {
   raised: number;
   goal: number;
+  ethBalance: number | null;
   loading: boolean;
   error: boolean;
 };
@@ -29,6 +40,7 @@ export default function GoalBar() {
   const [goalState, setGoalState] = useState<GoalState>({
     raised: 0,
     goal: FACTORY_GOAL_USD,
+    ethBalance: null,
     loading: true,
     error: false,
   });
@@ -43,11 +55,16 @@ export default function GoalBar() {
         const data = (await res.json()) as {
           raisedUsd?: number;
           goalUsd?: number;
+          ethBalance?: number;
         };
         if (cancelled) return;
         setGoalState({
           raised: Math.max(0, Number(data.raisedUsd) || 0),
           goal: Math.max(1, Number(data.goalUsd) || FACTORY_GOAL_USD),
+          ethBalance:
+            typeof data.ethBalance === "number" && Number.isFinite(data.ethBalance)
+              ? Math.max(0, data.ethBalance)
+              : null,
           loading: false,
           error: false,
         });
@@ -103,15 +120,25 @@ export default function GoalBar() {
           <p className="font-bold">
             <span className="text-neon-pink">{formatUsd(raised)}</span>
             <span className="text-foreground/40"> / </span>
-            <span className="text-neon-green">{formatUsd(goal)}</span>
+            <span className="text-neon-green">{formatUsd(goal, { whole: true })}</span>
           </p>
           <p className="text-[10px] text-neon-purple sm:text-xs">
             {goalState.loading
               ? "syncing…"
               : goalState.error
                 ? "live sync paused"
-                : `${pct.toFixed(1)}% funded`}
+                : `${formatPct(pct)} funded`}
           </p>
+          {!goalState.loading &&
+            !goalState.error &&
+            goalState.ethBalance != null && (
+              <p className="text-[10px] text-foreground/40 sm:text-xs">
+                {goalState.ethBalance.toLocaleString("en-US", {
+                  maximumFractionDigits: 6,
+                })}{" "}
+                ETH on-chain
+              </p>
+            )}
         </div>
       </div>
 
@@ -119,11 +146,14 @@ export default function GoalBar() {
         <motion.div
           className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-neon-green via-neon-purple to-neon-pink"
           initial={{ width: 0 }}
-          animate={{ width: `${Math.max(pct, 0)}%` }}
+          animate={{
+            // Keep a visible pulse of progress once any ETH is detected
+            width: `${Math.max(pct, raised > 0 ? 0.8 : 0)}%`,
+          }}
           transition={{ duration: 1.2, ease: "easeOut" }}
           style={{
             boxShadow:
-              pct > 0 ? "0 0 16px rgba(212, 253, 54, 0.55)" : undefined,
+              raised > 0 ? "0 0 16px rgba(212, 253, 54, 0.55)" : undefined,
           }}
         />
       </div>

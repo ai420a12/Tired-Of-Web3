@@ -248,10 +248,10 @@ export const ROADMAP = [
     phase: "Phase 1",
     title: "Tired Launch",
     items: [
-      "Deploy the $TIRED memecoin on Ethereum/Robinhood while half asleep",
+      "Deploy the $TIRED memecoin on Robinhood while half asleep",
       "Pay for DEX before our eyes close",
       "Survive the first 24 hours without rugging",
-      "Lock the supply and renounce ownership of the CA",
+      "Lock the supply and always make transparency posts about anything we do.",
     ],
     mood: "exhausted",
   },
@@ -261,8 +261,8 @@ export const ROADMAP = [
     items: [
       "Secure the funding to open the factory and buy the machines",
       "Offer free 1:1 support for anyone in the space who's feeling down",
-      "Prepare our own Ethereum/Robinhood NFT collection",
-      "Deploy the $TIRED collection — 10K Ethereum/Robinhood NFTs minted directly on OpenSea. A secret snapshot of your $TIRED bags decides your mint: Bigger WL for the Tired NFT collection, fewer tokens = still cheaper than public, zero tokens = full price (time to reflect). Splitting across wallets won't work — there's a secret minimum hold, and a cluster agent flags linked wallets on-chain.",
+      "Prepare our own Robinhood NFT collection",
+      "Deploy the $TIRED collection — 10K Robinhood NFTs minted directly on OpenSea. A snapshot of your $TIRED bags decides your mint: Bigger WL for the Tired NFT collection, fewer tokens = still cheaper than public, zero tokens = full price (time to reflect). Splitting across wallets won't work — there's a minimum hold, and a cluster agent flags linked wallets on-chain.",
     ],
     mood: "cynical",
   },
@@ -270,7 +270,8 @@ export const ROADMAP = [
     phase: "Phase 3",
     title: "Tired of Earth → Mars",
     items: [
-      "Open the factory and take it live online",
+      "Open the factory and take our MarketPlace live online",
+      "Activate our Staking mechanism",
       "Donate signs and merch to as many NFT events as possible",
       "Make a statue for Adam Weitsman",
       "Mars colony for people tired of rugs",

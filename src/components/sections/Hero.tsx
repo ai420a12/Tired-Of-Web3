@@ -104,7 +104,7 @@ export default function Hero() {
               type="button"
               disabled
               aria-disabled="true"
-              className={`${ctaClass} neon-border-red cursor-not-allowed bg-neon-red/10 text-neon-red opacity-90`}
+              className={`${ctaClass} neon-border-red neon-red-glow cursor-not-allowed bg-neon-red/10 text-neon-red opacity-90`}
             >
               STAKING
             </button>
@@ -117,7 +117,7 @@ export default function Hero() {
               type="button"
               disabled
               aria-disabled="true"
-              className={`${ctaClass} neon-border-matrix cursor-not-allowed bg-matrix-green/10 text-matrix-green opacity-90`}
+              className={`${ctaClass} neon-border-matrix neon-matrix-glow cursor-not-allowed bg-matrix-green/10 text-matrix-green opacity-90`}
             >
               MarketPlace
             </button>

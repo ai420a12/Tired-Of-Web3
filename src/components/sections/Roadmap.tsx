@@ -11,14 +11,13 @@ const phaseDotColors = [
 ] as const;
 
 function formatRoadmapItem(item: string) {
-  const parts = item.split("Ethereum/Robinhood");
+  const parts = item.split("Robinhood");
   if (parts.length === 1) return item;
 
   return parts.flatMap((part, i) =>
     i === 0
       ? [part]
       : [
-          "Ethereum/",
           <span key={i} className="text-neon-green">
             Robinhood
           </span>,
