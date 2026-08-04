@@ -1,18 +1,49 @@
 "use client";
 
-export default function Trailer() {
+type TrailerProps = {
+  title: string;
+  src: string;
+  accent?: "purple" | "green";
+  poster?: string;
+};
+
+export default function Trailer({
+  title,
+  src,
+  accent = "green",
+  poster = "/images/banner.jpg",
+}: TrailerProps) {
+  const isPurple = accent === "purple";
+
   return (
-    <div className="w-full max-w-2xl overflow-hidden rounded-xl neon-border-green bg-black/60 shadow-[0_0_30px_rgba(212,253,54,0.15)]">
-      <video
-        className="aspect-video w-full bg-black object-cover"
-        src="/videos/tired-trailer.mp4"
-        controls
-        playsInline
-        preload="metadata"
-        poster="/images/banner.jpg"
+    <div className="flex w-full flex-col items-center gap-3">
+      <h2
+        className={`text-center font-mono text-base font-bold tracking-wide sm:text-lg ${
+          isPurple
+            ? "text-neon-purple neon-purple-glow"
+            : "text-neon-green neon-green-glow"
+        }`}
       >
-        Your browser does not support the video tag.
-      </video>
+        {title}
+      </h2>
+      <div
+        className={`w-full overflow-hidden rounded-xl bg-black/60 ${
+          isPurple
+            ? "neon-border shadow-[0_0_30px_rgba(157,78,221,0.2)]"
+            : "neon-border-green shadow-[0_0_30px_rgba(212,253,54,0.15)]"
+        }`}
+      >
+        <video
+          className="aspect-video w-full bg-black object-cover"
+          src={src}
+          controls
+          playsInline
+          preload="metadata"
+          poster={poster}
+        >
+          Your browser does not support the video tag.
+        </video>
+      </div>
     </div>
   );
 }

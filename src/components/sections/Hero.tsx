@@ -53,9 +53,18 @@ export default function Hero() {
           initial={{ opacity: 0, scale: 0.96 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.3, duration: 0.6 }}
-          className="w-full max-w-2xl"
+          className="grid w-full max-w-5xl grid-cols-1 gap-6 md:grid-cols-2 md:gap-8"
         >
-          <Trailer />
+          <Trailer
+            title="NFT collection Trailer"
+            src="/videos/tired-trailer.mp4"
+            accent="purple"
+          />
+          <Trailer
+            title="$TIRED Trailer"
+            src="/videos/tired-token-trailer.mp4"
+            accent="green"
+          />
         </motion.div>
 
         <motion.div

@@ -150,6 +150,11 @@ body {
     0 0 40px var(--neon-green);
 }
 
+.neon-purple-glow {
+  text-shadow: 0 0 10px var(--neon-purple), 0 0 20px var(--neon-purple),
+    0 0 40px var(--neon-purple);
+}
+
 .neon-pink-glow {
   text-shadow: 0 0 10px var(--neon-pink), 0 0 20px var(--neon-pink),
     0 0 40px var(--neon-pink);
