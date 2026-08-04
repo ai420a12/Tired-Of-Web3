@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import confetti from "canvas-confetti";
+import { LINKS } from "@/lib/constants";
 import { playSadTrombone, playClick } from "@/lib/sounds";
 
 interface BuyButtonProps {
@@ -21,6 +22,7 @@ export default function BuyButton({ className = "", size = "lg" }: BuyButtonProp
     });
 
     setTimeout(() => playSadTrombone(), 300);
+    window.open(LINKS.buy, "_blank", "noopener,noreferrer");
   };
 
   const sizeClasses =
@@ -30,6 +32,7 @@ export default function BuyButton({ className = "", size = "lg" }: BuyButtonProp
 
   return (
     <motion.button
+      type="button"
       whileHover={{ scale: 1.05, boxShadow: "0 0 40px rgba(212,253,54,0.5)" }}
       whileTap={{ scale: 0.95 }}
       onClick={handleBuy}

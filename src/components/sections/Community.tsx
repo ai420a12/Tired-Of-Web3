@@ -136,11 +136,11 @@ export default function Community() {
             </span>
           </button>
           <p className="mt-2 font-mono text-xs text-foreground/40">
-            not deployed yet. touch grass or touch refresh. your call.
+            Robinhood CA — tap to copy. buy on the launchpad.
           </p>
           {copied && (
             <p className="mt-1 font-mono text-xs text-neon-green">
-              copied &quot;TBA&quot;. congrats, you own nothing. welcome to web3.
+              copied. go touch the chart before you touch grass.
             </p>
           )}
         </motion.div>

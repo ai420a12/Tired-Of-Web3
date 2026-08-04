@@ -1,4 +1,5 @@
-export const CONTRACT_ADDRESS = "TBA";
+export const CONTRACT_ADDRESS =
+  "0x9D60d91044f1c501fEA4D2E95691b84Edd8CF4CB";
 
 /** Factory funding wallet — 100% of trading fees land here. Swap TBA when ready. */
 export const FACTORY_WALLET: string =
@@ -10,14 +11,17 @@ export const FACTORY_GOAL_USD = 250_000;
 /** How often the GoalBar refreshes live ETH → USD from /api/factory-goal. */
 export const FACTORY_GOAL_POLL_MS = 3 * 60 * 1000;
 
+/** DexScreener slug for Robinhood Chain (not EIP-155 4663). */
+export const DEX_CHAIN = "robinhood";
+
 export const LINKS = {
   x: "https://x.com/TiredOfWeb3",
   pinnedPost: "https://x.com/TiredOfWeb3/status/2083286180485902574",
   telegram: "https://t.me/TiredOfWeb3Factory" as string | null,
   discord: "https://discord.gg/tiredofweb3" as string | null,
   opensea: "https://opensea.io/collection/tired-of-web3-/overview",
-  dexscreener: `https://dexscreener.com/solana/${CONTRACT_ADDRESS}`,
-  buy: `https://pump.fun/coin/${CONTRACT_ADDRESS}`,
+  dexscreener: `https://dexscreener.com/${DEX_CHAIN}/${CONTRACT_ADDRESS}`,
+  buy: `https://www.ponsfamily.com/launchpad/${CONTRACT_ADDRESS}`,
   wl: "/wl",
   nfc: "https://x.com/NFCSummit",
   johnKarp: "https://x.com/johnkarp",
