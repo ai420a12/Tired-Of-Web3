@@ -4,14 +4,12 @@ type TrailerProps = {
   title: string;
   src: string;
   accent?: "purple" | "green";
-  poster?: string;
 };
 
 export default function Trailer({
   title,
   src,
   accent = "green",
-  poster = "/images/banner.jpg",
 }: TrailerProps) {
   const isPurple = accent === "purple";
 
@@ -38,8 +36,7 @@ export default function Trailer({
           src={src}
           controls
           playsInline
-          preload="metadata"
-          poster={poster}
+          preload="auto"
         >
           Your browser does not support the video tag.
         </video>
