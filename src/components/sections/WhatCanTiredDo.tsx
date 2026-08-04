@@ -131,13 +131,13 @@ export default function WhatCanTiredDo() {
 
           <UtilityCard index="02">
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[260px] border-collapse text-left text-[11px] leading-snug sm:text-xs">
+              <table className="w-full min-w-[260px] border-collapse border-2 border-neon-pink text-left text-[11px] leading-snug sm:text-xs">
                 <thead>
                   <tr>
-                    <th className="border-b-2 border-neon-purple/55 px-2 py-3.5 font-mono font-bold text-neon-green">
+                    <th className="border-b-2 border-neon-pink px-2 py-3.5 font-mono font-bold text-neon-green">
                       Lock Duration
                     </th>
-                    <th className="border-b-2 border-neon-purple/55 px-2 py-3.5 font-mono font-bold text-neon-green">
+                    <th className="border-b-2 border-neon-pink px-2 py-3.5 font-mono font-bold text-neon-green">
                       Reward Tier
                     </th>
                   </tr>
@@ -146,9 +146,9 @@ export default function WhatCanTiredDo() {
                   {stakeTiers.map((tier, i) => (
                     <tr key={tier.duration} className="align-middle">
                       <td
-                        className={`px-2 py-4 font-mono font-semibold text-neon-pink whitespace-nowrap ${
+                        className={`px-2 py-4 font-mono font-bold text-neon-pink whitespace-nowrap ${
                           i < stakeTiers.length - 1
-                            ? "border-b-2 border-neon-pink/50"
+                            ? "border-b-2 border-neon-pink"
                             : ""
                         }`}
                       >
@@ -157,7 +157,7 @@ export default function WhatCanTiredDo() {
                       <td
                         className={`px-2 py-4 font-mono text-foreground/80 ${
                           i < stakeTiers.length - 1
-                            ? "border-b-2 border-neon-pink/50"
+                            ? "border-b-2 border-neon-pink"
                             : ""
                         }`}
                       >
