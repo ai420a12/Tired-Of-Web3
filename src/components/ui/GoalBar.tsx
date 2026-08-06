@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import {
   FACTORY_GOAL_POLL_MS,
   FACTORY_GOAL_USD,
+  FACTORY_RAISED_USD,
   FACTORY_WALLET,
 } from "@/lib/constants";
 import { playClick } from "@/lib/sounds";
@@ -45,7 +46,7 @@ function formatEth(value: number) {
 export default function GoalBar() {
   const [copied, setCopied] = useState(false);
   const [goalState, setGoalState] = useState<GoalState>({
-    raised: 0,
+    raised: FACTORY_RAISED_USD,
     goal: FACTORY_GOAL_USD,
     ethBalance: null,
     ethMainnet: null,
@@ -74,7 +75,10 @@ export default function GoalBar() {
         const asEth = (v: unknown) =>
           typeof v === "number" && Number.isFinite(v) ? Math.max(0, v) : null;
         setGoalState({
-          raised: Math.max(0, Number(data.raisedUsd) || 0),
+          raised: Math.max(
+            FACTORY_RAISED_USD,
+            Math.max(0, Number(data.raisedUsd) || 0),
+          ),
           goal: Math.max(1, Number(data.goalUsd) || FACTORY_GOAL_USD),
           ethBalance: asEth(data.ethBalance),
           ethMainnet: asEth(data.ethMainnet),
