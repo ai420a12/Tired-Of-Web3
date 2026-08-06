@@ -1,8 +1,8 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useState, type ComponentType } from "react";
-import { CONTRACT_ADDRESS, LINKS, TESTIMONIALS } from "@/lib/constants";
+import { type ComponentType } from "react";
+import { LINKS, TESTIMONIALS } from "@/lib/constants";
 import { playClick } from "@/lib/sounds";
 import GlitchText from "@/components/effects/GlitchText";
 import BuyButton from "@/components/ui/BuyButton";
@@ -22,16 +22,6 @@ type SocialCard = {
 };
 
 export default function Community() {
-  // tg-live
-  const [copied, setCopied] = useState(false);
-
-  const copyContract = () => {
-    navigator.clipboard.writeText(CONTRACT_ADDRESS);
-    setCopied(true);
-    playClick();
-    setTimeout(() => setCopied(false), 2000);
-  };
-
   const links: SocialCard[] = [
     {
       label: "X / Twitter",
@@ -116,34 +106,6 @@ export default function Community() {
             ),
           )}
         </div>
-
-        <motion.div
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true }}
-          className="neon-border mb-12 rounded-xl bg-background/50 p-6 text-center"
-        >
-          <p className="mb-2 font-mono text-xs text-foreground/50">
-            CONTRACT ADDRESS
-          </p>
-          <button
-            onClick={copyContract}
-            className="group flex w-full items-center justify-center gap-2 font-mono text-3xl font-bold text-neon-green transition-colors hover:text-neon-pink sm:text-4xl"
-          >
-            <span>{CONTRACT_ADDRESS}</span>
-            <span className="text-lg text-foreground/30 group-hover:text-neon-pink">
-              {copied ? "✓" : "📋"}
-            </span>
-          </button>
-          <p className="mt-2 font-mono text-xs text-foreground/40">
-            Robinhood CA — tap to copy. buy on the launchpad.
-          </p>
-          {copied && (
-            <p className="mt-1 font-mono text-xs text-neon-green">
-              copied. go touch the chart before you touch grass.
-            </p>
-          )}
-        </motion.div>
 
         <div className="mb-12 grid gap-4 sm:grid-cols-2">
           {TESTIMONIALS.map((t, i) => (

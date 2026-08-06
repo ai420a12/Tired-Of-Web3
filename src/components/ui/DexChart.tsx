@@ -1,15 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CONTRACT_ADDRESS, DEX_CHAIN, LINKS } from "@/lib/constants";
+import {
+  DEX_CHAIN,
+  DEX_POOL_ADDRESS,
+  LINKS,
+} from "@/lib/constants";
 
-type PairStats = {
-  chainId: string;
-  pairAddress: string;
+type PoolStats = {
   priceUsd: string | null;
   marketCap: number | null;
   liquidityUsd: number | null;
   change24h: number | null;
+  volume24h: number | null;
   url: string;
 };
 
@@ -17,7 +20,8 @@ function formatUsd(n: number | null | undefined) {
   if (n == null || Number.isNaN(n)) return "—";
   if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`;
   if (n >= 1_000) return `$${(n / 1_000).toFixed(1)}K`;
-  return `$${n.toFixed(0)}`;
+  if (n >= 1) return `$${n.toFixed(0)}`;
+  return `$${n.toFixed(2)}`;
 }
 
 function formatPct(n: number | null | undefined) {
@@ -26,49 +30,53 @@ function formatPct(n: number | null | undefined) {
   return `${sign}${n.toFixed(1)}%`;
 }
 
-async function fetchTiredPair(): Promise<PairStats | null> {
+async function fetchTiredPool(): Promise<PoolStats | null> {
   const res = await fetch(
-    `https://api.dexscreener.com/latest/dex/tokens/${CONTRACT_ADDRESS}`,
+    `https://api.dexscreener.com/latest/dex/pairs/${DEX_CHAIN}/${DEX_POOL_ADDRESS}`,
     { cache: "no-store" },
   );
   if (!res.ok) return null;
+
   const data = (await res.json()) as {
-    pairs?: Array<{
-      chainId?: string;
-      pairAddress?: string;
+    pair?: {
       url?: string;
       priceUsd?: string;
       marketCap?: number;
       fdv?: number;
       liquidity?: { usd?: number };
       priceChange?: { h24?: number };
+      volume?: { h24?: number };
+    };
+    pairs?: Array<{
+      url?: string;
+      priceUsd?: string;
+      marketCap?: number;
+      fdv?: number;
+      liquidity?: { usd?: number };
+      priceChange?: { h24?: number };
+      volume?: { h24?: number };
     }>;
   };
 
-  const pairs = data.pairs ?? [];
-  const preferred =
-    pairs.find((p) => p.chainId === DEX_CHAIN) ??
-    pairs.sort(
-      (a, b) => (b.liquidity?.usd ?? 0) - (a.liquidity?.usd ?? 0),
-    )[0];
-
-  if (!preferred?.pairAddress) return null;
+  const pair = data.pair ?? data.pairs?.[0];
+  if (!pair) return null;
 
   return {
-    chainId: preferred.chainId ?? DEX_CHAIN,
-    pairAddress: preferred.pairAddress,
-    priceUsd: preferred.priceUsd ?? null,
-    marketCap: preferred.marketCap ?? preferred.fdv ?? null,
-    liquidityUsd: preferred.liquidity?.usd ?? null,
-    change24h: preferred.priceChange?.h24 ?? null,
-    url:
-      preferred.url ??
-      `https://dexscreener.com/${preferred.chainId ?? DEX_CHAIN}/${preferred.pairAddress}`,
+    priceUsd: pair.priceUsd ?? null,
+    marketCap: pair.marketCap ?? pair.fdv ?? null,
+    liquidityUsd: pair.liquidity?.usd ?? null,
+    change24h: pair.priceChange?.h24 ?? null,
+    volume24h: pair.volume?.h24 ?? null,
+    url: pair.url ?? LINKS.chart,
   };
 }
 
+const EMBED_URL =
+  `https://dexscreener.com/${DEX_CHAIN}/${DEX_POOL_ADDRESS}` +
+  "?embed=1&theme=dark&trades=0&info=0";
+
 export default function DexChart() {
-  const [pair, setPair] = useState<PairStats | null>(null);
+  const [pool, setPool] = useState<PoolStats | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -76,10 +84,10 @@ export default function DexChart() {
 
     const load = async () => {
       try {
-        const next = await fetchTiredPair();
-        if (!cancelled) setPair(next);
+        const next = await fetchTiredPool();
+        if (!cancelled) setPool(next);
       } catch {
-        if (!cancelled) setPair(null);
+        if (!cancelled) setPool(null);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -93,22 +101,18 @@ export default function DexChart() {
     };
   }, []);
 
-  const embedUrl = pair
-    ? `https://dexscreener.com/${pair.chainId}/${pair.pairAddress}?embed=1&theme=dark&trades=0&info=0`
-    : null;
-
   const stats = [
     {
       label: "MCAP",
-      value: pair ? formatUsd(pair.marketCap) : loading ? "…" : "SOON",
+      value: pool ? formatUsd(pool.marketCap) : loading ? "…" : "—",
     },
     {
       label: "LIQUIDITY",
-      value: pair ? formatUsd(pair.liquidityUsd) : loading ? "…" : "SOON",
+      value: pool ? formatUsd(pool.liquidityUsd) : loading ? "…" : "—",
     },
     {
       label: "24H",
-      value: pair ? formatPct(pair.change24h) : "—",
+      value: pool ? formatPct(pool.change24h) : "—",
     },
   ];
 
@@ -130,48 +134,15 @@ export default function DexChart() {
         ))}
       </div>
 
-      {embedUrl ? (
-        <div className="dex-iframe relative aspect-[16/9] w-full overflow-hidden rounded-xl bg-[#0a0a12]">
-          <iframe
-            title="$TIRED DexScreener chart"
-            src={embedUrl}
-            className="h-full w-full border-0"
-            allow="clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-            loading="lazy"
-          />
-        </div>
-      ) : (
-        <div className="dex-iframe chart-placeholder relative aspect-[16/9] w-full overflow-hidden rounded-xl bg-[#0a0a12]">
-          <div className="chart-placeholder-grid absolute inset-0" aria-hidden="true" />
-          <div className="chart-placeholder-content relative z-10 items-center justify-center gap-4 text-center">
-            <p className="font-mono text-sm text-neon-green neon-green-glow sm:text-base">
-              $TIRED is live — chart indexing on DexScreener…
-            </p>
-            <p className="max-w-md font-mono text-xs text-foreground/50">
-              Buy is live on Pons. Chart embeds automatically once the Robinhood
-              pair is indexed.
-            </p>
-            <div className="flex flex-wrap items-center justify-center gap-3">
-              <a
-                href={LINKS.buy}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded-full border border-neon-green px-4 py-2 font-mono text-xs font-bold text-neon-green hover:bg-neon-green/10"
-              >
-                BUY $TIRED
-              </a>
-              <a
-                href={LINKS.dexscreener}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded-full border border-neon-pink/60 px-4 py-2 font-mono text-xs font-bold text-neon-pink hover:bg-neon-pink/10"
-              >
-                OPEN DEXSCREENER
-              </a>
-            </div>
-          </div>
-        </div>
-      )}
+      <div className="dex-iframe relative aspect-[16/9] w-full overflow-hidden rounded-xl bg-[#0a0a12]">
+        <iframe
+          title="$TIRED DexScreener chart"
+          src={EMBED_URL}
+          className="h-full w-full border-0"
+          allow="clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+          loading="lazy"
+        />
+      </div>
     </div>
   );
 }

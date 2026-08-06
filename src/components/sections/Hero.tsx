@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import Image from "next/image";
 import GlitchText from "@/components/effects/GlitchText";
 import BuyButton from "@/components/ui/BuyButton";
+import ContractAddressBar from "@/components/ui/ContractAddressBar";
 import DexChart from "@/components/ui/DexChart";
 import GoalBar from "@/components/ui/GoalBar";
 import Trailer from "@/components/ui/Trailer";
@@ -143,6 +144,7 @@ export default function Hero() {
           className="flex w-full max-w-2xl flex-col gap-4"
         >
           <DexChart />
+          <ContractAddressBar />
           <GoalBar />
         </motion.div>
 
