@@ -12,7 +12,7 @@ export const FACTORY_GOAL_USD = 250_000;
  * Display floor for factory raised USD (GoalBar /api/factory-goal).
  * Live wallet ETH→USD is used when it exceeds this; otherwise this value shows.
  */
-export const FACTORY_RAISED_USD = 11_483;
+export const FACTORY_RAISED_USD = 11_486;
 
 /** How often the GoalBar refreshes live ETH → USD from /api/factory-goal. */
 export const FACTORY_GOAL_POLL_MS = 3 * 60 * 1000;
