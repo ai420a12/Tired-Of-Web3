@@ -8,11 +8,24 @@ export const FACTORY_WALLET: string =
 /** USD goal to open the Tired factory (warehouse + machines). */
 export const FACTORY_GOAL_USD = 250_000;
 
+/**
+ * Display floor for factory raised USD (GoalBar /api/factory-goal).
+ * Live wallet ETH→USD is used when it exceeds this; otherwise this value shows.
+ */
+export const FACTORY_RAISED_USD = 11_483;
+
 /** How often the GoalBar refreshes live ETH → USD from /api/factory-goal. */
 export const FACTORY_GOAL_POLL_MS = 3 * 60 * 1000;
 
-/** DexScreener slug for Robinhood Chain (not EIP-155 4663). */
+/** DexScreener network slug for Robinhood Chain (not EIP-155 4663). */
 export const DEX_CHAIN = "robinhood";
+
+/**
+ * Uniswap v4 TIRED/ETH pool on Robinhood (post-grad).
+ * Do not use the old Pons pool (0xd39d…) or the tiny USDG v4 pool.
+ */
+export const DEX_POOL_ADDRESS =
+  "0xb3068128fd65834a4932f1bf721f6a5e85e8044f6173bca4e2cf09b2abc6f5a1";
 
 export const LINKS = {
   x: "https://x.com/TiredOfWeb3",
@@ -20,7 +33,9 @@ export const LINKS = {
   telegram: "https://t.me/TiredOfWeb3Factory" as string | null,
   discord: "https://discord.gg/tiredofweb3" as string | null,
   opensea: "https://opensea.io/collection/tired-of-web3-/overview",
-  dexscreener: `https://dexscreener.com/${DEX_CHAIN}/${CONTRACT_ADDRESS}`,
+  /** Live chart — DexScreener Uniswap v4 TIRED/ETH pool. */
+  chart: `https://dexscreener.com/${DEX_CHAIN}/${DEX_POOL_ADDRESS}`,
+  dexscreener: `https://dexscreener.com/${DEX_CHAIN}/${DEX_POOL_ADDRESS}`,
   buy: `https://www.ponsfamily.com/launchpad/${CONTRACT_ADDRESS}`,
   wl: "/wl",
   nfc: "https://x.com/NFCSummit",
@@ -219,14 +234,14 @@ export const TOKENOMICS = [
   },
   {
     title: "Buy Tax",
-    value: "5%",
+    value: "4%",
     unit: "on every buy",
-    reaction: "5% to keep the lights on. We're tired, not broke.",
+    reaction: "4% to keep the lights on. We're tired, not broke.",
     emoji: "🫠",
   },
   {
     title: "Sell Tax",
-    value: "5%",
+    value: "4%",
     unit: "on every sell",
     reaction: "Paper hands pay the toll. We're all tired here.",
     emoji: "📄",
@@ -252,10 +267,16 @@ export const ROADMAP = [
     phase: "Phase 1",
     title: "Tired Launch",
     items: [
-      "Deploy the $TIRED memecoin on Robinhood while half asleep",
-      "Pay for DEX before our eyes close",
-      "Survive the first 24 hours without rugging",
-      "Lock the supply and always make transparency posts about anything we do.",
+      {
+        text: "Deploy the $TIRED memecoin on Robinhood while half asleep",
+        done: true,
+      },
+      { text: "Pay for DEX before our eyes close", done: true },
+      { text: "Survive the first 24 hours without rugging", done: true },
+      {
+        text: "Lock the supply and always make transparency posts about anything we do.",
+        done: true,
+      },
     ],
     mood: "exhausted",
   },
@@ -263,10 +284,19 @@ export const ROADMAP = [
     phase: "Phase 2",
     title: "Production + Support",
     items: [
-      "Secure the funding to open the factory and buy the machines",
-      "Offer free 1:1 support for anyone in the space who's feeling down",
-      "Prepare our own Robinhood NFT collection",
-      "Deploy the $TIRED collection — 10K Robinhood NFTs minted directly on OpenSea. A snapshot of your $TIRED bags decides your mint: Bigger WL for the Tired NFT collection, fewer tokens = still cheaper than public, zero tokens = full price (time to reflect). Splitting across wallets won't work — there's a minimum hold, and a cluster agent flags linked wallets on-chain.",
+      {
+        text: "Secure the funding to open the factory and buy the machines",
+        done: false,
+      },
+      {
+        text: "Offer free 1:1 support for anyone in the space who's feeling down",
+        done: false,
+      },
+      { text: "Prepare our own Robinhood NFT collection", done: false },
+      {
+        text: "Deploy the $TIRED collection — 10K Robinhood NFTs minted directly on OpenSea. A snapshot of your $TIRED bags decides your mint: Bigger WL for the Tired NFT collection, fewer tokens = still cheaper than public, zero tokens = full price (time to reflect). Splitting across wallets won't work — there's a minimum hold, and a cluster agent flags linked wallets on-chain.",
+        done: false,
+      },
     ],
     mood: "cynical",
   },
@@ -274,12 +304,18 @@ export const ROADMAP = [
     phase: "Phase 3",
     title: "Tired of Earth → Mars",
     items: [
-      "Open the factory and take our MarketPlace live online",
-      "Activate our Staking mechanism",
-      "Donate signs and merch to as many NFT events as possible",
-      "Make a statue for Adam Weitsman",
-      "Mars colony for people tired of rugs",
-      "Final phase: eternal nap in space",
+      {
+        text: "Open the factory and take our MarketPlace live online",
+        done: false,
+      },
+      { text: "Activate our Staking mechanism", done: false },
+      {
+        text: "Donate signs and merch to as many NFT events as possible",
+        done: false,
+      },
+      { text: "Make a statue for Adam Weitsman", done: false },
+      { text: "Mars colony for people tired of rugs", done: false },
+      { text: "Final phase: eternal nap in space", done: false },
     ],
     mood: "delusional",
   },

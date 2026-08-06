@@ -73,21 +73,32 @@ export default function Roadmap() {
                     </div>
 
                     <ul className="space-y-2">
-                      {phase.items.map((item, j) => (
-                        <motion.li
-                          key={j}
-                          initial={{ opacity: 0 }}
-                          whileInView={{ opacity: 1 }}
-                          viewport={{ once: true }}
-                          transition={{ delay: i * 0.2 + j * 0.1 }}
-                          className="flex items-start gap-2 font-mono text-sm text-foreground/70"
-                        >
-                          <span className="text-neon-pink">✗</span>
-                          <span className="min-w-0 flex-1">
-                            {formatRoadmapItem(item)}
-                          </span>
-                        </motion.li>
-                      ))}
+                      {phase.items.map((item, j) => {
+                        const completed = item.done;
+
+                        return (
+                          <motion.li
+                            key={j}
+                            initial={{ opacity: 0 }}
+                            whileInView={{ opacity: 1 }}
+                            viewport={{ once: true }}
+                            transition={{ delay: i * 0.2 + j * 0.1 }}
+                            className="flex items-start gap-2 font-mono text-sm text-foreground/70"
+                          >
+                            <span
+                              className={
+                                completed ? "text-neon-green" : "text-neon-pink"
+                              }
+                              aria-hidden="true"
+                            >
+                              {completed ? "✓" : "✗"}
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              {formatRoadmapItem(item.text)}
+                            </span>
+                          </motion.li>
+                        );
+                      })}
                     </ul>
                   </div>
                 </div>
