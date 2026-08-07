@@ -229,6 +229,31 @@ body {
   border-radius: 4px;
 }
 
+/* HOOD_RPC — lime scrollbars (page + panels), not purple */
+html[data-hood-rpc],
+html[data-hood-rpc] * {
+  scrollbar-width: thin !important;
+  scrollbar-color: #ccff00 #111 !important;
+}
+
+html[data-hood-rpc] ::-webkit-scrollbar {
+  width: 8px !important;
+  height: 8px !important;
+}
+
+html[data-hood-rpc] ::-webkit-scrollbar-track {
+  background: #111 !important;
+}
+
+html[data-hood-rpc] ::-webkit-scrollbar-thumb {
+  background: #ccff00 !important;
+  border-radius: 4px !important;
+}
+
+html[data-hood-rpc] ::-webkit-scrollbar-thumb:hover {
+  background: #a8d400 !important;
+}
+
 /* Dexscreener iframe styling */
 .dex-iframe {
   border: 1px solid rgba(212, 253, 54, 0.3);
