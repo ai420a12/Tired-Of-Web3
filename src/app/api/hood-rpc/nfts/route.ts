@@ -170,28 +170,35 @@ async function resolveProjectColAsync(
   nameHint?: string | null,
 ): Promise<ProjectCol> {
   const base = resolveProjectCol(slug, nameHint);
-  const known = HOOD_COLLECTIONS.some((c) => c.slug === slug);
-  if (known) return base;
 
-  const data = await osFetch(`/collections/${encodeURIComponent(slug)}`);
-  const c = (data?.collection || data) as
-    | {
-        name?: string;
-        image_url?: string;
-        banner_image_url?: string;
-      }
-    | undefined;
-  if (!c) return base;
+  const data = (await osFetch(
+    `/collections/${encodeURIComponent(slug)}`,
+  )) as { collection?: { name?: string; image_url?: string; banner_image_url?: string } } | null;
+  const c = data?.collection || (data as { name?: string; image_url?: string; banner_image_url?: string } | null);
+  if (!c) {
+    // Never keep a mismatched curated local NFT as the project image
+    return {
+      ...base,
+      image: base.image.startsWith("/images/hood-rpc/nfts/")
+        ? NEUTRAL_NFT_IMAGE
+        : base.image,
+    };
+  }
 
-  const image =
+  const remote =
     (typeof c.image_url === "string" && c.image_url.trim()) ||
     (typeof c.banner_image_url === "string" && c.banner_image_url.trim()) ||
-    base.image;
+    "";
 
   return {
     ...base,
     name: (c.name || "").trim() || base.name,
-    image: WEAK_IMAGE_RE.test(image) ? NEUTRAL_NFT_IMAGE : image,
+    image:
+      remote && !WEAK_IMAGE_RE.test(remote)
+        ? remote
+        : base.image.startsWith("/images/hood-rpc/nfts/")
+          ? NEUTRAL_NFT_IMAGE
+          : base.image,
   };
 }
 
@@ -249,7 +256,11 @@ function fallbackLive(limit: number): SaleRow[] {
   return rows.slice(0, limit);
 }
 
-async function osFetch(path: string) {
+async function sleep(ms: number) {
+  await new Promise((r) => setTimeout(r, ms));
+}
+
+async function osFetch(path: string, attempt = 0): Promise<unknown | null> {
   const key = process.env.OPENSEA_API_KEY;
   if (!key) return null;
   const res = await fetch(`https://api.opensea.io/api/v2${path}`, {
@@ -260,8 +271,31 @@ async function osFetch(path: string) {
     },
     cache: "no-store",
   });
+  // OpenSea rate-limits bursty parallel NFT lookups — back off and retry
+  if (res.status === 429 && attempt < 4) {
+    await sleep(350 * (attempt + 1));
+    return osFetch(path, attempt + 1);
+  }
   if (!res.ok) return null;
   return res.json();
+}
+
+/** Run async work with a hard concurrency cap (avoids OpenSea 429s). */
+async function mapPool<T>(
+  items: T[],
+  concurrency: number,
+  fn: (item: T) => Promise<void>,
+): Promise<void> {
+  if (!items.length) return;
+  let cursor = 0;
+  async function worker() {
+    while (cursor < items.length) {
+      const idx = cursor++;
+      await fn(items[idx]);
+    }
+  }
+  const n = Math.min(Math.max(1, concurrency), items.length);
+  await Promise.all(Array.from({ length: n }, () => worker()));
 }
 
 function mapEvent(
@@ -309,10 +343,16 @@ function mapEvent(
 /** Pull per-token art + rarity from the NFT endpoint when event/listing payloads are thin. */
 async function enrichNftDetails(
   rows: SaleRow[],
-  opts: { colImage?: string; forceImage?: boolean; limit?: number } = {},
+  opts: {
+    colImage?: string;
+    forceImage?: boolean;
+    limit?: number;
+    concurrency?: number;
+  } = {},
 ): Promise<SaleRow[]> {
   const colImage = opts.colImage || "";
   const limit = opts.limit ?? 24;
+  const concurrency = opts.concurrency ?? 2;
   const targets = rows
     .filter((r) => r.tokenId && r.contract)
     .filter(
@@ -325,32 +365,31 @@ async function enrichNftDetails(
 
   if (!targets.length) return rows;
 
-  await Promise.all(
-    targets.map(async (row) => {
-      const data = await osFetch(
-        `/chain/robinhood/contract/${row.contract}/nfts/${row.tokenId}`,
-      );
-      const nft = data?.nft as OsNft | undefined;
-      if (!nft) return;
-      if (nft.name) row.tokenName = nft.name;
-      const nextImage = pickNftImage(nft, "");
-      if (nextImage) row.image = nextImage;
-      else if (isWeakOrLocalImage(row.image, colImage)) {
-        row.image = colImage || NEUTRAL_NFT_IMAGE;
-      }
-      if (nft.opensea_url) row.openseaUrl = nft.opensea_url;
-      const rank = parseOpenSeaRarityRank(nft as Record<string, unknown>);
-      if (rank != null) {
-        row.rarityRank = rank;
-        row.rarityUnavailable = false;
-      }
-    }),
-  );
+  await mapPool(targets, concurrency, async (row) => {
+    const data = (await osFetch(
+      `/chain/robinhood/contract/${row.contract}/nfts/${row.tokenId}`,
+    )) as { nft?: OsNft } | null;
+    const nft = data?.nft;
+    if (!nft) return;
+    if (nft.name) row.tokenName = nft.name;
+    const nextImage = pickNftImage(nft, "");
+    if (nextImage) row.image = nextImage;
+    if (nft.opensea_url) row.openseaUrl = nft.opensea_url;
+    const rank = parseOpenSeaRarityRank(nft as Record<string, unknown>);
+    if (rank != null) {
+      row.rarityRank = rank;
+      row.rarityUnavailable = false;
+    }
+  });
   return rows;
 }
 
 async function enrichRarity(rows: SaleRow[]): Promise<SaleRow[]> {
-  return enrichNftDetails(rows, { forceImage: false, limit: 12 });
+  return enrichNftDetails(rows, {
+    forceImage: false,
+    limit: 10,
+    concurrency: 2,
+  });
 }
 
 async function fetchCollectionSales(
@@ -358,48 +397,76 @@ async function fetchCollectionSales(
   limit: number,
   opts: { enrich?: boolean } = {},
 ): Promise<SaleRow[]> {
-  const data = await osFetch(
+  const data = (await osFetch(
     `/events/collection/${col.slug}?event_type=sale&limit=${limit}`,
-  );
+  )) as { asset_events?: OsEvent[]; events?: OsEvent[] } | null;
   const events = (data?.asset_events || data?.events || []) as OsEvent[];
   const mapped = events
     .map((ev) => mapEvent(ev, col.name, col.slug, col.image))
     .filter((r): r is SaleRow => Boolean(r))
     .sort(sortNewest);
   if (opts.enrich === false) return mapped;
-  // Always backfill per-token thumbs + rarity for project sales
+  // Events already carry art — only backfill missing/weak thumbs (don't blast OpenSea)
   return enrichNftDetails(mapped, {
     colImage: col.image,
-    forceImage: true,
-    limit: Math.min(24, mapped.length),
+    forceImage: false,
+    limit: Math.min(12, mapped.length),
+    concurrency: 2,
   });
+}
+
+type OsListing = {
+  order_hash?: string;
+  status?: string;
+  remaining_quantity?: number | string;
+  order_created_at?: number | string;
+  price?: { current?: { currency?: string; decimals?: number; value?: string } };
+  asset?: { identifier?: string; contract?: string };
+  protocol_data?: {
+    parameters?: {
+      offer?: { token?: string; identifierOrCriteria?: string }[];
+      startTime?: string | number;
+    };
+  };
+};
+
+function listingToken(L: OsListing): { tokenId: string; contract?: string } {
+  const assetId = L.asset?.identifier;
+  const assetContract = L.asset?.contract;
+  const offer = L.protocol_data?.parameters?.offer?.[0];
+  const tokenId = String(
+    assetId || offer?.identifierOrCriteria || "",
+  ).trim();
+  const contract = assetContract || offer?.token;
+  return { tokenId, contract };
 }
 
 async function fetchCollectionListings(
   col: { name: string; slug: string; image: string },
   limit: number,
 ): Promise<SaleRow[]> {
-  const data = await osFetch(
-    `/listings/collection/${col.slug}/best?limit=${limit}`,
-  );
-  const listings = (data?.listings || []) as {
-    order_hash?: string;
-    order_created_at?: number | string;
-    price?: { current?: { currency?: string; decimals?: number; value?: string } };
-    protocol_data?: {
-      parameters?: {
-        offer?: { token?: string; identifierOrCriteria?: string }[];
-        startTime?: string | number;
-      };
-    };
-  }[];
+  // Pull extra rows — "best" mixes ACTIVE with fulfilled/cancelled
+  const data = (await osFetch(
+    `/listings/collection/${col.slug}/best?limit=${Math.min(50, Math.max(limit * 3, 30))}`,
+  )) as { listings?: OsListing[] } | null;
+  const listings = (data?.listings || []).filter((L) => {
+    const status = (L.status || "").toUpperCase();
+    if (status && status !== "ACTIVE") return false;
+    const rem = Number(L.remaining_quantity);
+    if (Number.isFinite(rem) && rem <= 0) return false;
+    return true;
+  });
 
   const rows: SaleRow[] = [];
-  for (let i = 0; i < listings.length; i++) {
+  const seen = new Set<string>();
+  for (let i = 0; i < listings.length && rows.length < limit; i++) {
     const L = listings[i];
-    const offer = L.protocol_data?.parameters?.offer?.[0];
-    const tokenId = offer?.identifierOrCriteria || String(1000 + i);
-    const contract = offer?.token;
+    const { tokenId, contract } = listingToken(L);
+    if (!tokenId || !contract) continue;
+    const dedupe = `${contract}:${tokenId}`;
+    if (seen.has(dedupe)) continue;
+    seen.add(dedupe);
+
     const value = Number(L.price?.current?.value || 0);
     const decimals = Number(L.price?.current?.decimals ?? 18);
     let eth = value;
@@ -408,15 +475,12 @@ async function fetchCollectionListings(
     const currency = (L.price?.current?.currency || "ETH").toUpperCase();
     const kind: "eth" | "weth" = currency.includes("WETH") ? "weth" : "eth";
 
-    // Prefer OpenSea order_created_at (unix sec); fallback to Seaport startTime
     let createdSec = Number(L.order_created_at);
     if (!Number.isFinite(createdSec) || createdSec <= 0) {
       createdSec = Number(L.protocol_data?.parameters?.startTime);
     }
-    // Some APIs return ms
     if (createdSec > 1e12) createdSec = Math.floor(createdSec / 1000);
     if (!Number.isFinite(createdSec) || createdSec <= 0) {
-      // Last resort: spread by index so newest→oldest still reads as ages
       createdSec = Math.floor(Date.now() / 1000) - i * 45;
     }
 
@@ -425,14 +489,11 @@ async function fetchCollectionListings(
       tokenName: `${col.name} #${tokenId}`,
       collection: col.name,
       collectionSlug: col.slug,
-      openseaUrl: contract
-        ? `https://opensea.io/assets/robinhood/${contract}/${tokenId}`
-        : `https://opensea.io/collection/${col.slug}`,
+      openseaUrl: `https://opensea.io/assets/robinhood/${contract}/${tokenId}`,
       eth: Number(eth.toFixed(4)),
       usd: Number((eth * 3200).toFixed(2)),
       ago: ago(createdSec),
       kind,
-      // Listings payload has no NFT art — leave empty so enrich must fill per-token
       image: "",
       rarityRank: 0,
       rarityUnavailable: true,
@@ -447,18 +508,24 @@ async function fetchCollectionListings(
     });
   }
 
-  // Newest listings first
   rows.sort((a, b) => (b.eventTs || 0) - (a.eventTs || 0));
 
-  // Per-token art for every listing row (never leave another collection's image)
   await enrichNftDetails(rows, {
     colImage: col.image,
     forceImage: true,
     limit: rows.length,
+    concurrency: 2,
   });
 
+  // Last resort: collection image from OpenSea (remote) or neutral — never another project's local art
+  const safeFallback =
+    col.image && !col.image.startsWith("/images/hood-rpc/nfts/")
+      ? col.image
+      : NEUTRAL_NFT_IMAGE;
   for (const row of rows) {
-    if (!row.image) row.image = col.image || NEUTRAL_NFT_IMAGE;
+    if (!row.image || row.image.startsWith("/images/hood-rpc/nfts/")) {
+      row.image = safeFallback;
+    }
   }
 
   return rows;
@@ -539,9 +606,9 @@ export async function GET(req: Request) {
     };
     let liveCols: LiveCol[] = collections.slice(0, 10);
     try {
-      const vol = await osFetch(
+      const vol = (await osFetch(
         "/collections?chain=robinhood&order_by=seven_day_volume&limit=12",
-      );
+      )) as { collections?: { collection?: string; name?: string; image_url?: string }[] } | null;
       const fromVol = ((vol?.collections || []) as { collection?: string; name?: string; image_url?: string }[])
         .map((c) => ({
           name: c.name || c.collection || "",
