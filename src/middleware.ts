@@ -12,12 +12,13 @@ export function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
-  // Already under /hood-rpc or API / static — leave alone
+  // APIs, app routes, and static assets must never be rewritten
   if (
+    pathname.startsWith("/api/") ||
     pathname.startsWith("/hood-rpc") ||
-    pathname.startsWith("/api/hood-rpc") ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/images") ||
+    pathname.startsWith("/videos") ||
     pathname === "/favicon.ico"
   ) {
     return NextResponse.next();

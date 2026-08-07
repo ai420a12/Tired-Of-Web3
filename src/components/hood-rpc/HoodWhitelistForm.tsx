@@ -14,8 +14,9 @@ import "./hood-rpc.css";
 type TasksState = Record<HoodWlTaskId, boolean>;
 type LinksState = { follow: string; share: string; tag: string };
 
-/** Satisfies shared /api/wl whyTired min-length without a UI field. */
-const HOOD_RPC_WHY_PLACEHOLDER = "[HOOD_RPC] WL application";
+/** Tags HOOD_RPC rows in shared wl_submissions (filter why_tired ILIKE '%[HOOD_RPC]%'). */
+const HOOD_RPC_WHY_PLACEHOLDER =
+  "[HOOD_RPC] WL application — key access + platform whitelist";
 
 export default function HoodWhitelistForm() {
   const [wallet, setWallet] = useState("");
@@ -106,6 +107,7 @@ export default function HoodWhitelistForm() {
           xProfile: verificationLinks.follow.trim(),
           wallet,
           whyTired: HOOD_RPC_WHY_PLACEHOLDER,
+          project: "hood_rpc",
           verificationLinks: {
             share: verificationLinks.share.trim(),
             tag: verificationLinks.tag.trim(),
@@ -113,7 +115,15 @@ export default function HoodWhitelistForm() {
           tasks,
         }),
       });
-      const data = await res.json();
+      let data: { error?: string; code?: string } = {};
+      try {
+        data = (await res.json()) as { error?: string; code?: string };
+      } catch {
+        setError(
+          "WL intake returned a bad response. Hard-refresh and try again.",
+        );
+        return;
+      }
       if (!res.ok) {
         if (res.status === 503 || data.code === "WL_MISCONFIGURED") {
           setIntakeDown(true);
@@ -130,7 +140,9 @@ export default function HoodWhitelistForm() {
       setSubmittedWallet(wallet);
       setSuccess(true);
     } catch {
-      setError("Network error. Are you running the local server?");
+      setError(
+        "Couldn’t reach WL intake. Check your connection and try again.",
+      );
     } finally {
       setSubmitting(false);
     }
