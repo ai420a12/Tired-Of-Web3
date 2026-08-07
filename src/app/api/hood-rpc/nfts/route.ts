@@ -98,14 +98,37 @@ function paymentToEth(payment?: OsEvent["payment"]): { eth: number; kind: "eth" 
   return { eth: Number(eth.toFixed(4)), kind, usd: Number(usd.toFixed(2)) };
 }
 
+/** Resolve a project by slug — never substitute a different curated collection. */
+function resolveProjectCol(
+  slug: string,
+  nameHint?: string | null,
+): { name: string; slug: string; image: string; website: string } {
+  const known = HOOD_COLLECTIONS.find((c) => c.slug === slug);
+  if (known) {
+    return {
+      name: known.name,
+      slug: known.slug,
+      image: known.image,
+      website: known.website,
+    };
+  }
+  const name = (nameHint || "").trim() || slug;
+  return {
+    name,
+    slug,
+    image: "/images/hood-rpc/nfts/robinhood-punks.png",
+    website: `https://opensea.io/collection/${slug}`,
+  };
+}
+
 /** Project-scoped fallback — only NFTs from the selected collection. */
 function fallbackForCollection(
   slug: string,
   limit: number,
   kindBias: "mix" | "eth" | "weth" = "mix",
+  nameHint?: string | null,
 ): SaleRow[] {
-  const col =
-    HOOD_COLLECTIONS.find((c) => c.slug === slug) || HOOD_COLLECTIONS[0];
+  const col = resolveProjectCol(slug, nameHint);
   const now = Date.now();
   const rows: SaleRow[] = [];
   for (let i = 0; i < limit; i++) {
@@ -364,8 +387,12 @@ export async function GET(req: Request) {
     discord: c.discord,
   }));
 
+  const nameParam = searchParams.get("name")?.trim() || null;
+
   if (!hasKey) {
-    const project = slug ? fallbackForCollection(slug, 14) : [];
+    const project = slug
+      ? fallbackForCollection(slug, 14, "mix", nameParam)
+      : [];
     return NextResponse.json({
       source: "curated-robinhood",
       live: true,
@@ -373,30 +400,38 @@ export async function GET(req: Request) {
       collections,
       sales: fallbackLive(limit),
       projectSales: project,
-      listings: slug ? fallbackForCollection(slug, 14) : [],
+      listings: slug
+        ? fallbackForCollection(slug, 14, "mix", nameParam)
+        : [],
+      focusSlug: slug || undefined,
+      focusName: slug ? resolveProjectCol(slug, nameParam).name : undefined,
     });
   }
 
   try {
     if (slug) {
-      const col =
-        collections.find((c) => c.slug === slug) || collections[0];
-      const [projectSales, listings] = await Promise.all([
+      // Never fall back to another collection (was causing Punks when clicking Zaibatsu, etc.)
+      const col = resolveProjectCol(slug, nameParam);
+      const [projectSalesRaw, listingsRaw] = await Promise.all([
         fetchCollectionSales(col, 20),
         fetchCollectionListings(col, 20),
       ]);
+
+      // Hard filter — only rows for the requested slug
+      const projectSales = projectSalesRaw.filter(
+        (r) => r.collectionSlug === slug,
+      );
+      const listings = listingsRaw.filter((r) => r.collectionSlug === slug);
 
       return NextResponse.json({
         source: "opensea",
         live: true,
         collections,
         sales: [],
-        projectSales: projectSales.length
-          ? projectSales
-          : fallbackForCollection(slug, 14),
-        listings: listings.length
-          ? listings
-          : fallbackForCollection(slug, 14),
+        projectSales,
+        listings,
+        focusSlug: slug,
+        focusName: col.name,
       });
     }
 
@@ -494,8 +529,14 @@ export async function GET(req: Request) {
       error: err instanceof Error ? err.message : "OpenSea fetch failed",
       collections,
       sales: fallbackLive(limit),
-      projectSales: slug ? fallbackForCollection(slug, 14) : [],
-      listings: slug ? fallbackForCollection(slug, 14) : [],
+      projectSales: slug
+        ? fallbackForCollection(slug, 14, "mix", nameParam)
+        : [],
+      listings: slug
+        ? fallbackForCollection(slug, 14, "mix", nameParam)
+        : [],
+      focusSlug: slug || undefined,
+      focusName: slug ? resolveProjectCol(slug, nameParam).name : undefined,
     });
   }
 }

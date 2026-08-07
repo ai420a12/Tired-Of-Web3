@@ -320,22 +320,26 @@ export default function HoodNftPanels({ onToast }: Props) {
 
     async function loadProject() {
       try {
-        const res = await fetch(
-          `/api/hood-rpc/nfts?slug=${encodeURIComponent(focus!.collectionSlug)}&limit=20`,
-        );
+        const params = new URLSearchParams({
+          slug: focus!.collectionSlug,
+          limit: "20",
+          name: focus!.collection,
+        });
+        const res = await fetch(`/api/hood-rpc/nfts?${params.toString()}`);
         if (!res.ok || cancelled) return;
         const data = await res.json();
-        // Only use project-scoped payloads — never the global live feed
+        // Only use project-scoped payloads for THIS collection
+        const slug = focus!.collectionSlug;
         if (Array.isArray(data.projectSales)) {
-          const next = [...(data.projectSales as HoodNftSale[])].sort(
-            (a, b) => (b.eventTs || 0) - (a.eventTs || 0),
-          );
+          const next = (data.projectSales as HoodNftSale[])
+            .filter((r) => r.collectionSlug === slug)
+            .sort((a, b) => (b.eventTs || 0) - (a.eventTs || 0));
           setSales(next);
         }
         if (Array.isArray(data.listings)) {
-          const next = [...(data.listings as HoodNftSale[])].sort(
-            (a, b) => (b.eventTs || 0) - (a.eventTs || 0),
-          );
+          const next = (data.listings as HoodNftSale[])
+            .filter((r) => r.collectionSlug === slug)
+            .sort((a, b) => (b.eventTs || 0) - (a.eventTs || 0));
           setListings(next);
         }
       } catch {
