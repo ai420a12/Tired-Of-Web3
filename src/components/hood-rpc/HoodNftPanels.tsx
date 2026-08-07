@@ -48,6 +48,35 @@ function PriceCell({ item }: { item: HoodNftSale }) {
   );
 }
 
+const NFT_IMAGE_FALLBACK = "/images/hood-rpc/mascot-lime.png";
+
+function NftThumb({
+  src,
+  alt = "",
+  className = "hrpc-nft-thumb",
+}: {
+  src: string;
+  alt?: string;
+  className?: string;
+}) {
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      className={className}
+      src={src || NFT_IMAGE_FALLBACK}
+      alt={alt}
+      loading="lazy"
+      decoding="async"
+      onError={(e) => {
+        const el = e.currentTarget;
+        if (el.dataset.fallback === "1") return;
+        el.dataset.fallback = "1";
+        el.src = NFT_IMAGE_FALLBACK;
+      }}
+    />
+  );
+}
+
 function collectionUrl(item: HoodNftSale) {
   return `https://opensea.io/collection/${item.collectionSlug}`;
 }
@@ -83,8 +112,7 @@ function NftFlyout({
     >
       <div className="hrpc-os-flyout-inner">
         <div className="hrpc-os-flyout-imgwrap" data-fly-rarity={tier}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={item.image} alt={item.tokenName} decoding="async" />
+          <NftThumb src={item.image} alt={item.tokenName} className="" />
         </div>
         <div className="hrpc-os-flyout-details">
           <div className="hrpc-os-flyout-title">{item.tokenName}</div>
@@ -188,13 +216,7 @@ function SaleTable({
             onClick={() => onSelect?.(row)}
           >
             <td className="hrpc-os-thumb">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                className="hrpc-nft-thumb"
-                src={row.image}
-                alt=""
-                loading="lazy"
-              />
+              <NftThumb src={row.image} />
             </td>
             <td className="hrpc-nft-name">{row.tokenName}</td>
             {showCollection ? (

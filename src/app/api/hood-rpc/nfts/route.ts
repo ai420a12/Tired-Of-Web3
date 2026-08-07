@@ -10,6 +10,7 @@ type OsNft = {
   name?: string;
   image_url?: string;
   display_image_url?: string;
+  image_original_url?: string;
   opensea_url?: string;
   contract?: string;
   traits?: { trait_type?: string; value?: string | number }[];
@@ -17,6 +18,11 @@ type OsNft = {
   rarity_rank?: number | string;
   rank?: number | string;
 };
+
+/** Neutral local art — never use another collection's image as a stand-in. */
+const NEUTRAL_NFT_IMAGE = "/images/hood-rpc/mascot-lime.png";
+const WEAK_IMAGE_RE =
+  /placeholder|missing.?art|default.?nft|\/static\/images\/placeholder|opensea\.io\/static/i;
 
 type OsEvent = {
   event_type?: string;
@@ -98,11 +104,48 @@ function paymentToEth(payment?: OsEvent["payment"]): { eth: number; kind: "eth" 
   return { eth: Number(eth.toFixed(4)), kind, usd: Number(usd.toFixed(2)) };
 }
 
+type ProjectCol = {
+  name: string;
+  slug: string;
+  image: string;
+  website: string;
+};
+
+function pickNftImage(
+  nft: OsNft | Record<string, unknown> | null | undefined,
+  fallback: string,
+): string {
+  if (!nft) return fallback;
+  const candidates = [
+    (nft as OsNft).display_image_url,
+    (nft as OsNft).image_url,
+    (nft as OsNft).image_original_url,
+    typeof (nft as Record<string, unknown>).image === "string"
+      ? ((nft as Record<string, unknown>).image as string)
+      : undefined,
+  ];
+  for (const raw of candidates) {
+    const url = typeof raw === "string" ? raw.trim() : "";
+    if (!url) continue;
+    if (WEAK_IMAGE_RE.test(url)) continue;
+    return url;
+  }
+  return fallback;
+}
+
+function isWeakOrLocalImage(url: string | undefined, colImage?: string): boolean {
+  if (!url) return true;
+  if (url.startsWith("/images/hood-rpc/")) return true;
+  if (WEAK_IMAGE_RE.test(url)) return true;
+  if (colImage && url === colImage) return true;
+  return false;
+}
+
 /** Resolve a project by slug — never substitute a different curated collection. */
 function resolveProjectCol(
   slug: string,
   nameHint?: string | null,
-): { name: string; slug: string; image: string; website: string } {
+): ProjectCol {
   const known = HOOD_COLLECTIONS.find((c) => c.slug === slug);
   if (known) {
     return {
@@ -116,8 +159,39 @@ function resolveProjectCol(
   return {
     name,
     slug,
-    image: "/images/hood-rpc/nfts/robinhood-punks.png",
+    image: NEUTRAL_NFT_IMAGE,
     website: `https://opensea.io/collection/${slug}`,
+  };
+}
+
+/** Prefer live OpenSea collection metadata (real image) over local stand-ins. */
+async function resolveProjectColAsync(
+  slug: string,
+  nameHint?: string | null,
+): Promise<ProjectCol> {
+  const base = resolveProjectCol(slug, nameHint);
+  const known = HOOD_COLLECTIONS.some((c) => c.slug === slug);
+  if (known) return base;
+
+  const data = await osFetch(`/collections/${encodeURIComponent(slug)}`);
+  const c = (data?.collection || data) as
+    | {
+        name?: string;
+        image_url?: string;
+        banner_image_url?: string;
+      }
+    | undefined;
+  if (!c) return base;
+
+  const image =
+    (typeof c.image_url === "string" && c.image_url.trim()) ||
+    (typeof c.banner_image_url === "string" && c.banner_image_url.trim()) ||
+    base.image;
+
+  return {
+    ...base,
+    name: (c.name || "").trim() || base.name,
+    image: WEAK_IMAGE_RE.test(image) ? NEUTRAL_NFT_IMAGE : image,
   };
 }
 
@@ -216,7 +290,7 @@ function mapEvent(
     usd,
     ago: ago(eventTs),
     kind,
-    image: nft.display_image_url || nft.image_url || colImage,
+    image: pickNftImage(nft, colImage || NEUTRAL_NFT_IMAGE),
     rarityRank: osRank ?? 0,
     rarityUnavailable: osRank == null,
     rarityLabel: "",
@@ -232,28 +306,51 @@ function mapEvent(
   };
 }
 
-async function enrichRarity(rows: SaleRow[]): Promise<SaleRow[]> {
-  const need = rows.filter((r) => r.rarityUnavailable && r.tokenId && r.contract).slice(0, 12);
-  if (!need.length) return rows;
+/** Pull per-token art + rarity from the NFT endpoint when event/listing payloads are thin. */
+async function enrichNftDetails(
+  rows: SaleRow[],
+  opts: { colImage?: string; forceImage?: boolean; limit?: number } = {},
+): Promise<SaleRow[]> {
+  const colImage = opts.colImage || "";
+  const limit = opts.limit ?? 24;
+  const targets = rows
+    .filter((r) => r.tokenId && r.contract)
+    .filter(
+      (r) =>
+        opts.forceImage ||
+        r.rarityUnavailable ||
+        isWeakOrLocalImage(r.image, colImage),
+    )
+    .slice(0, limit);
+
+  if (!targets.length) return rows;
 
   await Promise.all(
-    need.map(async (row) => {
+    targets.map(async (row) => {
       const data = await osFetch(
         `/chain/robinhood/contract/${row.contract}/nfts/${row.tokenId}`,
       );
-      const nft = data?.nft;
+      const nft = data?.nft as OsNft | undefined;
       if (!nft) return;
-      const rank = parseOpenSeaRarityRank(nft as Record<string, unknown>);
-      if (rank == null) return;
-      row.rarityRank = rank;
-      row.rarityUnavailable = false;
-      if (nft.display_image_url || nft.image_url) {
-        row.image = nft.display_image_url || nft.image_url;
+      if (nft.name) row.tokenName = nft.name;
+      const nextImage = pickNftImage(nft, "");
+      if (nextImage) row.image = nextImage;
+      else if (isWeakOrLocalImage(row.image, colImage)) {
+        row.image = colImage || NEUTRAL_NFT_IMAGE;
       }
       if (nft.opensea_url) row.openseaUrl = nft.opensea_url;
+      const rank = parseOpenSeaRarityRank(nft as Record<string, unknown>);
+      if (rank != null) {
+        row.rarityRank = rank;
+        row.rarityUnavailable = false;
+      }
     }),
   );
   return rows;
+}
+
+async function enrichRarity(rows: SaleRow[]): Promise<SaleRow[]> {
+  return enrichNftDetails(rows, { forceImage: false, limit: 12 });
 }
 
 async function fetchCollectionSales(
@@ -270,7 +367,12 @@ async function fetchCollectionSales(
     .filter((r): r is SaleRow => Boolean(r))
     .sort(sortNewest);
   if (opts.enrich === false) return mapped;
-  return enrichRarity(mapped);
+  // Always backfill per-token thumbs + rarity for project sales
+  return enrichNftDetails(mapped, {
+    colImage: col.image,
+    forceImage: true,
+    limit: Math.min(24, mapped.length),
+  });
 }
 
 async function fetchCollectionListings(
@@ -320,7 +422,7 @@ async function fetchCollectionListings(
 
     rows.push({
       id: `list-${col.slug}-${tokenId}-${L.order_hash || i}`,
-      tokenName: `${col.name.split(" ")[0]} #${tokenId}`,
+      tokenName: `${col.name} #${tokenId}`,
       collection: col.name,
       collectionSlug: col.slug,
       openseaUrl: contract
@@ -330,7 +432,8 @@ async function fetchCollectionListings(
       usd: Number((eth * 3200).toFixed(2)),
       ago: ago(createdSec),
       kind,
-      image: col.image,
+      // Listings payload has no NFT art — leave empty so enrich must fill per-token
+      image: "",
       rarityRank: 0,
       rarityUnavailable: true,
       rarityLabel: "",
@@ -347,27 +450,16 @@ async function fetchCollectionListings(
   // Newest listings first
   rows.sort((a, b) => (b.eventTs || 0) - (a.eventTs || 0));
 
-  // Attach images + rarity from NFT endpoint
-  await Promise.all(
-    rows.slice(0, 12).map(async (row) => {
-      if (!row.contract || !row.tokenId) return;
-      const data = await osFetch(
-        `/chain/robinhood/contract/${row.contract}/nfts/${row.tokenId}`,
-      );
-      const nft = data?.nft;
-      if (!nft) return;
-      if (nft.name) row.tokenName = nft.name;
-      if (nft.display_image_url || nft.image_url) {
-        row.image = nft.display_image_url || nft.image_url;
-      }
-      if (nft.opensea_url) row.openseaUrl = nft.opensea_url;
-      const rank = parseOpenSeaRarityRank(nft as Record<string, unknown>);
-      if (rank != null) {
-        row.rarityRank = rank;
-        row.rarityUnavailable = false;
-      }
-    }),
-  );
+  // Per-token art for every listing row (never leave another collection's image)
+  await enrichNftDetails(rows, {
+    colImage: col.image,
+    forceImage: true,
+    limit: rows.length,
+  });
+
+  for (const row of rows) {
+    if (!row.image) row.image = col.image || NEUTRAL_NFT_IMAGE;
+  }
 
   return rows;
 }
@@ -411,7 +503,7 @@ export async function GET(req: Request) {
   try {
     if (slug) {
       // Never fall back to another collection (was causing Punks when clicking Zaibatsu, etc.)
-      const col = resolveProjectCol(slug, nameParam);
+      const col = await resolveProjectColAsync(slug, nameParam);
       const [projectSalesRaw, listingsRaw] = await Promise.all([
         fetchCollectionSales(col, 20),
         fetchCollectionListings(col, 20),
@@ -454,7 +546,7 @@ export async function GET(req: Request) {
         .map((c) => ({
           name: c.name || c.collection || "",
           slug: c.collection || "",
-          image: c.image_url || "/images/hood-rpc/nfts/robinhood-punks.png",
+          image: c.image_url || NEUTRAL_NFT_IMAGE,
           website: `https://opensea.io/collection/${c.collection}`,
           twitter: "",
           discord: "",
