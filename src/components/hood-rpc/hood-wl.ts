@@ -4,8 +4,8 @@ export const HOOD_RPC_LINKS = {
   pinnedPost: "https://x.com/Hood_RPC",
   home: "/hood-rpc",
   wl: "/hood-rpc/wl",
-  /** Collection drop — update when the OpenSea slug is live */
-  opensea: "https://opensea.io/collection/hood-rpc",
+  /** Live OpenSea collection */
+  opensea: "https://opensea.io/collection/hoodrpc",
 } as const;
 
 /** Aug 14 2026 19:00 UK (BST) */
