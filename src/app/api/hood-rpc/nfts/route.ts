@@ -402,7 +402,15 @@ export async function GET(req: Request) {
 
     // Live feed — fast path: recent sales, no rarity enrichment delay
     // Prefer volume-active RH collections + curated list
-    let liveCols = collections.slice(0, 10);
+    type LiveCol = {
+      name: string;
+      slug: string;
+      image: string;
+      website?: string;
+      twitter?: string;
+      discord?: string;
+    };
+    let liveCols: LiveCol[] = collections.slice(0, 10);
     try {
       const vol = await osFetch(
         "/collections?chain=robinhood&order_by=seven_day_volume&limit=12",
@@ -440,7 +448,7 @@ export async function GET(req: Request) {
     const MAX_AGE_SEC = 48 * 3600;
     const merged = batches
       .flat()
-      .filter((r) => r.eventTs > 0 && nowSec - r.eventTs <= MAX_AGE_SEC)
+      .filter((r) => (r.eventTs || 0) > 0 && nowSec - (r.eventTs || 0) <= MAX_AGE_SEC)
       .sort(sortNewest);
 
     // Dedupe by id (keep newest occurrence)
@@ -457,7 +465,7 @@ export async function GET(req: Request) {
     if (sales.length < Math.min(8, limit)) {
       const allTimed = batches
         .flat()
-        .filter((r) => r.eventTs > 0)
+        .filter((r) => (r.eventTs || 0) > 0)
         .sort(sortNewest);
       for (const row of allTimed) {
         if (seenIds.has(row.id)) continue;
