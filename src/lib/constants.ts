@@ -241,7 +241,7 @@ export const ROADMAP = [
         done: false,
       },
       {
-        text: "Open the whitelist and onboard holders ahead of mint",
+        text: "Onboard other collections and holders into Tired — and lock in contracts with them",
         done: false,
       },
       {
