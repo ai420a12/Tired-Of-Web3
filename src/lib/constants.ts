@@ -213,16 +213,16 @@ export const ROADMAP = [
     title: "Tired Launch",
     items: [
       {
-        text: "Deploy the $TIRED memecoin on Ethereum while half asleep",
+        text: "Launch the Tired NFT Collection on Ethereum",
         done: false,
       },
-      { text: "Pay for DEX before our eyes close", done: false },
+      { text: "Reveal our amazing Art", done: false },
       {
         text: "Survive the first 24 hours without rugging",
         done: false,
       },
       {
-        text: "Lock the supply and always make transparency posts about anything we do.",
+        text: "Make transparency posts about anything we do",
         done: false,
       },
     ],
@@ -240,9 +240,12 @@ export const ROADMAP = [
         text: "Offer free 1:1 support for anyone in the space who's feeling down",
         done: false,
       },
-      { text: "Prepare our own Ethereum NFT collection", done: false },
       {
-        text: "Deploy the $TIRED collection — 10K Ethereum NFTs minted directly on OpenSea. A snapshot of your $TIRED bags decides your mint: Bigger WL for the Tired NFT collection, fewer tokens = still cheaper than public, zero tokens = full price (time to reflect). Splitting across wallets won't work — there's a minimum hold, and a cluster agent flags linked wallets on-chain.",
+        text: "Open the whitelist and onboard holders ahead of mint",
+        done: false,
+      },
+      {
+        text: "Design and sample the first Tired merch line from NFT IP",
         done: false,
       },
     ],
