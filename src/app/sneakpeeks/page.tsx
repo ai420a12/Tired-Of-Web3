@@ -49,7 +49,7 @@ export default function SneakPeeksPage() {
               onClick={() => playClick()}
               className="font-mono text-lg font-bold text-neon-green neon-green-glow"
             >
-              $TIRED
+              TIRED
             </Link>
             <SocialLinks />
           </div>
@@ -81,7 +81,7 @@ export default function SneakPeeksPage() {
             Disclaimer
           </p>
           <p className="mt-2 font-mono text-sm leading-relaxed text-foreground/75 sm:text-base">
-            This artwork is only an illustration of how the $TIRED NFTs will look
+            This artwork is only an illustration of how the Tired NFTs will look
             while we finish the collection, with full layers / PSD files and
             metadata.
           </p>

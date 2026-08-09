@@ -6,7 +6,6 @@ import Nav from "@/components/ui/Nav";
 import VentModal from "@/components/ui/VentModal";
 import Hero from "@/components/sections/Hero";
 import Manifesto from "@/components/sections/Manifesto";
-import Tokenomics from "@/components/sections/Tokenomics";
 import WhatCanTiredDo from "@/components/sections/WhatCanTiredDo";
 import TiredAgent from "@/components/sections/TiredAgent";
 import Whitepaper from "@/components/sections/Whitepaper";
@@ -36,7 +35,6 @@ export default function Home() {
       <main className="relative z-10">
         <Hero />
         <Manifesto />
-        <Tokenomics />
         <WhatCanTiredDo />
         <TiredAgent />
         <Whitepaper />
@@ -47,7 +45,8 @@ export default function Home() {
 
       <footer className="relative z-10 border-t border-neon-purple/20 px-4 py-8 text-center">
         <p className="font-mono text-xs text-foreground/30">
-          $TIRED — Not financial advice. Not medical advice. Just tired advice.
+          Tired Of Web3 — Not financial advice. Not medical advice. Just tired
+          advice.
         </p>
         <p className="mt-1 font-mono text-xs text-foreground/20">
           © 2026 TiredOfWeb3. All rugs reserved.

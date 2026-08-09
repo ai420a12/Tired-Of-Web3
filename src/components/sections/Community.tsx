@@ -5,7 +5,6 @@ import { type ComponentType } from "react";
 import { LINKS, TESTIMONIALS } from "@/lib/constants";
 import { playClick } from "@/lib/sounds";
 import GlitchText from "@/components/effects/GlitchText";
-import BuyButton from "@/components/ui/BuyButton";
 import {
   IconDiscord,
   IconOpenSea,
@@ -130,10 +129,6 @@ export default function Community() {
               </p>
             </motion.div>
           ))}
-        </div>
-
-        <div className="text-center">
-          <BuyButton />
         </div>
       </div>
     </section>

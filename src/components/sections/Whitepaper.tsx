@@ -59,16 +59,14 @@ export default function Whitepaper() {
               </p>
               <p>
                 That factory was the dream long before I was hired as CMO of The
-                Penimals.{" "}
-                <span className="font-bold text-neon-green">$TIRED</span> is how
-                we fund it — a project that protects the culture while shipping
-                physical product people can actually hold.
+                Penimals. Tired Of Web3 is how we fund it — a project that
+                protects the culture while shipping physical product people can
+                actually hold.
               </p>
               <p>
                 Holders can pay in{" "}
-                <span className="text-neon-pink">FIAT</span>,{" "}
-                <span className="text-neon-pink">ETH</span>, or{" "}
-                <span className="text-neon-pink">$TIRED</span> to order{" "}
+                <span className="text-neon-pink">FIAT</span> or{" "}
+                <span className="text-neon-pink">ETH</span> to order{" "}
                 <span className="text-neon-green">Tiredboxes</span> — or{" "}
                 <span className="text-neon-green">Peniboxes</span> — the
                 packaging that delivers merch and physical collectibles of your
@@ -200,10 +198,10 @@ export default function Whitepaper() {
                 the floor that turns NFT IP into real objects.
               </p>
               <p>
-                <span className="text-neon-pink">100% of trading fees</span>
+                <span className="text-neon-pink">Donations + factory raise funds</span>
                 {" "}
-                go into a dedicated wallet. That wallet&apos;s growing LP is what
-                powers the goal bar — as fees accumulate, the bar fills toward{" "}
+                go into a dedicated wallet. That wallet&apos;s balance is what
+                powers the goal bar — as it grows, the bar fills toward{" "}
                 {goalLabel}.
               </p>
               <div className="pt-2">

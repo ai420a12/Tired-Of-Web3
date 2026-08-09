@@ -132,7 +132,7 @@ export default function GoalBar() {
             FACTORY GOAL
           </p>
           <p className="mt-0.5 truncate text-[10px] text-foreground/40 sm:text-xs">
-            100% trading fees → wallet {walletShort}
+            100% donations → wallet {walletShort}
           </p>
         </div>
         <div className="shrink-0 text-right">
@@ -201,7 +201,7 @@ export default function GoalBar() {
         >
           <span className="min-w-0">
             <span className="mr-2 text-sm text-foreground/60 sm:text-base">
-              Fee wallet:
+              Factory wallet:
             </span>
             <span className="break-all text-sm font-bold text-neon-pink sm:text-base md:text-lg">
               {FACTORY_WALLET}

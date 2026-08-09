@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 
 const CHARS =
-  "アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン0123456789$TIRED";
+  "アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン0123456789TIRED";
 
 export default function MatrixRain() {
   const canvasRef = useRef<HTMLCanvasElement>(null);

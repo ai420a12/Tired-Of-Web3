@@ -3,9 +3,6 @@
 import { motion } from "framer-motion";
 import Image from "next/image";
 import GlitchText from "@/components/effects/GlitchText";
-import BuyButton from "@/components/ui/BuyButton";
-import ContractAddressBar from "@/components/ui/ContractAddressBar";
-import DexChart from "@/components/ui/DexChart";
 import GoalBar from "@/components/ui/GoalBar";
 import Trailer from "@/components/ui/Trailer";
 import { LINKS } from "@/lib/constants";
@@ -19,7 +16,7 @@ export default function Hero() {
       <div className="absolute inset-0 z-0">
         <Image
           src="/images/banner.jpg"
-          alt="TIRED banner"
+          alt="Tired Of Web3 banner"
           fill
           className="object-cover opacity-20"
           priority
@@ -36,9 +33,9 @@ export default function Hero() {
         >
           <GlitchText
             as="h1"
-            className="font-mono text-6xl font-black tracking-tighter text-neon-green neon-green-glow sm:text-8xl md:text-9xl"
+            className="font-mono text-5xl font-black tracking-tighter text-neon-green neon-green-glow sm:text-7xl md:text-8xl"
           >
-            $TIRED
+            TIRED OF WEB3
           </GlitchText>
           <motion.p
             initial={{ opacity: 0 }}
@@ -54,17 +51,12 @@ export default function Hero() {
           initial={{ opacity: 0, scale: 0.96 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.3, duration: 0.6 }}
-          className="grid w-full max-w-5xl grid-cols-1 gap-6 md:grid-cols-2 md:gap-8"
+          className="w-full max-w-3xl"
         >
           <Trailer
             title="NFT collection Trailer"
             src="/videos/tired-trailer.mp4"
             accent="purple"
-          />
-          <Trailer
-            title="$TIRED Trailer"
-            src="/videos/tired-token-trailer.mp4"
-            accent="green"
           />
         </motion.div>
 
@@ -72,9 +64,8 @@ export default function Hero() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.7 }}
-          className="grid w-full max-w-2xl grid-cols-2 gap-3 sm:grid-cols-4"
+          className="grid w-full max-w-2xl grid-cols-1 gap-3 sm:grid-cols-3"
         >
-          <BuyButton className={`${ctaClass} border-neon-green/50 bg-neon-green/10 text-neon-green hover:bg-neon-green/20`} />
           <motion.a
             href={LINKS.wl}
             whileHover={{ scale: 1.05 }}
@@ -143,8 +134,6 @@ export default function Hero() {
           transition={{ delay: 1 }}
           className="flex w-full max-w-2xl flex-col gap-4"
         >
-          <DexChart />
-          <ContractAddressBar />
           <GoalBar />
         </motion.div>
 

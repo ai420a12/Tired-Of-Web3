@@ -18,17 +18,17 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://tiredofweb3.xyz"),
-  title: "$TIRED — I'm Tired of Web3",
+  title: "Tired Of Web3 — Factory, NFTs & Support",
   description:
-    "Finally, a project that's as tired of this shit as you are. $TIRED — the memecoin for everyone exhausted by rugs, influencers, and Web3 hype.",
+    "Finally, a project that's as tired of this shit as you are. Tired Of Web3 builds a factory for NFT merch, offers free 1:1 support, and ships real physical collectibles.",
   keywords: [
-    "TIRED",
-    "memecoin",
-    "Web3",
-    "crypto",
-    "solana",
     "TiredOfWeb3",
-    "anti-hype",
+    "Web3",
+    "NFT",
+    "factory",
+    "merch",
+    "Robinhood",
+    "OpenSea",
   ],
   icons: {
     icon: [
@@ -40,7 +40,7 @@ export const metadata: Metadata = {
     apple: [{ url: "/apple-icon.png", sizes: "180x180", type: "image/png" }],
   },
   openGraph: {
-    title: "$TIRED — I'm Tired of Web3",
+    title: "Tired Of Web3 — Factory, NFTs & Support",
     description:
       "Finally, a project that's as tired of this shit as you are.",
     images: ["/images/banner.jpg"],
@@ -48,7 +48,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "$TIRED — I'm Tired of Web3",
+    title: "Tired Of Web3 — Factory, NFTs & Support",
     description:
       "Finally, a project that's as tired of this shit as you are.",
     images: ["/images/banner.jpg"],

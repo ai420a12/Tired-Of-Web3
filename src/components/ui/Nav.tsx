@@ -7,7 +7,7 @@ import SocialLinks from "@/components/ui/SocialLinks";
 
 const navItems = [
   { label: "Manifesto", href: "/#manifesto" },
-  { label: "Tokenomics", href: "/#tokenomics" },
+  { label: "Utility", href: "/#utility" },
   { label: "AI Agent", href: "/#agent" },
   { label: "Whitepaper", href: "/#whitepaper" },
   { label: "Roadmap", href: "/#roadmap" },
@@ -34,7 +34,7 @@ export default function Nav({ onVentClick }: NavProps) {
             onClick={() => playClick()}
             className="font-mono text-lg font-bold text-neon-green neon-green-glow"
           >
-            $TIRED
+            TIRED
           </Link>
           <SocialLinks />
         </div>

@@ -26,7 +26,7 @@ const subjects = [
 ];
 
 const closings = [
-  "That's why $TIRED exists. We're all exhausted here.",
+  "That's why Tired Of Web3 exists. We're all exhausted here.",
   "I'm not asking for much. Just honesty and a nap.",
   "At this point I'd rather be tired on Mars than awake on Earth.",
   "The only thing pumping is my blood pressure.",
@@ -83,8 +83,8 @@ export const MANIFESTO_LINES = [
   "Tired of the dumps.",
   "Tired of pretending this is fun.",
   "",
-  "$TIRED isn't a moon mission.",
-  "It's a support group with a ticker symbol.",
+  "Tired isn't a moon mission.",
+  "It's a support group that actually ships merch.",
   "",
   "If you've been rugged, dumped on, shilled to, and gaslit by CT —",
   "welcome home.",
@@ -95,5 +95,5 @@ export const MANIFESTO_LINES = [
   "But if we do go to Mars,",
   "it's because Earth ran out of rugs to pull.",
   "",
-  "Stay Safe, Stay Real, Stay $TIRED.",
+  "Stay Safe, Stay Real, Stay Tired.",
 ] as const;

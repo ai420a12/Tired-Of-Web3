@@ -29,7 +29,7 @@ export default function WhitelistPage() {
               onClick={() => playClick()}
               className="font-mono text-lg font-bold text-neon-green neon-green-glow"
             >
-              $TIRED
+              TIRED
             </Link>
             <SocialLinks />
           </div>

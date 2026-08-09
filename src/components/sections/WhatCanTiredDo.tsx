@@ -27,11 +27,16 @@ const stakeTiers = [
 ] as const;
 
 function highlightBrand(text: string): ReactNode[] {
-  const pattern = /(\$TIRED|RobinHood|Robinhood)/g;
+  const pattern = /(TiredBoxes|TiredBox|RobinHood|Robinhood)/g;
   const parts = text.split(pattern);
 
   return parts.map((part, i) => {
-    if (part === "$TIRED" || part === "RobinHood" || part === "Robinhood") {
+    if (
+      part === "TiredBoxes" ||
+      part === "TiredBox" ||
+      part === "RobinHood" ||
+      part === "Robinhood"
+    ) {
       return (
         <span key={i} className="font-bold text-neon-green">
           {part}
@@ -78,45 +83,10 @@ export default function WhatCanTiredDo() {
             as="h2"
             className="font-mono text-4xl font-bold text-neon-green neon-green-glow sm:text-5xl"
           >
-            What Can $TIRED Do?
+            What Can Tired Do?
           </GlitchText>
           <p className="mt-2 font-mono text-sm text-foreground/50">
-            real bags. real utility. still tired.
-          </p>
-        </div>
-
-        <div className="grid gap-6 md:grid-cols-3">
-          <UtilityCard index="01">
-            <p>
-              {highlightBrand(
-                "$TIRED will fund buybacks and RobinHood Stock buys, stocks will be distributed between our holders depending on how many $TIRED tokens you hold. (This will be done manually & after we reach our factory goal)",
-              )}
-            </p>
-          </UtilityCard>
-
-          <UtilityCard index="02">
-            <p>
-              {highlightBrand(
-                "By holding your $TIRED memecoin you will be able to mint The Tired NFT collection on September 11th — the more tokens you hold, the more NFTs you get and the bigger your WL allocation. (min 500k $TIRED to qualify)",
-              )}
-            </p>
-          </UtilityCard>
-
-          <UtilityCard index="03">
-            <p>
-              {highlightBrand(
-                "You will be able to pay for merch with $TIRED once our collection goes live and we unlock our Marketplace and staking mechanism for The Tired NFT collection",
-              )}
-            </p>
-          </UtilityCard>
-        </div>
-
-        <div className="mt-20 mb-12 text-center">
-          <h3 className="font-mono text-2xl font-bold text-neon-pink neon-pink-glow sm:text-3xl">
-            What can The Tired NFT collection do?
-          </h3>
-          <p className="mt-2 font-mono text-sm text-foreground/50">
-            stake longer. stack more. get the goods.
+            real NFTs. real merch. still tired.
           </p>
         </div>
 
@@ -124,7 +94,7 @@ export default function WhatCanTiredDo() {
           <UtilityCard index="01">
             <p>
               {highlightBrand(
-                "You will be able to stake the NFTs and get the TiredBoxes for free based on that exact NFT, and will only need to pay for shipping with the $TIRED memecoin. The longer you stake your NFTs, the more merch you get. Stack multiple TIRED NFTs to get multiple TiredBoxes. Real utility. Real ownership. Real merch.",
+                "Stake Tired NFTs and get TiredBoxes for free based on that exact NFT — you only pay shipping. The longer you stake, the more merch you get. Stack multiple Tired NFTs to get multiple TiredBoxes. Real utility. Real ownership. Real merch.",
               )}
             </p>
           </UtilityCard>
@@ -179,7 +149,7 @@ export default function WhatCanTiredDo() {
           <UtilityCard index="03">
             <p>
               {highlightBrand(
-                "Want merch or physicals based on other NFTs you own — or something totally custom? No problem. Order a TiredBox from us, send the content, pay with $TIRED, and we'll make it for you.",
+                "Want merch or physicals based on other NFTs you own — or something totally custom? No problem. Order a TiredBox from us, send the content, pay in FIAT or ETH, and we'll make it for you.",
               )}
             </p>
           </UtilityCard>

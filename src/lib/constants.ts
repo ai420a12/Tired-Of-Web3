@@ -1,7 +1,4 @@
-export const CONTRACT_ADDRESS =
-  "0x9D60d91044f1c501fEA4D2E95691b84Edd8CF4CB";
-
-/** Factory funding wallet — 100% of trading fees land here. Swap TBA when ready. */
+/** Factory funding wallet — donations + factory raise land here. */
 export const FACTORY_WALLET: string =
   "0xe4716f28d07497F71F275c7dd1962E94B37cf849";
 
@@ -17,26 +14,12 @@ export const FACTORY_RAISED_USD = 11_486;
 /** How often the GoalBar refreshes live ETH → USD from /api/factory-goal. */
 export const FACTORY_GOAL_POLL_MS = 3 * 60 * 1000;
 
-/** DexScreener network slug for Robinhood Chain (not EIP-155 4663). */
-export const DEX_CHAIN = "robinhood";
-
-/**
- * Uniswap v4 TIRED/ETH pool on Robinhood (post-grad).
- * Do not use the old Pons pool (0xd39d…) or the tiny USDG v4 pool.
- */
-export const DEX_POOL_ADDRESS =
-  "0xb3068128fd65834a4932f1bf721f6a5e85e8044f6173bca4e2cf09b2abc6f5a1";
-
 export const LINKS = {
   x: "https://x.com/TiredOfWeb3",
   pinnedPost: "https://x.com/TiredOfWeb3/status/2084745609936830558",
   telegram: "https://t.me/TiredOfWeb3Factory" as string | null,
   discord: "https://discord.gg/tiredofweb3" as string | null,
   opensea: "https://opensea.io/collection/tired-of-web3-/overview",
-  /** Live chart — DexScreener Uniswap v4 TIRED/ETH pool. */
-  chart: `https://dexscreener.com/${DEX_CHAIN}/${DEX_POOL_ADDRESS}`,
-  dexscreener: `https://dexscreener.com/${DEX_CHAIN}/${DEX_POOL_ADDRESS}`,
-  buy: `https://www.ponsfamily.com/launchpad/${CONTRACT_ADDRESS}`,
   wl: "/wl",
   nfc: "https://x.com/NFCSummit",
   johnKarp: "https://x.com/johnkarp",
@@ -224,57 +207,22 @@ export const MASCOT_QUOTES = [
   "Diamond hands? More like depleted uranium hands.",
 ] as const;
 
-export const TOKENOMICS = [
-  {
-    title: "Total Supply",
-    value: "1,000,000,000",
-    unit: "$TIRED",
-    reaction: "A billion tokens. A billion disappointments. Familiar.",
-    emoji: "💪",
-  },
-  {
-    title: "Buy Tax",
-    value: "4%",
-    unit: "on every buy",
-    reaction: "4% to keep the lights on. We're tired, not broke.",
-    emoji: "🫠",
-  },
-  {
-    title: "Sell Tax",
-    value: "4%",
-    unit: "on every sell",
-    reaction: "Paper hands pay the toll. We're all tired here.",
-    emoji: "📄",
-  },
-  {
-    title: "Liquidity",
-    value: "Locked",
-    unit: "probably. we're too tired to rug.",
-    reaction: "LP locked. Unlike my therapist's schedule.",
-    emoji: "🔒",
-  },
-  {
-    title: "Contract",
-    value: "Renounced",
-    unit: "dev gave up control. finally.",
-    reaction: "Ownership renounced. We can't rug even if we wanted to. Too tired.",
-    emoji: "📜",
-  },
-] as const;
-
 export const ROADMAP = [
   {
     phase: "Phase 1",
     title: "Tired Launch",
     items: [
       {
-        text: "Deploy the $TIRED memecoin on Robinhood while half asleep",
+        text: "Launch Tired Of Web3 — mission, community, and transparency posts",
         done: true,
       },
-      { text: "Pay for DEX before our eyes close", done: true },
-      { text: "Survive the first 24 hours without rugging", done: true },
+      { text: "Open Discord + Telegram for the Tired army", done: true },
       {
-        text: "Lock the supply and always make transparency posts about anything we do.",
+        text: "Ship the site, WL form, and OpenSea collection listing",
+        done: true,
+      },
+      {
+        text: "Always make transparency posts about anything we do.",
         done: true,
       },
     ],
@@ -294,7 +242,7 @@ export const ROADMAP = [
       },
       { text: "Prepare our own Robinhood NFT collection", done: false },
       {
-        text: "Deploy the $TIRED collection — 10K Robinhood NFTs minted directly on OpenSea. A snapshot of your $TIRED bags decides your mint: Bigger WL for the Tired NFT collection, fewer tokens = still cheaper than public, zero tokens = full price (time to reflect). Splitting across wallets won't work — there's a minimum hold, and a cluster agent flags linked wallets on-chain.",
+        text: "Deploy the Tired collection — 10K Robinhood NFTs minted directly on OpenSea. WL via community activity + the whitelist form. Committed members get better tiers.",
         done: false,
       },
     ],
@@ -323,39 +271,39 @@ export const ROADMAP = [
 
 export const TESTIMONIALS = [
   {
-    name: "DownBadDave.sol",
+    name: "DownBadDave.eth",
     quote:
-      "Token isn't even deployed yet and it's already changing my life. My therapist disagrees but CT doesn't.",
+      "Finally a project that talks about mental health in Web3 without selling me a new coin. My therapist still disagrees but CT doesn't.",
     rating: 5,
   },
   {
     name: "RugVictim#42069",
     quote:
-      "Lost my car, house, and wife to Ansem. $TIRED is the first coin that might actually help. Might.",
+      "Lost my car, house, and wife to Ansem. Tired Of Web3 is the first thing that might actually help. Might.",
     rating: 5,
   },
   {
     name: "WenLamboNever",
     quote:
-      "Aped before deployment. No chart, no CA, no liquidity — just vibes and emotional damage. 10/10.",
+      "Joined for the NFTs and stayed for the honesty. Vibes and emotional damage. 10/10.",
     rating: 4,
   },
   {
     name: "CTIsACircus",
     quote:
-      "Ansem hasn't tweeted about us yet. That's either bearish or we're so early it hurts. I'm too tired to tell.",
+      "A factory for merch and free 1:1 support? That's either the most tired idea or the only real one left.",
     rating: 5,
   },
   {
     name: "GCRsLeftNut",
     quote:
-      "Followed 12 KOLs into the ground this month. First project honest enough to say the contract is TBA.",
+      "Followed 12 KOLs into the ground this month. First project honest enough to say they're tired too.",
     rating: 5,
   },
   {
     name: "SolanaSummerVictim",
     quote:
-      "My wife's boyfriend said wait for deployment. I refreshed the site 400 times. We're so back. We're not back.",
+      "My wife's boyfriend said wait for the mint. I refreshed the sneak peeks 400 times. We're so back. We're not back.",
     rating: 5,
   },
 ] as const;
