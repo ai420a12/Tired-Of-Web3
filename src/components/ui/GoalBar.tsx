@@ -104,10 +104,6 @@ export default function GoalBar() {
   const raised = goalState.raised;
   const goal = goalState.goal;
   const pct = Math.min(100, (raised / goal) * 100);
-  const walletShort =
-    FACTORY_WALLET.length > 12
-      ? `${FACTORY_WALLET.slice(0, 6)}…${FACTORY_WALLET.slice(-4)}`
-      : FACTORY_WALLET;
 
   const copyWallet = async () => {
     try {
@@ -127,9 +123,6 @@ export default function GoalBar() {
           <p className="font-bold tracking-wide text-neon-green">
             FACTORY GOAL
           </p>
-          <p className="mt-0.5 truncate text-[10px] text-foreground/40 sm:text-xs">
-            100% trading fees → wallet {walletShort}
-          </p>
         </div>
         <div className="shrink-0 text-right">
           <p className="font-bold">
@@ -144,24 +137,6 @@ export default function GoalBar() {
                 ? "live sync paused"
                 : `${formatPct(pct)} funded`}
           </p>
-          {!goalState.loading &&
-            !goalState.error &&
-            goalState.ethBalance != null && (
-              <p className="text-[10px] text-foreground/40 sm:text-xs">
-                {formatEth(goalState.ethBalance)} ETH total
-                {goalState.ethMainnet != null &&
-                  goalState.ethRobinhood != null && (
-                    <span className="text-foreground/30">
-                      {" "}
-                      ({formatEth(goalState.ethMainnet)} ETH +{" "}
-                      {formatEth(goalState.ethRobinhood)} Ethereum)
-                    </span>
-                  )}
-                {goalState.partial && (
-                  <span className="text-neon-pink/70"> · partial sync</span>
-                )}
-              </p>
-            )}
         </div>
       </div>
 
@@ -180,12 +155,6 @@ export default function GoalBar() {
           }}
         />
       </div>
-
-      {pct < 2 && (
-        <p className="mt-2 text-center font-mono text-[10px] text-foreground/35 sm:text-xs">
-          Live ETH on Ethereum fills this bar toward the factory
-        </p>
-      )}
 
       <div className="mt-4 space-y-3 border-t border-neon-green/20 pt-3">
         <button
