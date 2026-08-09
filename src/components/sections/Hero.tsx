@@ -64,7 +64,7 @@ export default function Hero() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.7 }}
-          className="grid w-full max-w-2xl grid-cols-1 gap-3 sm:grid-cols-3"
+          className="grid w-full max-w-md grid-cols-2 gap-3"
         >
           <motion.a
             href={LINKS.wl}
@@ -73,16 +73,6 @@ export default function Hero() {
             className={`${ctaClass} border-neon-pink/50 bg-neon-pink/10 text-neon-pink hover:bg-neon-pink/20`}
           >
             GET WL
-          </motion.a>
-          <motion.a
-            href={LINKS.opensea}
-            target="_blank"
-            rel="noopener noreferrer"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className={`${ctaClass} border-[#2081E2]/50 bg-[#2081E2]/10 text-[#2081E2] hover:bg-[#2081E2]/20`}
-          >
-            OpenSea
           </motion.a>
           <motion.a
             href={LINKS.sneakpeeks}
