@@ -46,7 +46,7 @@ export default function Roadmap() {
           {/* Continuous spine through all phases + end cap */}
           <div
             aria-hidden="true"
-            className="absolute top-2 bottom-2 left-[0.875rem] w-px -translate-x-1/2 bg-gradient-to-b from-neon-green via-neon-purple to-neon-pink sm:left-[1.125rem]"
+            className="absolute top-8 bottom-2 left-[0.875rem] w-px bg-gradient-to-b from-neon-green via-neon-purple to-neon-pink sm:top-[2.125rem] sm:left-[1.125rem]"
           />
 
           <div className="space-y-12">
