@@ -1,6 +1,6 @@
 /** Factory funding wallet — donations + factory raise land here. */
 export const FACTORY_WALLET: string =
-  "0xe4716f28d07497F71F275c7dd1962E94B37cf849";
+  "0xC21fdf9b3B878f56207Be8a286b19dB1d5cd9F97";
 
 /** USD goal to open the Tired factory (warehouse + machines). */
 export const FACTORY_GOAL_USD = 250_000;
