@@ -213,17 +213,20 @@ export const ROADMAP = [
     title: "Tired Launch",
     items: [
       {
-        text: "Launch Tired Of Web3 — mission, community, and transparency posts",
-        done: true,
-      },
-      { text: "Open Discord + Telegram for the Tired army", done: true },
-      {
-        text: "Ship the site, WL form, and OpenSea collection listing",
-        done: true,
+        text: "Launch Tired Of Web3 NFT collection on Ethereum",
+        done: false,
       },
       {
-        text: "Always make transparency posts about anything we do.",
+        text: "Open Tired Discord and Telegram for the Tired community",
         done: true,
+      },
+      {
+        text: "Get the collection verified on OpenSea",
+        done: false,
+      },
+      {
+        text: "Always make transparency posts about anything we do",
+        done: false,
       },
     ],
     mood: "exhausted",

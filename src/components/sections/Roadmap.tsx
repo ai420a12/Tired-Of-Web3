@@ -42,8 +42,12 @@ export default function Roadmap() {
           </p>
         </div>
 
-        <div className="relative pb-6">
-          <div className="absolute top-0 bottom-0 left-8 hidden w-px bg-gradient-to-b from-neon-green via-neon-purple to-neon-pink sm:block" />
+        <div className="relative pl-10 sm:pl-12">
+          {/* Continuous spine through all phases + end cap */}
+          <div
+            aria-hidden="true"
+            className="absolute top-2 bottom-2 left-[0.875rem] w-px bg-gradient-to-b from-neon-green via-neon-purple to-neon-pink sm:left-[1.125rem]"
+          />
 
           <div className="space-y-12">
             {ROADMAP.map((phase, i) => (
@@ -53,60 +57,62 @@ export default function Roadmap() {
                 whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.2 }}
-                className="relative flex flex-col gap-6 sm:flex-row sm:items-start"
+                className="relative"
               >
                 <div
-                  className={`absolute left-6 hidden h-5 w-5 rounded-full border-2 bg-background sm:block ${
+                  aria-hidden="true"
+                  className={`absolute top-6 left-[-1.625rem] h-4 w-4 rounded-full border-2 bg-background sm:left-[-1.875rem] sm:h-5 sm:w-5 ${
                     phaseDotColors[i] ?? "border-neon-pink"
                   }`}
                 />
 
-                <div className="sm:ml-16 sm:flex-1">
-                  <div className="neon-border rounded-2xl bg-deep-purple/30 p-6 backdrop-blur-sm">
-                    <div className="mb-4">
-                      <span className="font-mono text-xs text-neon-green">
-                        {phase.phase}
-                      </span>
-                      <h3 className="font-mono text-2xl font-bold text-foreground">
-                        {phase.title}
-                      </h3>
-                    </div>
-
-                    <ul className="space-y-2">
-                      {phase.items.map((item, j) => {
-                        const completed = item.done;
-
-                        return (
-                          <motion.li
-                            key={j}
-                            initial={{ opacity: 0 }}
-                            whileInView={{ opacity: 1 }}
-                            viewport={{ once: true }}
-                            transition={{ delay: i * 0.2 + j * 0.1 }}
-                            className="flex items-start gap-2 font-mono text-sm text-foreground/70"
-                          >
-                            <span
-                              className={
-                                completed ? "text-neon-green" : "text-neon-pink"
-                              }
-                              aria-hidden="true"
-                            >
-                              {completed ? "✓" : "✗"}
-                            </span>
-                            <span className="min-w-0 flex-1">
-                              {formatRoadmapItem(item.text)}
-                            </span>
-                          </motion.li>
-                        );
-                      })}
-                    </ul>
+                <div className="neon-border rounded-2xl bg-deep-purple/30 p-6 backdrop-blur-sm">
+                  <div className="mb-4">
+                    <span className="font-mono text-xs text-neon-green">
+                      {phase.phase}
+                    </span>
+                    <h3 className="font-mono text-2xl font-bold text-foreground">
+                      {phase.title}
+                    </h3>
                   </div>
+
+                  <ul className="space-y-2">
+                    {phase.items.map((item, j) => {
+                      const completed = item.done;
+
+                      return (
+                        <motion.li
+                          key={j}
+                          initial={{ opacity: 0 }}
+                          whileInView={{ opacity: 1 }}
+                          viewport={{ once: true }}
+                          transition={{ delay: i * 0.2 + j * 0.1 }}
+                          className="flex items-start gap-2 font-mono text-sm text-foreground/70"
+                        >
+                          <span
+                            className={
+                              completed ? "text-neon-green" : "text-neon-pink"
+                            }
+                            aria-hidden="true"
+                          >
+                            {completed ? "✓" : "✗"}
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            {formatRoadmapItem(item.text)}
+                          </span>
+                        </motion.li>
+                      );
+                    })}
+                  </ul>
                 </div>
               </motion.div>
             ))}
           </div>
 
-          <div className="absolute bottom-0 left-6 hidden h-5 w-5 rounded-full border-2 border-neon-pink bg-background sm:block" />
+          <div
+            aria-hidden="true"
+            className="absolute -bottom-1 left-[0.375rem] h-4 w-4 -translate-x-0 rounded-full border-2 border-neon-pink bg-background sm:left-[0.5rem] sm:h-5 sm:w-5"
+          />
         </div>
       </div>
     </section>
