@@ -8,7 +8,6 @@ import GlitchText from "@/components/effects/GlitchText";
 import {
   IconDiscord,
   IconOpenSea,
-  IconTelegram,
   IconX,
 } from "@/components/ui/SocialIcons";
 
@@ -28,13 +27,6 @@ export default function Community() {
       live: true,
       Icon: IconX,
       iconClass: "text-foreground",
-    },
-    {
-      label: "Telegram",
-      href: LINKS.telegram,
-      live: Boolean(LINKS.telegram),
-      Icon: IconTelegram,
-      iconClass: "text-[#2AABEE]",
     },
     {
       label: "OpenSea",
@@ -64,7 +56,7 @@ export default function Community() {
           </GlitchText>
         </div>
 
-        <div className="mb-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mb-12 grid gap-4 sm:grid-cols-3">
           {links.map((link, i) =>
             link.live && link.href ? (
               <motion.a

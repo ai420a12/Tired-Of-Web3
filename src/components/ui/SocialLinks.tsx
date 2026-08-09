@@ -5,7 +5,6 @@ import { playClick } from "@/lib/sounds";
 import {
   IconDiscord,
   IconOpenSea,
-  IconTelegram,
   IconX,
 } from "@/components/ui/SocialIcons";
 
@@ -25,14 +24,6 @@ const socials = [
     title: "Join Discord",
     Icon: IconDiscord,
     iconClass: "text-[#5865F2]",
-  },
-  {
-    id: "tg",
-    label: "Telegram",
-    href: LINKS.telegram,
-    title: "Join Telegram",
-    Icon: IconTelegram,
-    iconClass: "text-[#2AABEE]",
   },
   {
     id: "opensea",
