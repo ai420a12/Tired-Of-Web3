@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     "NFT",
     "factory",
     "merch",
-    "Robinhood",
+    "Ethereum",
     "OpenSea",
   ],
   icons: {

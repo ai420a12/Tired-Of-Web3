@@ -27,15 +27,14 @@ const stakeTiers = [
 ] as const;
 
 function highlightBrand(text: string): ReactNode[] {
-  const pattern = /(TiredBoxes|TiredBox|RobinHood|Robinhood)/g;
+  const pattern = /(TiredBoxes|TiredBox|Ethereum)/g;
   const parts = text.split(pattern);
 
   return parts.map((part, i) => {
     if (
       part === "TiredBoxes" ||
       part === "TiredBox" ||
-      part === "RobinHood" ||
-      part === "Robinhood"
+      part === "Ethereum"
     ) {
       return (
         <span key={i} className="font-bold text-neon-green">

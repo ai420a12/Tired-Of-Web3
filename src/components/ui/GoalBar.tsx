@@ -158,7 +158,7 @@ export default function GoalBar() {
                     <span className="text-foreground/30">
                       {" "}
                       ({formatEth(goalState.ethMainnet)} ETH +{" "}
-                      {formatEth(goalState.ethRobinhood)} Robinhood)
+                      {formatEth(goalState.ethRobinhood)} Ethereum)
                     </span>
                   )}
                 {goalState.partial && (
@@ -180,14 +180,14 @@ export default function GoalBar() {
           transition={{ duration: 1.2, ease: "easeOut" }}
           style={{
             boxShadow:
-              raised > 0 ? "0 0 16px rgba(212, 253, 54, 0.55)" : undefined,
+              raised > 0 ? "0 0 16px rgba(32, 129, 226, 0.55)" : undefined,
           }}
         />
       </div>
 
       {pct < 2 && (
         <p className="mt-2 text-center font-mono text-[10px] text-foreground/35 sm:text-xs">
-          Live ETH on Ethereum + Robinhood fills this bar toward the factory
+          Live ETH on Ethereum fills this bar toward the factory
         </p>
       )}
 

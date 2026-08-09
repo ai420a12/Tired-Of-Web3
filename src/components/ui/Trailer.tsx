@@ -28,7 +28,7 @@ export default function Trailer({
         className={`w-full overflow-hidden rounded-xl bg-black/60 ${
           isPurple
             ? "neon-border shadow-[0_0_30px_rgba(157,78,221,0.2)]"
-            : "neon-border-green shadow-[0_0_30px_rgba(212,253,54,0.15)]"
+            : "neon-border-green shadow-[0_0_30px_rgba(32,129,226,0.15)]"
         }`}
       >
         <video

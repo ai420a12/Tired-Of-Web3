@@ -268,7 +268,7 @@ async function addWebhook(
     embeds: [
       {
         title: `@${submission.xHandle}`,
-        color: 0xd4fd36,
+        color: 0x2081e2,
         fields: [
           { name: "Wallet", value: `\`${submission.wallet}\``, inline: false },
           {

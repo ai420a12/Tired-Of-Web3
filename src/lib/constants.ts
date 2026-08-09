@@ -240,9 +240,9 @@ export const ROADMAP = [
         text: "Offer free 1:1 support for anyone in the space who's feeling down",
         done: false,
       },
-      { text: "Prepare our own Robinhood NFT collection", done: false },
+      { text: "Prepare our own Ethereum NFT collection", done: false },
       {
-        text: "Deploy the Tired collection — 10K Robinhood NFTs minted directly on OpenSea. WL via community activity + the whitelist form. Committed members get better tiers.",
+        text: "Deploy the Tired collection — 10K Ethereum NFTs minted directly on OpenSea. WL via community activity + the whitelist form. Committed members get better tiers.",
         done: false,
       },
     ],

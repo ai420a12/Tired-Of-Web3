@@ -11,7 +11,7 @@ const phaseDotColors = [
 ] as const;
 
 function formatRoadmapItem(item: string) {
-  const parts = item.split("Robinhood");
+  const parts = item.split("Ethereum");
   if (parts.length === 1) return item;
 
   return parts.flatMap((part, i) =>
@@ -19,7 +19,7 @@ function formatRoadmapItem(item: string) {
       ? [part]
       : [
           <span key={i} className="text-neon-green">
-            Robinhood
+            Ethereum
           </span>,
           part,
         ],

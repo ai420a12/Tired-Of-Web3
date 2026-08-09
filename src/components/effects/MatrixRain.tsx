@@ -40,7 +40,7 @@ export default function MatrixRain() {
         const char = CHARS[Math.floor(Math.random() * CHARS.length)];
         const x = i * fontSize;
 
-        ctx.fillStyle = `rgba(212, 253, 54, ${0.35 + Math.random() * 0.65})`;
+        ctx.fillStyle = `rgba(32, 129, 226, ${0.35 + Math.random() * 0.65})`;
         ctx.fillText(char, x, y * fontSize);
 
         // Reset drops that leave the screen so rain loops forever
