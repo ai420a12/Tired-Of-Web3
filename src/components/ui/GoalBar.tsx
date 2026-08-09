@@ -5,7 +5,6 @@ import { motion } from "framer-motion";
 import {
   FACTORY_GOAL_POLL_MS,
   FACTORY_GOAL_USD,
-  FACTORY_RAISED_USD,
   FACTORY_WALLET,
 } from "@/lib/constants";
 import { playClick } from "@/lib/sounds";
@@ -46,7 +45,7 @@ function formatEth(value: number) {
 export default function GoalBar() {
   const [copied, setCopied] = useState(false);
   const [goalState, setGoalState] = useState<GoalState>({
-    raised: FACTORY_RAISED_USD,
+    raised: 0,
     goal: FACTORY_GOAL_USD,
     ethBalance: null,
     ethMainnet: null,
@@ -75,10 +74,7 @@ export default function GoalBar() {
         const asEth = (v: unknown) =>
           typeof v === "number" && Number.isFinite(v) ? Math.max(0, v) : null;
         setGoalState({
-          raised: Math.max(
-            FACTORY_RAISED_USD,
-            Math.max(0, Number(data.raisedUsd) || 0),
-          ),
+          raised: Math.max(0, Number(data.raisedUsd) || 0),
           goal: Math.max(1, Number(data.goalUsd) || FACTORY_GOAL_USD),
           ethBalance: asEth(data.ethBalance),
           ethMainnet: asEth(data.ethMainnet),
@@ -132,7 +128,7 @@ export default function GoalBar() {
             FACTORY GOAL
           </p>
           <p className="mt-0.5 truncate text-[10px] text-foreground/40 sm:text-xs">
-            100% donations → wallet {walletShort}
+            100% trading fees → wallet {walletShort}
           </p>
         </div>
         <div className="shrink-0 text-right">
@@ -201,7 +197,7 @@ export default function GoalBar() {
         >
           <span className="min-w-0">
             <span className="mr-2 text-sm text-foreground/60 sm:text-base">
-              Factory wallet:
+              Fee wallet:
             </span>
             <span className="break-all text-sm font-bold text-neon-pink sm:text-base md:text-lg">
               {FACTORY_WALLET}

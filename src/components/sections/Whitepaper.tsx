@@ -198,10 +198,10 @@ export default function Whitepaper() {
                 the floor that turns NFT IP into real objects.
               </p>
               <p>
-                <span className="text-neon-pink">Donations + factory raise funds</span>
+                <span className="text-neon-pink">100% of trading fees</span>
                 {" "}
-                go into a dedicated wallet. That wallet&apos;s balance is what
-                powers the goal bar — as it grows, the bar fills toward{" "}
+                go into a dedicated wallet. That wallet&apos;s live ETH balance
+                is what powers the goal bar — as it grows, the bar fills toward{" "}
                 {goalLabel}.
               </p>
               <div className="pt-2">

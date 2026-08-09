@@ -7,9 +7,9 @@ export const FACTORY_GOAL_USD = 250_000;
 
 /**
  * Display floor for factory raised USD (GoalBar /api/factory-goal).
- * Live wallet ETH→USD is used when it exceeds this; otherwise this value shows.
+ * Set to 0 to show live wallet balance only.
  */
-export const FACTORY_RAISED_USD = 11_486;
+export const FACTORY_RAISED_USD = 0;
 
 /** How often the GoalBar refreshes live ETH → USD from /api/factory-goal. */
 export const FACTORY_GOAL_POLL_MS = 3 * 60 * 1000;
@@ -19,7 +19,7 @@ export const LINKS = {
   pinnedPost: "https://x.com/TiredOfWeb3/status/2084745609936830558",
   telegram: "https://t.me/TiredOfWeb3Factory" as string | null,
   discord: "https://discord.gg/tiredofweb3" as string | null,
-  opensea: "https://opensea.io/collection/tired-of-web3-/overview",
+  opensea: "https://opensea.io/collection/tired-of-web3/overview",
   wl: "/wl",
   nfc: "https://x.com/NFCSummit",
   johnKarp: "https://x.com/johnkarp",

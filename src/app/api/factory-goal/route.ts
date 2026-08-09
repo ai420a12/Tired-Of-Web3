@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { FACTORY_GOAL_USD, FACTORY_RAISED_USD } from "@/lib/constants";
+import { FACTORY_GOAL_USD } from "@/lib/constants";
 import {
   getFactoryBalanceSnapshot,
   ROBINHOOD_CHAIN_ID,
@@ -11,7 +11,7 @@ export const revalidate = 180;
 export async function GET() {
   try {
     const snap = await getFactoryBalanceSnapshot();
-    const raisedUsd = Math.max(FACTORY_RAISED_USD, Math.max(0, snap.raisedUsd));
+    const raisedUsd = Math.max(0, snap.raisedUsd);
     const pct = Math.min(100, (raisedUsd / FACTORY_GOAL_USD) * 100);
 
     return NextResponse.json(
