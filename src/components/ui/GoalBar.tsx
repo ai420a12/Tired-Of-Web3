@@ -30,27 +30,15 @@ function formatPct(pct: number) {
 type GoalState = {
   raised: number;
   goal: number;
-  ethBalance: number | null;
-  ethMainnet: number | null;
-  ethRobinhood: number | null;
-  partial: boolean;
   loading: boolean;
   error: boolean;
 };
-
-function formatEth(value: number) {
-  return value.toLocaleString("en-US", { maximumFractionDigits: 6 });
-}
 
 export default function GoalBar() {
   const [copied, setCopied] = useState(false);
   const [goalState, setGoalState] = useState<GoalState>({
     raised: 0,
     goal: FACTORY_GOAL_USD,
-    ethBalance: null,
-    ethMainnet: null,
-    ethRobinhood: null,
-    partial: false,
     loading: true,
     error: false,
   });
@@ -65,21 +53,11 @@ export default function GoalBar() {
         const data = (await res.json()) as {
           raisedUsd?: number;
           goalUsd?: number;
-          ethBalance?: number;
-          ethMainnet?: number;
-          ethRobinhood?: number;
-          partial?: boolean;
         };
         if (cancelled) return;
-        const asEth = (v: unknown) =>
-          typeof v === "number" && Number.isFinite(v) ? Math.max(0, v) : null;
         setGoalState({
           raised: Math.max(0, Number(data.raisedUsd) || 0),
           goal: Math.max(1, Number(data.goalUsd) || FACTORY_GOAL_USD),
-          ethBalance: asEth(data.ethBalance),
-          ethMainnet: asEth(data.ethMainnet),
-          ethRobinhood: asEth(data.ethRobinhood),
-          partial: Boolean(data.partial),
           loading: false,
           error: false,
         });
@@ -128,7 +106,9 @@ export default function GoalBar() {
           <p className="font-bold">
             <span className="text-neon-pink">{formatUsd(raised)}</span>
             <span className="text-foreground/40"> / </span>
-            <span className="text-neon-green">{formatUsd(goal, { whole: true })}</span>
+            <span className="text-neon-green">
+              {formatUsd(goal, { whole: true })}
+            </span>
           </p>
           <p className="text-[10px] text-neon-purple sm:text-xs">
             {goalState.loading
@@ -145,7 +125,6 @@ export default function GoalBar() {
           className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-neon-green via-neon-purple to-neon-pink"
           initial={{ width: 0 }}
           animate={{
-            // Keep a visible pulse of progress once any ETH is detected
             width: `${Math.max(pct, raised > 0 ? 0.8 : 0)}%`,
           }}
           transition={{ duration: 1.2, ease: "easeOut" }}
@@ -162,7 +141,9 @@ export default function GoalBar() {
           onClick={copyWallet}
           className="flex w-full items-center justify-center rounded-lg border border-neon-purple/30 bg-background/40 px-3 py-4 text-center font-mono transition-colors hover:border-neon-pink/40 hover:bg-neon-pink/5 sm:px-4 sm:py-5"
           title={copied ? "Copied" : "Click to copy wallet"}
-          aria-label={copied ? "Wallet address copied" : "Copy fee wallet address"}
+          aria-label={
+            copied ? "Wallet address copied" : "Copy fee wallet address"
+          }
         >
           <span className="min-w-0">
             <span className="mr-2 text-sm text-foreground/60 sm:text-base">
@@ -172,7 +153,9 @@ export default function GoalBar() {
               {FACTORY_WALLET}
             </span>
             {copied && (
-              <span className="mt-1 block text-xs text-neon-green">Copied ✓</span>
+              <span className="mt-1 block text-xs text-neon-green">
+                Copied ✓
+              </span>
             )}
           </span>
         </button>
