@@ -213,7 +213,7 @@ export const ROADMAP = [
     title: "Tired Launch",
     items: [
       {
-        text: "Launch the Tired NFT Collection on Ethereum",
+        text: "Launch the Tired NFT Collection on Ethereum — 5,555 NFTs",
         done: false,
       },
       { text: "Reveal our amazing Art", done: false },

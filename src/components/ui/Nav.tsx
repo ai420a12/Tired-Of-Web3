@@ -32,9 +32,9 @@ export default function Nav({ onVentClick }: NavProps) {
           <Link
             href="/"
             onClick={() => playClick()}
-            className="font-mono text-lg font-bold text-neon-green neon-green-glow"
+            className="font-mono text-sm font-bold whitespace-nowrap text-neon-green neon-green-glow sm:text-lg"
           >
-            TIRED
+            Tired Of Web3
           </Link>
           <SocialLinks />
         </div>
