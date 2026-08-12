@@ -10,6 +10,7 @@ export type HoodRpcVariant = "hood" | "eth";
 export type HoodRpcChainConfig = {
   variant: HoodRpcVariant;
   brand: string;
+  switcherLabel: string;
   homePath: string;
   wlPath: string;
   apiBase: string;
@@ -31,6 +32,7 @@ export type HoodRpcChainConfig = {
 export const HOOD_CHAIN_CONFIG: HoodRpcChainConfig = {
   variant: "hood",
   brand: "HOOD_RPC",
+  switcherLabel: "Hood_RPC",
   homePath: "/hood-rpc",
   wlPath: HOOD_RPC_LINKS.wl,
   apiBase: "/api/hood-rpc",
@@ -51,7 +53,8 @@ export const HOOD_CHAIN_CONFIG: HoodRpcChainConfig = {
 
 export const ETH_CHAIN_CONFIG: HoodRpcChainConfig = {
   variant: "eth",
-  brand: "ETH_RPC",
+  brand: "Tired Of Web3",
+  switcherLabel: "Tired Of Web3",
   homePath: "/hood-rpc/eth",
   wlPath: "/hood-rpc/wl",
   apiBase: "/api/hood-rpc/eth",
@@ -59,13 +62,13 @@ export const ETH_CHAIN_CONFIG: HoodRpcChainConfig = {
   geckoNetwork: "eth",
   openseaChain: "ethereum",
   openseaAssetsChain: "ethereum",
-  defaultTokenLogo: "/images/hood-rpc/tokens/eth.png",
-  mascotLogo: "/images/hood-rpc/tokens/eth.png",
-  wordmarkClass: "hrpc-wordmark hrpc-wordmark-eth",
+  defaultTokenLogo: "/images/hood-rpc/tired-of-web3-blue.png",
+  mascotLogo: "/images/hood-rpc/tired-of-web3-blue.png",
+  wordmarkClass: "hrpc-wordmark hrpc-wordmark-eth hrpc-wordmark-tow",
   rootClass: "hrpc hrpc-eth",
-  storagePrefix: "ethrpc",
+  storagePrefix: "tow3",
   openseaCollectionUrl: "https://opensea.io/collection/tired-of-web3/overview",
-  videoLabel: "How ETH_RPC works",
+  videoLabel: "How Tired Of Web3 works",
   heroChainBadge: "ETHEREUM",
   curatedSource: "curated-ethereum",
 };
@@ -98,18 +101,18 @@ export function getCuratedUpcoming(variant: HoodRpcVariant): CuratedUpcomingDrop
         mintAt: HOOD_NFT_DROP_AT.toISOString(),
         supply: "10K",
         price: "TBA",
-        logo: "/images/hood-rpc/tokens/eth.png",
+        logo: "/images/hood-rpc/tired-of-web3-blue.png",
         collectionSlug: "tired-of-web3",
         openseaUrl: "https://opensea.io/collection/tired-of-web3/overview",
       },
       {
-        id: "eth-platform",
-        name: "ETH_RPC Platform Live",
+        id: "tow-platform",
+        name: "Tired Of Web3 Platform Live",
         mintAt: HOOD_PLATFORM_LIVE_AT.toISOString(),
         supply: "—",
         price: "—",
-        logo: "/images/hood-rpc/tokens/eth.png",
-        collectionSlug: "eth-rpc-live",
+        logo: "/images/hood-rpc/tired-of-web3-blue.png",
+        collectionSlug: "tired-of-web3-live",
         openseaUrl: ETH_CHAIN_CONFIG.homePath,
       },
     ];

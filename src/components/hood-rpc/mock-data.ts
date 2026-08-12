@@ -150,7 +150,7 @@ export const ETH_COLLECTIONS = [
   {
     name: "Tired Of Web3",
     slug: "tired-of-web3",
-    image: "/images/hood-rpc/mascot-lime.png",
+    image: "/images/hood-rpc/tired-of-web3-blue.png",
     twitter: "https://x.com/tiredofweb3",
     discord: "https://discord.com",
     website: "https://opensea.io/collection/tired-of-web3",

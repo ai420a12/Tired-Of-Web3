@@ -91,7 +91,6 @@ export default function HoodDashboard({
   variant?: HoodRpcVariant;
 }) {
   const cfg = getHoodRpcConfig(variant);
-  const isEth = variant === "eth";
   const [launches, setLaunches] = useState<MemecoinLaunch[]>(() => makeLaunches(12, 1));
   const [nfts, setNfts] = useState<UpcomingNft[]>(() => makeNfts(8, 2));
   const [toast, setToast] = useState<string | null>(null);
@@ -355,9 +354,7 @@ export default function HoodDashboard({
             rel="noopener noreferrer"
           >
             <span className="hrpc-drop-meta">
-              <span className="hrpc-drop-label">
-                {isEth ? "ETH_RPC collection" : "NFT collection"}
-              </span>
+              <span className="hrpc-drop-label">NFT collection</span>
             </span>
             <span className="hrpc-btn hrpc-drop-opensea">OpenSea</span>
             <span className="hrpc-drop-clock hrpc-mono" aria-live="polite">

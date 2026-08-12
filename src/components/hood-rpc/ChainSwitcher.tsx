@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { ETH_CHAIN_CONFIG, HOOD_CHAIN_CONFIG } from "@/lib/hood-rpc-chain";
 
 export default function ChainSwitcher() {
   const pathname = usePathname();
@@ -15,7 +16,7 @@ export default function ChainSwitcher() {
         }`}
       >
         <Link href="/hood-rpc" aria-current={!onEth ? "page" : undefined}>
-          Hood_RPC
+          {HOOD_CHAIN_CONFIG.switcherLabel}
         </Link>
       </div>
 
@@ -25,7 +26,7 @@ export default function ChainSwitcher() {
         }`}
       >
         <Link href="/hood-rpc/eth" aria-current={onEth ? "page" : undefined}>
-          ETH_RPC
+          {ETH_CHAIN_CONFIG.switcherLabel}
         </Link>
       </div>
 

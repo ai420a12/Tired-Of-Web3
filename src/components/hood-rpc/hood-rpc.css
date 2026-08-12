@@ -2900,10 +2900,30 @@ html[data-eth-rpc="1"] .hrpc.hrpc-eth {
 }
 
 .hrpc.hrpc-eth .hrpc-nav-logo,
+.hrpc.hrpc-eth .hrpc-hero-video {
+  filter: none;
+  border-radius: 10px;
+  object-fit: cover;
+}
+
 .hrpc.hrpc-eth .hrpc-row-logo,
 .hrpc.hrpc-eth .hrpc-nft-thumb,
 .hrpc.hrpc-eth img[src*="mascot-lime"] {
   filter: hue-rotate(155deg) saturate(0.9) brightness(1.08);
+}
+
+.hrpc-wordmark-tow {
+  font-size: clamp(0.72rem, 1.8vw, 0.95rem);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.hrpc-chain-option-eth a {
+  font-size: 0.58rem;
+  letter-spacing: 0.04em;
+  max-width: 7.5rem;
+  text-align: center;
+  line-height: 1.15;
 }
 
 .hrpc-wordmark-eth {
