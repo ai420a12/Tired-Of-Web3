@@ -29,6 +29,10 @@ export function middleware(request: NextRequest) {
     url.pathname = "/hood-rpc";
     return NextResponse.rewrite(url);
   }
+  if (pathname === "/eth" || pathname.startsWith("/eth/")) {
+    url.pathname = `/hood-rpc${pathname}`;
+    return NextResponse.rewrite(url);
+  }
   if (pathname === "/wl" || pathname.startsWith("/wl/")) {
     url.pathname = `/hood-rpc${pathname}`;
     return NextResponse.rewrite(url);

@@ -1,0 +1,415 @@
+/* Blue theming overrides for the shared HOOD_RPC chrome */
+html[data-eth-rpc] .hrpc {
+  --lime: #7dd3fc;
+  --lime-dim: #3b82f6;
+  --ok: #7dd3fc;
+}
+
+html[data-eth-rpc] .hrpc-nav-link,
+html[data-eth-rpc] .hrpc-x-link,
+html[data-eth-rpc] .hrpc-wordmark,
+html[data-eth-rpc] .hrpc-nav-link-wl {
+  color: var(--lime);
+}
+
+.eth-forge {
+  /* visual background sits on top of the existing .hrpc background */
+  min-height: 100vh;
+}
+
+.eth-forge .top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.1rem 1.5rem;
+  border-bottom: 1px solid rgba(125, 211, 252, 0.25);
+  backdrop-filter: blur(8px);
+}
+
+.eth-forge .brand {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.eth-forge .brand strong {
+  display: block;
+  font-size: 1.05rem;
+  letter-spacing: 0.02em;
+}
+
+.eth-forge .brand small {
+  color: rgba(255, 255, 255, 0.65);
+  font-family: var(--mono);
+  font-size: 0.72rem;
+}
+
+.eth-forge .mark {
+  width: 2.3rem;
+  height: 2.3rem;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: var(--lime);
+  color: #081019;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.eth-forge .top-meta {
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 0.85rem;
+}
+
+.eth-forge .bg {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      900px 500px at 10% -10%,
+      rgba(125, 211, 252, 0.16),
+      transparent 60%
+    ),
+    radial-gradient(
+      700px 400px at 100% 0%,
+      rgba(59, 130, 246, 0.16),
+      transparent 55%
+    ),
+    linear-gradient(180deg, #0b1220, #05080f 40%, #02040a);
+  z-index: -1;
+}
+
+.eth-forge .shell {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 1.25rem;
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  gap: 1rem;
+}
+
+@media (max-width: 920px) {
+  .eth-forge .shell {
+    grid-template-columns: 1fr;
+  }
+  .eth-forge .top-meta {
+    display: none;
+  }
+}
+
+.eth-forge .panel {
+  background: rgba(10, 18, 32, 0.72);
+  border: 1px solid rgba(125, 211, 252, 0.25);
+  border-radius: 14px;
+  padding: 1.1rem;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+}
+
+.eth-forge .modes {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+
+.eth-forge .mode,
+.eth-forge .ghost,
+.eth-forge .primary,
+.eth-forge a.primary,
+.eth-forge a.ghost {
+  font: inherit;
+  border-radius: 999px;
+  border: 1px solid rgba(125, 211, 252, 0.35);
+  background: transparent;
+  color: #e6f3ff;
+  padding: 0.55rem 0.95rem;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.eth-forge .mode.active,
+.eth-forge .primary,
+.eth-forge a.primary {
+  background: var(--lime);
+  color: #07131f;
+  border-color: transparent;
+  font-weight: 600;
+}
+
+.eth-forge .ghost,
+.eth-forge a.ghost {
+  background: rgba(22, 40, 68, 0.45);
+}
+
+.eth-forge .mode:hover,
+.eth-forge .ghost:hover {
+  border-color: rgba(125, 211, 252, 0.65);
+}
+
+.eth-forge .field {
+  display: grid;
+  gap: 0.35rem;
+  margin-bottom: 0.85rem;
+}
+
+.eth-forge .field span {
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.65);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.eth-forge input,
+.eth-forge textarea,
+.eth-forge select {
+  width: 100%;
+  border: 1px solid rgba(125, 211, 252, 0.25);
+  background: rgba(0, 0, 0, 0.35);
+  color: #e6f3ff;
+  border-radius: 10px;
+  padding: 0.7rem 0.8rem;
+  font: inherit;
+}
+
+.eth-forge textarea {
+  resize: vertical;
+  min-height: 6rem;
+}
+
+.eth-forge .grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.eth-forge .grid-3 {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr 1fr;
+  gap: 0.75rem;
+}
+
+@media (max-width: 700px) {
+  .eth-forge .grid-2,
+  .eth-forge .grid-3 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.eth-forge .traits {
+  border: 1px dashed rgba(125, 211, 252, 0.35);
+  border-radius: 12px;
+  padding: 0.7rem 0.85rem;
+  margin: 0.4rem 0 1rem;
+}
+
+.eth-forge .traits summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.eth-forge .hint {
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.eth-forge .actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.eth-forge .actions .primary {
+  width: 100%;
+  padding: 0.85rem;
+  border-radius: 12px;
+  font-size: 1rem;
+}
+
+.eth-forge .ref-block {
+  border: 1px solid rgba(125, 211, 252, 0.25);
+  border-radius: 12px;
+  padding: 0.85rem;
+  margin-bottom: 0.95rem;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.eth-forge .ref-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.65);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 0.35rem;
+}
+
+.eth-forge .drop {
+  display: grid;
+  place-items: center;
+  min-height: 4.5rem;
+  border: 1px dashed rgba(125, 211, 252, 0.25);
+  border-radius: 10px;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.65);
+  margin: 0.55rem 0;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.eth-forge .drop.hot,
+.eth-forge .drop:hover {
+  border-color: rgba(125, 211, 252, 0.75);
+  background: rgba(125, 211, 252, 0.08);
+  color: #e6f3ff;
+}
+
+.eth-forge .ref-preview {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  gap: 0.4rem;
+}
+
+.eth-forge .ref-preview img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid rgba(125, 211, 252, 0.25);
+}
+
+.eth-forge .ghost.tiny {
+  padding: 0.25rem 0.6rem;
+  font-size: 0.75rem;
+}
+
+.eth-forge .result-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.eth-forge .result-head h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.eth-forge .status {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid rgba(125, 211, 252, 0.35);
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.eth-forge .status.running {
+  color: var(--lime);
+  border-color: rgba(125, 211, 252, 0.65);
+}
+
+.eth-forge .status.done {
+  color: #6ee7ff;
+}
+
+.eth-forge .status.error {
+  color: #ff6b5a;
+  border-color: rgba(255, 107, 90, 0.65);
+}
+
+.eth-forge .progress {
+  margin: 0.85rem 0;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+  border: 1px solid rgba(125, 211, 252, 0.25);
+}
+
+.eth-forge #bar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #7dd3fc, var(--lime));
+  transition: width 0.25s ease;
+}
+
+.eth-forge .msg {
+  color: rgba(255, 255, 255, 0.65);
+  min-height: 1.3rem;
+}
+
+.eth-forge .preview {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 0.55rem;
+  margin-top: 0.8rem;
+}
+
+.eth-forge .preview img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid rgba(125, 211, 252, 0.25);
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.eth-forge .result-actions {
+  display: flex;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+}
+
+.eth-forge .result-actions a {
+  border-radius: 12px;
+  padding: 0.6rem 0.8rem;
+}
+
+.eth-forge .result-actions a.primary {
+  background: var(--lime);
+  color: #07131f;
+  border: 1px solid var(--lime);
+}
+
+.eth-forge .result-actions a.ghost {
+  background: rgba(22, 40, 68, 0.35);
+  color: #e6f3ff;
+  border: 1px solid rgba(125, 211, 252, 0.35);
+}
+
+.eth-forge .shell .traits code,
+.eth-forge .hint code {
+  font-family: var(--mono);
+  font-size: 0.78em;
+  background: rgba(0, 0, 0, 0.35);
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+}
+
+.eth-forge .layer-card {
+  margin: 0.7rem 0 0;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid rgba(125, 211, 252, 0.25);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.eth-forge .layer-card textarea {
+  min-height: 4.5rem;
+  font-family: var(--mono);
+  font-size: 0.82rem;
+}
+
+.eth-forge .foot {
+  max-width: 1180px;
+  margin: 0 auto 2rem;
+  padding: 0 1.25rem;
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+

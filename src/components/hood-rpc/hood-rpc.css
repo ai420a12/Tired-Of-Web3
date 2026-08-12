@@ -77,6 +77,66 @@
   backdrop-filter: blur(12px);
 }
 
+.hrpc-nav-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.hrpc-chain-switcher {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.22rem;
+  padding-right: 0.1rem;
+}
+
+.hrpc-chain-switcher a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.22rem 0.45rem;
+  border-radius: 10px;
+  text-decoration: none;
+  font-size: 0.62rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.45);
+  white-space: nowrap;
+}
+
+.hrpc-chain-switcher-label {
+  font-size: 0.62rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding-left: 0.1rem;
+}
+
+.hrpc-chain-option-hood.hrpc-chain-on a {
+  border-color: rgba(204, 255, 0, 0.65);
+  box-shadow: 0 0 18px rgba(204, 255, 0, 0.18);
+  color: var(--lime);
+}
+
+.hrpc-chain-option-hood.hrpc-chain-off a {
+  color: rgba(204, 255, 0, 0.35);
+}
+
+.hrpc-chain-option-eth.hrpc-chain-on a {
+  border-color: rgba(32, 129, 226, 0.7);
+  box-shadow: 0 0 18px rgba(32, 129, 226, 0.22);
+  color: #7dd3fc;
+}
+
+.hrpc-chain-option-eth.hrpc-chain-off a {
+  color: rgba(125, 211, 252, 0.35);
+}
+
 .hrpc-nav-links {
   display: flex;
   align-items: center;

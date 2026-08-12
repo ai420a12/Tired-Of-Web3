@@ -14,6 +14,7 @@ import HoodTools from "./HoodTools";
 import HoodNftPanels from "./HoodNftPanels";
 import HoodArmSnipers from "./HoodArmSnipers";
 import WalletPickerModal, { FLEET } from "./WalletPickerModal";
+import ChainSwitcher from "./ChainSwitcher";
 import {
   HOOD_HRPC_DROP_AT,
   HOOD_NFT_DROP_AT,
@@ -247,17 +248,20 @@ export default function HoodDashboard() {
   return (
     <div className="hrpc">
       <nav className="hrpc-nav">
-        <a className="hrpc-brand" href="/hood-rpc">
-          <Image
-            src="/images/hood-rpc/mascot-lime.png"
-            alt="HOOD_RPC"
-            width={40}
-            height={40}
-            className="hrpc-nav-logo"
-            priority
-          />
-          <span className="hrpc-wordmark">HOOD_RPC</span>
-        </a>
+        <div className="hrpc-nav-left">
+          <ChainSwitcher />
+          <a className="hrpc-brand" href="/hood-rpc">
+            <Image
+              src="/images/hood-rpc/mascot-lime.png"
+              alt="HOOD_RPC"
+              width={40}
+              height={40}
+              className="hrpc-nav-logo"
+              priority
+            />
+            <span className="hrpc-wordmark">HOOD_RPC</span>
+          </a>
+        </div>
         <div className="hrpc-nav-links" aria-label="Sections">
           <a
             className="hrpc-x-link"
