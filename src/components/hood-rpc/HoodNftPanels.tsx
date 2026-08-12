@@ -217,9 +217,16 @@ function SaleTable({
             onClick={() => onSelect?.(row)}
           >
             <td className="hrpc-os-thumb">
-              <NftThumb src={row.image} />
+              <span className="hrpc-nft-ring" aria-hidden>
+                <NftThumb src={row.image} />
+              </span>
             </td>
-            <td className="hrpc-nft-name">{row.tokenName}</td>
+            <td className="hrpc-nft-name">
+              <span>{row.tokenName}</span>
+              {!row.rarityUnavailable && row.rarityRank >= 1 ? (
+                <span className="hrpc-nft-rank hrpc-mono">R#{row.rarityRank}</span>
+              ) : null}
+            </td>
             {showCollection ? (
               <td className="hrpc-name">{row.collection}</td>
             ) : null}
