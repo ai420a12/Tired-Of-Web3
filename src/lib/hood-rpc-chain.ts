@@ -31,7 +31,7 @@ export type HoodRpcChainConfig = {
 
 export const HOOD_CHAIN_CONFIG: HoodRpcChainConfig = {
   variant: "hood",
-  brand: "HOOD_RPC",
+  brand: "Tired Of Web3",
   switcherLabel: "Hood_RPC",
   homePath: "/hood-rpc",
   wlPath: HOOD_RPC_LINKS.wl,
@@ -42,11 +42,11 @@ export const HOOD_CHAIN_CONFIG: HoodRpcChainConfig = {
   openseaAssetsChain: "robinhood",
   defaultTokenLogo: "/images/hood-rpc/tokens/rh.png",
   mascotLogo: "/images/hood-rpc/mascot-lime.png",
-  wordmarkClass: "hrpc-wordmark",
+  wordmarkClass: "hrpc-wordmark hrpc-wordmark-tow",
   rootClass: "hrpc",
   storagePrefix: "hrpc",
   openseaCollectionUrl: HOOD_RPC_LINKS.opensea,
-  videoLabel: "How HOOD_RPC works",
+  videoLabel: "How Tired Of Web3 works",
   heroChainBadge: "ROBINHOOD CHAIN",
   curatedSource: "curated-robinhood",
 };
@@ -54,7 +54,7 @@ export const HOOD_CHAIN_CONFIG: HoodRpcChainConfig = {
 export const ETH_CHAIN_CONFIG: HoodRpcChainConfig = {
   variant: "eth",
   brand: "Tired Of Web3",
-  switcherLabel: "Tired Of Web3",
+  switcherLabel: "ETH_RPC",
   homePath: "/hood-rpc/eth",
   wlPath: "/hood-rpc/wl",
   apiBase: "/api/hood-rpc/eth",

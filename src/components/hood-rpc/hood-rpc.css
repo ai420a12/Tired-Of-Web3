@@ -2919,11 +2919,8 @@ html[data-eth-rpc="1"] .hrpc.hrpc-eth {
 }
 
 .hrpc-chain-option-eth a {
-  font-size: 0.58rem;
-  letter-spacing: 0.04em;
-  max-width: 7.5rem;
-  text-align: center;
-  line-height: 1.15;
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
 }
 
 .hrpc-wordmark-eth {

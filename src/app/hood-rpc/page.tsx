@@ -3,9 +3,9 @@ import HoodDashboard from "@/components/hood-rpc/HoodDashboard";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://hoodrpc.xyz"),
-  title: "HOOD_RPC — Snipe Memecoins & NFTs",
+  title: "Tired Of Web3 — Snipe Memecoins & NFTs",
   description:
-    "The fastest RPC on Robinhood Chain. Snipe memecoin launches and upcoming NFT collections.",
+    "Tired Of Web3 — the fastest RPC on Robinhood Chain. Snipe memecoin launches and upcoming NFT collections.",
   icons: {
     icon: [
       { url: "/images/hood-rpc/favicon.png", sizes: "32x32", type: "image/png" },
@@ -18,7 +18,7 @@ export const metadata: Metadata = {
     ],
   },
   openGraph: {
-    title: "HOOD_RPC — Snipe Memecoins & NFTs",
+    title: "Tired Of Web3 — Snipe Memecoins & NFTs",
     description: "Built for speed. Built to snipe. Power your edge.",
     images: ["/images/hood-rpc/banner-ref.png"],
   },
