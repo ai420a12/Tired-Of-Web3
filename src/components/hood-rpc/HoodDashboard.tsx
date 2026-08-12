@@ -361,6 +361,7 @@ export default function HoodDashboard({
         aria-hidden={!hasAccess}
       >
       {hasAccess ? (
+      <>
       <nav className="hrpc-nav">
         <div className="hrpc-nav-left">
           <ChainSwitcher />
@@ -471,6 +472,7 @@ export default function HoodDashboard({
           </div>
         </div>
       </div>
+      </>
       ) : null}
 
       {profileOpen && hasAccess ? (
