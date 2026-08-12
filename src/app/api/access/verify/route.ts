@@ -65,7 +65,11 @@ export async function POST(request: Request) {
     const msg = err instanceof Error ? err.message : "RPC error";
     console.error("access verify balanceOf failed:", msg);
     return NextResponse.json(
-      { error: "Could not check Access Key ownership. Try again." },
+      {
+        error: "Could not check Access Key ownership. Try again.",
+        code: "OWNERSHIP_CHECK_FAILED",
+        detail: process.env.NODE_ENV === "development" ? msg : undefined,
+      },
       { status: 503 },
     );
   }
