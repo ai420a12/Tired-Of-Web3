@@ -129,7 +129,7 @@ export default function HoodWhitelistForm() {
           setIntakeDown(true);
           setError(
             data.error ||
-              "WL intake is temporarily down — ping us on X @Hood_RPC and we'll sort it.",
+              "WL intake is temporarily down — ping us on X @TiredOfWeb3 and we'll sort it.",
           );
         } else {
           setError(data.error || "Submission failed.");

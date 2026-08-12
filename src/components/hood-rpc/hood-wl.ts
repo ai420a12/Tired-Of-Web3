@@ -1,7 +1,7 @@
 export const HOOD_RPC_LINKS = {
-  x: "https://x.com/Hood_RPC",
+  x: "https://x.com/TiredOfWeb3",
   /** Open profile — users quote the pinned post from here */
-  pinnedPost: "https://x.com/Hood_RPC",
+  pinnedPost: "https://x.com/TiredOfWeb3/status/2084745609936830558",
   home: "/hood-rpc",
   wl: "/hood-rpc/wl",
   /** Live OpenSea collection */
@@ -20,12 +20,12 @@ export const HOOD_RPC_WL_TASKS = [
     id: "follow" as const,
     number: "01",
     title: "Follow us",
-    description: "Follow @Hood_RPC on X and stay locked on the feed.",
+    description: "Follow @TiredOfWeb3 on X and stay locked on the feed.",
     cta: "Follow on X",
     href: HOOD_RPC_LINKS.x,
     verificationLabel: "Add your X profile",
     verificationPlaceholder: "@yourhandle or x.com/yourhandle",
-    note: "When we review your application, your account must still be following @Hood_RPC.",
+    note: "When we review your application, your account must still be following @TiredOfWeb3.",
   },
   {
     id: "share" as const,

@@ -41,8 +41,8 @@ export default function HoodRpcWlPage() {
               href={HOOD_RPC_LINKS.x}
               target="_blank"
               rel="noopener noreferrer"
-              aria-label="HOOD_RPC on X"
-              title="@Hood_RPC"
+              aria-label="TiredOfWeb3 on X"
+              title="@TiredOfWeb3"
             >
               <svg viewBox="0 0 24 24" aria-hidden width="14" height="14">
                 <path
