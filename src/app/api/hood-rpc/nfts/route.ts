@@ -246,20 +246,70 @@ async function sleep(ms: number) {
   await new Promise((r) => setTimeout(r, ms));
 }
 
+/**
+ * Legitimate keys only — OPENSEA_API_KEY and/or comma-separated OPENSEA_API_KEYS.
+ * Rotates on 429/503 so one flaky/limited key does not kill the live board.
+ */
+function openseaKeys(): string[] {
+  const multi = (process.env.OPENSEA_API_KEYS || "")
+    .split(/[\s,]+/)
+    .map((k) => k.trim())
+    .filter(Boolean);
+  const single = (process.env.OPENSEA_API_KEY || "").trim();
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const k of [...multi, ...(single ? [single] : [])]) {
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(k);
+  }
+  return out;
+}
+
+let keyCursor = 0;
+function nextOpenSeaKey(): string | null {
+  const keys = openseaKeys();
+  if (!keys.length) return null;
+  const key = keys[keyCursor % keys.length];
+  keyCursor = (keyCursor + 1) % keys.length;
+  return key;
+}
+
+/** Last-good chain-wide sales — OpenSea intermittently returns 503 / tiny rate limits. */
+const liveSalesCache = new Map<
+  string,
+  { rows: SaleRow[]; at: number; note?: string }
+>();
+const LIVE_CACHE_MS = 90_000;
+
 async function osFetch(path: string, attempt = 0): Promise<unknown | null> {
-  const key = process.env.OPENSEA_API_KEY;
+  const keys = openseaKeys();
+  if (!keys.length) return null;
+  const key = keys[attempt % keys.length] || nextOpenSeaKey();
   if (!key) return null;
-  const res = await fetch(`https://api.opensea.io/api/v2${path}`, {
-    headers: {
-      Accept: "application/json",
-      "X-API-KEY": key,
-      "User-Agent": "HOOD_RPC/1.0",
-    },
-    cache: "no-store",
-  });
-  // OpenSea rate-limits bursty parallel NFT lookups — back off and retry
-  if (res.status === 429 && attempt < 4) {
-    await sleep(350 * (attempt + 1));
+
+  let res: Response;
+  try {
+    res = await fetch(`https://api.opensea.io/api/v2${path}`, {
+      headers: {
+        Accept: "application/json",
+        "X-API-KEY": key,
+        "User-Agent": "HOOD_RPC/1.0",
+      },
+      cache: "no-store",
+    });
+  } catch {
+    if (attempt < 5) {
+      await sleep(400 * (attempt + 1));
+      return osFetch(path, attempt + 1);
+    }
+    return null;
+  }
+
+  // 429 = rate limit; 502/503/504 = OpenSea backend flaky ("Backend service does not exist")
+  if ([429, 502, 503, 504].includes(res.status) && attempt < 6) {
+    const retryAfter = Number(res.headers.get("retry-after") || 0);
+    await sleep(Math.max(retryAfter * 1000, 450 * (attempt + 1)));
     return osFetch(path, attempt + 1);
   }
   if (!res.ok) return null;
@@ -432,27 +482,15 @@ async function fetchCollectionSales(
   });
 }
 
-/** Chain-wide live sales — one fast OpenSea page, newest first. */
-async function fetchChainWideSales(
+function ingestEvents(
+  events: OsEvent[],
   scope: NftsScope,
-  limit: number,
-): Promise<SaleRow[]> {
-  const target = Math.min(limit, 40);
-  const after = Math.floor(Date.now() / 1000) - 180;
-  const params = new URLSearchParams({
-    event_type: "sale",
-    limit: "100",
-    after: String(after),
-  });
-
-  const data = (await osFetch(`/events?${params.toString()}`)) as {
-    asset_events?: OsEvent[];
-  } | null;
-
-  const seenIds = new Set<string>();
-  const rows: SaleRow[] = [];
-
-  for (const ev of data?.asset_events || []) {
+  rows: SaleRow[],
+  seenIds: Set<string>,
+  target: number,
+) {
+  for (const ev of events) {
+    // Require matching chain when present — never mix ETH into Hood and vice versa
     if (ev.chain && ev.chain !== scope.openseaChain) continue;
     const nft = ev.nft;
     if (!nft?.collection) continue;
@@ -477,52 +515,78 @@ async function fetchChainWideSales(
       scope.openseaAssetsChain,
     );
     if (!row || seenIds.has(row.id)) continue;
+    // Drop events with no chain when we already have enough chain-tagged rows
+    if (!ev.chain && rows.length >= Math.min(8, target)) continue;
     seenIds.add(row.id);
     rows.push(row);
     if (rows.length >= target) break;
   }
+}
 
-  if (rows.length >= Math.min(8, target)) {
-    await enrichNftDetails(rows, scope.openseaChain, {
-      limit: 12,
-      concurrency: 3,
-    });
-    return rows.sort(sortNewest).slice(0, target);
-  }
+/** Chain-wide live sales — prefer /events, fall back to curated collection polls. */
+async function fetchChainWideSales(
+  scope: NftsScope,
+  limit: number,
+): Promise<SaleRow[]> {
+  const target = Math.min(limit, 40);
+  const cacheKey = scope.openseaChain;
+  // Wider window: OpenSea /events is flaky + rate-limited; 180s often returns empty
+  const after = Math.floor(Date.now() / 1000) - 6 * 60 * 60;
+  const params = new URLSearchParams({
+    event_type: "sale",
+    limit: "100",
+    after: String(after),
+  });
 
-  // Quiet window — one unfiltered page so the board is not empty
-  const fallback = (await osFetch("/events?event_type=sale&limit=100")) as {
+  const seenIds = new Set<string>();
+  const rows: SaleRow[] = [];
+
+  const data = (await osFetch(`/events?${params.toString()}`)) as {
     asset_events?: OsEvent[];
   } | null;
-  for (const ev of fallback?.asset_events || []) {
-    if (ev.chain && ev.chain !== scope.openseaChain) continue;
-    const nft = ev.nft;
-    if (!nft?.collection) continue;
-    const slug = nft.collection;
-    const known = scope.collections.find((c) => c.slug === slug);
-    const colName =
-      known?.name ||
-      nft.name?.replace(/\s*#\d+$/, "").trim() ||
-      slug.replace(/-/g, " ");
-    const row = mapEvent(
-      ev,
-      colName,
-      slug,
-      pickNftImage(nft, NEUTRAL_NFT_IMAGE),
-      scope.chainLabel,
-      scope.openseaAssetsChain,
-    );
-    if (!row || seenIds.has(row.id)) continue;
-    seenIds.add(row.id);
-    rows.push(row);
-    if (rows.length >= target) break;
+  ingestEvents(data?.asset_events || [], scope, rows, seenIds, target);
+
+  if (rows.length < Math.min(8, target)) {
+    // Quiet / 503 window — unfiltered page, then filter by chain
+    const fallback = (await osFetch("/events?event_type=sale&limit=100")) as {
+      asset_events?: OsEvent[];
+    } | null;
+    ingestEvents(fallback?.asset_events || [], scope, rows, seenIds, target);
+  }
+
+  // Still thin — poll a few curated collections (higher OpenSea quota than global /events)
+  if (rows.length < Math.min(6, target) && scope.collections.length) {
+    const sample = scope.collections.slice(0, 6);
+    await mapPool(sample, 2, async (col) => {
+      if (rows.length >= target) return;
+      const colData = (await osFetch(
+        `/events/collection/${col.slug}?event_type=sale&limit=12`,
+      )) as { asset_events?: OsEvent[]; events?: OsEvent[] } | null;
+      const events = (colData?.asset_events || colData?.events || []).map(
+        (ev) => ({ ...ev, chain: ev.chain || scope.openseaChain }),
+      );
+      ingestEvents(events, scope, rows, seenIds, target);
+    });
+  }
+
+  if (!rows.length) {
+    const cached = liveSalesCache.get(cacheKey);
+    if (cached && Date.now() - cached.at < LIVE_CACHE_MS) {
+      return cached.rows.map((r) => ({
+        ...r,
+        ago: ago(r.eventTs),
+      }));
+    }
+    return [];
   }
 
   await enrichNftDetails(rows, scope.openseaChain, {
-    limit: 12,
-    concurrency: 3,
+    limit: 8,
+    concurrency: 2,
   });
-  return rows.sort(sortNewest).slice(0, target);
+  const sorted = rows.sort(sortNewest).slice(0, target);
+  liveSalesCache.set(cacheKey, { rows: sorted, at: Date.now() });
+  return sorted;
 }
 
 type OsListing = {
@@ -648,7 +712,7 @@ export async function GET(req: Request) {
   const limit = Math.min(40, Math.max(8, Number(searchParams.get("limit") || 24)));
   const scope = makeScope(resolveApiVariant(req));
 
-  const hasKey = Boolean(process.env.OPENSEA_API_KEY);
+  const hasKey = openseaKeys().length > 0;
   const collections = scope.collections.map((c) => ({
     name: c.name,
     slug: c.slug,

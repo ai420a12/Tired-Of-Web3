@@ -13,7 +13,8 @@ type Props = {
 };
 
 const LIVE_LIMIT = 28;
-const LIVE_POLL_MS = 2000;
+/** OpenSea global /events is tightly rate-limited — don't hammer it every 2s */
+const LIVE_POLL_MS = 6000;
 
 function formatAgo(tsSec?: number): string {
   if (!tsSec) return "just now";
@@ -461,7 +462,7 @@ export default function HoodNftPanels({
     }
 
     void loadProject();
-    const id = window.setInterval(() => void loadProject(), 4_000);
+    const id = window.setInterval(() => void loadProject(), 8_000);
     return () => {
       cancelled = true;
       window.clearInterval(id);
