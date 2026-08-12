@@ -3,6 +3,7 @@ import {
   HOOD_NFT_DROP_AT,
   HOOD_PLATFORM_LIVE_AT,
   HOOD_RPC_LINKS,
+  TIRED_OF_WEB3_OPENSEA_URL,
 } from "@/components/hood-rpc/hood-wl";
 
 export type HoodRpcVariant = "hood" | "eth";
@@ -45,7 +46,7 @@ export const HOOD_CHAIN_CONFIG: HoodRpcChainConfig = {
   wordmarkClass: "hrpc-wordmark hrpc-wordmark-tow",
   rootClass: "hrpc",
   storagePrefix: "hrpc",
-  openseaCollectionUrl: HOOD_RPC_LINKS.opensea,
+  openseaCollectionUrl: TIRED_OF_WEB3_OPENSEA_URL,
   videoLabel: "How Tired Of Web3 works",
   heroChainBadge: "ROBINHOOD CHAIN",
   curatedSource: "curated-robinhood",
@@ -67,7 +68,7 @@ export const ETH_CHAIN_CONFIG: HoodRpcChainConfig = {
   wordmarkClass: "hrpc-wordmark hrpc-wordmark-eth hrpc-wordmark-tow",
   rootClass: "hrpc hrpc-eth",
   storagePrefix: "tow3",
-  openseaCollectionUrl: "https://opensea.io/collection/tired-of-web3/overview",
+  openseaCollectionUrl: TIRED_OF_WEB3_OPENSEA_URL,
   videoLabel: "How Tired Of Web3 works",
   heroChainBadge: "ETHEREUM",
   curatedSource: "curated-ethereum",
@@ -99,11 +100,11 @@ export function getCuratedUpcoming(variant: HoodRpcVariant): CuratedUpcomingDrop
         id: "tired-of-web3",
         name: "Tired Of Web3",
         mintAt: HOOD_NFT_DROP_AT.toISOString(),
-        supply: "10K",
+        supply: "1111",
         price: "TBA",
         logo: "/images/hood-rpc/tokens/eth.png",
         collectionSlug: "tired-of-web3",
-        openseaUrl: "https://opensea.io/collection/tired-of-web3/overview",
+        openseaUrl: TIRED_OF_WEB3_OPENSEA_URL,
       },
       {
         id: "tow-platform",
@@ -120,14 +121,14 @@ export function getCuratedUpcoming(variant: HoodRpcVariant): CuratedUpcomingDrop
 
   return [
     {
-      id: "hood-rpc",
-      name: "HOOD_RPC Genesis",
+      id: "tired-of-web3",
+      name: "Tired Of Web3",
       mintAt: HOOD_NFT_DROP_AT.toISOString(),
-      supply: "3333",
+      supply: "1111",
       price: "TBA",
       logo: "/images/hood-rpc/mascot-lime.png",
-      collectionSlug: "hood-rpc",
-      openseaUrl: HOOD_RPC_LINKS.opensea,
+      collectionSlug: "tired-of-web3",
+      openseaUrl: TIRED_OF_WEB3_OPENSEA_URL,
     },
     {
       id: "hood-platform",

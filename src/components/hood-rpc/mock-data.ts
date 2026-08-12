@@ -154,7 +154,7 @@ export const ETH_COLLECTIONS = [
     image: "/images/hood-rpc/tired-of-web3-blue.png",
     twitter: "https://x.com/tiredofweb3",
     discord: "https://discord.com",
-    website: "https://opensea.io/collection/tired-of-web3",
+    website: "https://opensea.io/collection/tired-of-web3/overview",
   },
   {
     name: "Bored Ape Yacht Club",
