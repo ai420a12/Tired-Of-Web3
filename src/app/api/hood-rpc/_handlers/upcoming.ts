@@ -148,9 +148,11 @@ export async function handleUpcoming(variant: HoodRpcVariant) {
             countdown: formatCountdown(etaSeconds),
             etaSeconds,
             logo:
-              drop.image_url ||
-              meta?.image_url ||
-              cfg.mascotLogo,
+              cfg.variant === "eth"
+                ? cfg.defaultTokenLogo
+                : drop.image_url ||
+                  meta?.image_url ||
+                  cfg.mascotLogo,
             collectionSlug: slug,
             openseaUrl:
               drop.opensea_url ||

@@ -109,7 +109,9 @@ export async function handleMemecoins(cfg: HoodRpcChainConfig) {
         liquidity: fmtUsd(liq),
         mcap: fmtUsd(mcap),
         status,
-        logo: token?.attributes?.image_url || cfg.defaultTokenLogo,
+        logo: cfg.variant === "eth"
+          ? cfg.defaultTokenLogo
+          : token?.attributes?.image_url || cfg.defaultTokenLogo,
         pairUrl: `https://www.geckoterminal.com/${network}/pools/${addr}`,
         createdAt: created,
       });

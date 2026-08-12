@@ -1189,6 +1189,9 @@
   font-size: 0.62rem;
   font-weight: 900;
   letter-spacing: 0.06em;
+  line-height: 1.2;
+  min-width: 3.2rem;
+  text-align: center;
 }
 
 .hrpc-status-live {
@@ -2994,7 +2997,7 @@ html[data-eth-rpc="1"] .hrpc.hrpc-eth {
 }
 
 .hrpc.hrpc-eth .hrpc-row-logo {
-  filter: hue-rotate(155deg) saturate(0.9) brightness(1.08);
+  filter: none;
 }
 
 .hrpc.hrpc-eth .hrpc-os-thumb img,
@@ -3064,9 +3067,18 @@ html[data-eth-rpc="1"] .hrpc.hrpc-eth {
 .hrpc.hrpc-eth .hrpc-section-title,
 .hrpc.hrpc-eth .hrpc-drop-clock,
 .hrpc.hrpc-eth .hrpc-ticker span,
-.hrpc.hrpc-eth .hrpc-status-live,
 .hrpc.hrpc-eth .hrpc-pnl-val,
 .hrpc.hrpc-eth .hrpc-price-eth {
+  color: #7dd3fc;
+}
+
+.hrpc.hrpc-eth .hrpc-status-live {
+  background: #7dd3fc;
+  color: #000;
+}
+
+.hrpc.hrpc-eth .hrpc-status-soon {
+  border-color: #7dd3fc;
   color: #7dd3fc;
 }
 

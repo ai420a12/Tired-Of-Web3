@@ -489,7 +489,7 @@ export default function HoodDashboard({
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
                             className="hrpc-row-logo"
-                            src={row.logo}
+                            src={variant === "eth" ? cfg.defaultTokenLogo : row.logo}
                             alt=""
                             loading="lazy"
                           />
@@ -592,7 +592,7 @@ export default function HoodDashboard({
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
                             className="hrpc-row-logo"
-                            src={row.logo}
+                            src={variant === "eth" ? cfg.defaultTokenLogo : row.logo}
                             alt=""
                             loading="lazy"
                           />
