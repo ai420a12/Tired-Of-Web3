@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { type HoodNftSale } from "./mock-data";
 import HoodRarityLegend from "./HoodRarityLegend";
-import { rarityRowClass, rarityTierFromRank } from "./hood-rarity";
+import { rarityTierFromRank } from "./hood-rarity";
 import { DEMO_TOAST, HOOD_RPC_DEMO } from "@/lib/hood-rpc-demo";
 
 type Props = {
@@ -26,6 +26,17 @@ function formatAgo(tsSec?: number): string {
 }
 
 /** Keep newest sales across polls — never let a laggy response overwrite fresher rows */
+function keepRarity(from: HoodNftSale, onto: HoodNftSale): HoodNftSale {
+  if (onto.rarityUnavailable && !from.rarityUnavailable) {
+    return {
+      ...onto,
+      rarityRank: from.rarityRank,
+      rarityUnavailable: false,
+    };
+  }
+  return onto;
+}
+
 function mergeLiveSales(
   prev: HoodNftSale[],
   incoming: HoodNftSale[],
@@ -33,9 +44,14 @@ function mergeLiveSales(
   const map = new Map<string, HoodNftSale>();
   for (const row of [...prev, ...incoming]) {
     const existing = map.get(row.id);
-    if (!existing || (row.eventTs || 0) >= (existing.eventTs || 0)) {
+    if (!existing) {
       map.set(row.id, row);
+      continue;
     }
+    const newer =
+      (row.eventTs || 0) >= (existing.eventTs || 0) ? row : existing;
+    const older = newer === row ? existing : row;
+    map.set(row.id, keepRarity(older, newer));
   }
   return [...map.values()]
     .filter((r) => (r.eventTs || 0) > 0)
@@ -51,12 +67,12 @@ type FlyState = {
 
 function PriceCell({ item }: { item: HoodNftSale }) {
   return (
-    <td className="hrpc-nft-price">
+    <div className="hrpc-nft-price">
       <span className={item.kind === "weth" ? "hrpc-price-weth" : "hrpc-price-eth"}>
         {item.eth.toFixed(3)} {item.kind === "weth" ? "WETH" : "ETH"}
       </span>
       <span className="hrpc-price-usd">${item.usd.toFixed(2)}</span>
-    </td>
+    </div>
   );
 }
 
@@ -196,23 +212,23 @@ function SaleTable({
   onThumbOut: (e: React.MouseEvent) => void;
   onSnipe?: (item: HoodNftSale) => void;
 }) {
+  const layout = showSnipe ? "snipe" : showCollection ? "live" : "project";
   return (
-    <table className="hrpc-table hrpc-nft-table">
-      <thead>
-        <tr>
-          <th style={{ width: 44 }} />
-          <th>NFT</th>
-          {showCollection ? <th>Collection</th> : null}
-          <th>Price</th>
-          <th>Time</th>
-          {showSnipe ? <th className="hrpc-os-snipe-th">Snipe</th> : null}
-        </tr>
-      </thead>
-      <tbody
+    <div className={`hrpc-nft-list hrpc-nft-list--${layout}`}>
+      <div className="hrpc-nft-list-head">
+        <span className="hrpc-nft-rank-spacer" aria-hidden />
+        <span />
+        <span>NFT</span>
+        {showCollection ? <span>Collection</span> : null}
+        <span>Price</span>
+        <span>Time</span>
+        {showSnipe ? <span className="hrpc-os-snipe-th">Snipe</span> : null}
+      </div>
+      <div
         onMouseOver={(e) => {
-          const thumb = (e.target as HTMLElement).closest("td.hrpc-os-thumb");
+          const thumb = (e.target as HTMLElement).closest(".hrpc-os-thumb");
           if (!thumb) return;
-          const rowEl = thumb.closest("tr");
+          const rowEl = thumb.closest(".hrpc-nft-list-row");
           if (!rowEl) return;
           const id = rowEl.getAttribute("data-sale-id");
           const item = rows.find((r) => r.id === id);
@@ -220,47 +236,54 @@ function SaleTable({
         }}
         onMouseOut={onThumbOut}
       >
-        {rows.map((row) => (
-          <tr
-            key={row.id}
-            data-sale-id={row.id}
-            className={`hrpc-row hrpc-nft-row hrpc-os-row ${rarityRowClass(row.rarityUnavailable ? null : row.rarityRank)}${focusSlug && focusSlug === row.collectionSlug ? " hrpc-nft-row-active" : ""}`}
-            onClick={() => onSelect?.(row)}
-          >
-            <td className="hrpc-os-thumb">
-              <span className="hrpc-nft-ring" aria-hidden>
-                <NftThumb src={row.image} />
-              </span>
-            </td>
-            <td className="hrpc-nft-name">
-              <span>{row.tokenName}</span>
-              {!row.rarityUnavailable && row.rarityRank >= 1 ? (
-                <span className="hrpc-nft-rank hrpc-mono">R#{row.rarityRank}</span>
+        {rows.map((row) => {
+          const tier = rarityTierFromRank(
+            row.rarityUnavailable ? null : row.rarityRank,
+          );
+          return (
+            <div
+              key={row.id}
+              data-sale-id={row.id}
+              data-rarity={tier}
+              className={`hrpc-nft-list-row hrpc-nft-row hrpc-os-row${focusSlug && focusSlug === row.collectionSlug ? " hrpc-nft-row-active" : ""}`}
+              onClick={() => onSelect?.(row)}
+            >
+              <span className="hrpc-nft-rank-bar" aria-hidden />
+              <div className="hrpc-os-thumb">
+                <span className="hrpc-nft-ring" data-rarity={tier} aria-hidden>
+                  <NftThumb src={row.image} />
+                </span>
+              </div>
+              <div className="hrpc-nft-name">
+                <span>{row.tokenName}</span>
+                {!row.rarityUnavailable && row.rarityRank >= 1 ? (
+                  <span className="hrpc-nft-rank hrpc-mono">R#{row.rarityRank}</span>
+                ) : null}
+              </div>
+              {showCollection ? (
+                <div className="hrpc-name">{row.collection}</div>
               ) : null}
-            </td>
-            {showCollection ? (
-              <td className="hrpc-name">{row.collection}</td>
-            ) : null}
-            <PriceCell item={row} />
-            <td className="hrpc-mono hrpc-ago">{row.ago}</td>
-            {showSnipe ? (
-              <td>
-                <button
-                  type="button"
-                  className="hrpc-btn"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onSnipe?.(row);
-                  }}
-                >
-                  Snipe
-                </button>
-              </td>
-            ) : null}
-          </tr>
-        ))}
-      </tbody>
-    </table>
+              <PriceCell item={row} />
+              <div className="hrpc-mono hrpc-ago">{row.ago}</div>
+              {showSnipe ? (
+                <div>
+                  <button
+                    type="button"
+                    className="hrpc-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSnipe?.(row);
+                    }}
+                  >
+                    Snipe
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -318,7 +341,7 @@ export default function HoodNftPanels({
 
   const handleThumbOut = useCallback(
     (e: React.MouseEvent) => {
-      const thumb = (e.target as HTMLElement).closest("td.hrpc-os-thumb");
+      const thumb = (e.target as HTMLElement).closest(".hrpc-os-thumb");
       if (!thumb) return;
       const related = e.relatedTarget as Node | null;
       if (

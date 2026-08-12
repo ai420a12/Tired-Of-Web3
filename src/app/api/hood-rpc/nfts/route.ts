@@ -391,6 +391,29 @@ function mapEvent(
   };
 }
 
+const rarityCache = new Map<string, { rank: number | null; at: number }>();
+const RARITY_CACHE_MS = 30 * 60 * 1000;
+
+function rarityCacheKey(
+  chain: string,
+  contract?: string,
+  tokenId?: string,
+): string | null {
+  if (!contract || !tokenId) return null;
+  return `${chain}:${contract.toLowerCase()}:${tokenId}`;
+}
+
+function applyCachedRarity(row: SaleRow, chain: string) {
+  const key = rarityCacheKey(chain, row.contract, row.tokenId);
+  if (!key) return;
+  const hit = rarityCache.get(key);
+  if (!hit || Date.now() - hit.at > RARITY_CACHE_MS) return;
+  if (hit.rank != null) {
+    row.rarityRank = hit.rank;
+    row.rarityUnavailable = false;
+  }
+}
+
 /** Pull per-token art + rarity from the NFT endpoint when event/listing payloads are thin. */
 async function enrichNftDetails(
   rows: SaleRow[],
@@ -405,14 +428,20 @@ async function enrichNftDetails(
   const colImage = opts.colImage || "";
   const limit = opts.limit ?? 24;
   const concurrency = opts.concurrency ?? 2;
+
+  for (const row of rows) applyCachedRarity(row, openseaChain);
+
   const targets = rows
     .filter((r) => r.tokenId && r.contract)
-    .filter(
-      (r) =>
-        opts.forceImage ||
-        r.rarityUnavailable ||
-        isWeakOrLocalImage(r.image, colImage),
-    )
+    .filter((r) => {
+      const key = rarityCacheKey(openseaChain, r.contract, r.tokenId);
+      const hit = key ? rarityCache.get(key) : undefined;
+      const fresh = Boolean(hit && Date.now() - hit.at <= RARITY_CACHE_MS);
+      const needRank = r.rarityUnavailable && !fresh;
+      const needImage =
+        opts.forceImage || isWeakOrLocalImage(r.image, colImage);
+      return needRank || needImage;
+    })
     .slice(0, limit);
 
   if (!targets.length) return rows;
@@ -422,26 +451,20 @@ async function enrichNftDetails(
       `/chain/${openseaChain}/contract/${row.contract}/nfts/${row.tokenId}`,
     )) as { nft?: OsNft } | null;
     const nft = data?.nft;
+    const key = rarityCacheKey(openseaChain, row.contract, row.tokenId);
     if (!nft) return;
     if (nft.name) row.tokenName = nft.name;
     const nextImage = pickNftImage(nft, "");
     if (nextImage) row.image = nextImage;
     if (nft.opensea_url) row.openseaUrl = nft.opensea_url;
     const rank = parseOpenSeaRarityRank(nft as Record<string, unknown>);
+    if (key) rarityCache.set(key, { rank, at: Date.now() });
     if (rank != null) {
       row.rarityRank = rank;
       row.rarityUnavailable = false;
     }
   });
   return rows;
-}
-
-async function enrichRarity(rows: SaleRow[], openseaChain: string): Promise<SaleRow[]> {
-  return enrichNftDetails(rows, openseaChain, {
-    forceImage: false,
-    limit: 10,
-    concurrency: 2,
-  });
 }
 
 async function fetchCollectionSales(
@@ -520,6 +543,10 @@ async function fetchChainWideSales(
   }
 
   if (rows.length >= Math.min(8, target)) {
+    await enrichNftDetails(rows, scope.openseaChain, {
+      limit: 12,
+      concurrency: 3,
+    });
     return rows.sort(sortNewest).slice(0, target);
   }
 
@@ -551,6 +578,10 @@ async function fetchChainWideSales(
     if (rows.length >= target) break;
   }
 
+  await enrichNftDetails(rows, scope.openseaChain, {
+    limit: 12,
+    concurrency: 3,
+  });
   return rows.sort(sortNewest).slice(0, target);
 }
 
