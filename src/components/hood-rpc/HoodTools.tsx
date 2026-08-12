@@ -78,7 +78,7 @@ export default function HoodTools({ onToast, connectedWallet }: Props) {
     {
       id: "1",
       text: HOOD_RPC_DEMO
-        ? "Demo idle — no real txs (Enter Demo to play)"
+        ? "Demo idle — no real txs (Connect Wallet to play)"
         : "Bot idle — waiting for arm",
       kind: "info",
     },
@@ -96,7 +96,7 @@ export default function HoodTools({ onToast, connectedWallet }: Props) {
   function requireDemo() {
     if (!HOOD_RPC_DEMO) return true;
     if (!connectedWallet) {
-      onToast("> ENTER DEMO FIRST (top right)");
+      onToast("> CONNECT WALLET FIRST (top right)");
       return false;
     }
     return true;

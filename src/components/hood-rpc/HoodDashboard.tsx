@@ -128,7 +128,7 @@ export default function HoodDashboard({
 
   function saveProfile() {
     if (!wallet) {
-      setToast("> ENTER DEMO MODE FIRST");
+      setToast("> CONNECT WALLET FIRST");
       return;
     }
     const next = profileDraft.trim().replace(/^@+/, "").slice(0, 24);
@@ -304,7 +304,7 @@ export default function HoodDashboard({
                 if (!wallet) {
                   setToast(
                     HOOD_RPC_DEMO
-                      ? "> ENTER DEMO TO EDIT PROFILE"
+                      ? "> CONNECT WALLET TO EDIT PROFILE"
                       : "> CONNECT WALLET TO EDIT PROFILE",
                   );
                   return;
@@ -332,13 +332,7 @@ export default function HoodDashboard({
                 onClick={connectWallet}
                 disabled={connecting}
               >
-                <span>
-                  {connecting
-                    ? "Starting…"
-                    : HOOD_RPC_DEMO
-                      ? "Enter Demo"
-                      : "Connect Wallet"}
-                </span>
+                <span>{connecting ? "Connecting…" : "Connect Wallet"}</span>
               </button>
             )}
           </div>

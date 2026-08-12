@@ -57,7 +57,7 @@ export default function HoodArmSnipers({ onToast, connectedWallet }: Props) {
   function requireWallet() {
     if (HOOD_RPC_DEMO) {
       if (!connectedWallet) {
-        onToast("> ENTER DEMO FIRST (top right)");
+        onToast("> CONNECT WALLET FIRST (top right)");
         return false;
       }
       return true;
