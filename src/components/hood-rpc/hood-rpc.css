@@ -27,10 +27,11 @@
   scrollbar-color: var(--lime) #111;
 }
 
-/* Force green scrollbars (override global purple from site CSS) */
+/* Theme scrollbars from --lime so ETH blue overrides Hood lime */
 .hrpc,
 .hrpc * {
-  scrollbar-color: #ccff00 #111 !important;
+  scrollbar-width: thin !important;
+  scrollbar-color: var(--lime) #111 !important;
 }
 
 .hrpc::-webkit-scrollbar,
@@ -46,13 +47,13 @@
 
 .hrpc::-webkit-scrollbar-thumb,
 .hrpc *::-webkit-scrollbar-thumb {
-  background: #ccff00 !important;
+  background: var(--lime) !important;
   border-radius: 4px;
 }
 
 .hrpc::-webkit-scrollbar-thumb:hover,
 .hrpc *::-webkit-scrollbar-thumb:hover {
-  background: #a8d400 !important;
+  background: var(--lime-dim) !important;
 }
 
 .hrpc [id] {

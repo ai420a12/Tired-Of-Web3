@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ETH_CHAIN_CONFIG, HOOD_CHAIN_CONFIG } from "@/lib/hood-rpc-chain";
+import { isEthPath } from "@/lib/site-domains";
 
 export default function ChainSwitcher() {
   const pathname = usePathname();
-  const onEth = pathname?.startsWith("/hood-rpc/eth");
+  const onEth = isEthPath(pathname);
 
   return (
     <div className="hrpc-chain-switcher" aria-label="Chain switcher">
