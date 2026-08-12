@@ -9,6 +9,8 @@ import { parseOpenSeaRarityRank } from "@/components/hood-rpc/hood-rarity";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const fetchCache = "force-no-store";
 
 type CuratedCollection = {
   name: string;
@@ -113,9 +115,9 @@ function parseEventTs(raw: unknown): number {
   return 0;
 }
 
-function ago(tsSec?: number): string {
+function ago(tsSec?: number, nowSec = Math.floor(Date.now() / 1000)): string {
   if (!tsSec) return "just now";
-  const s = Math.max(0, Math.floor(Date.now() / 1000 - tsSec));
+  const s = Math.max(0, nowSec - tsSec);
   if (s < 15) return "just now";
   if (s < 60) return `${s}s ago`;
   if (s < 3600) return `${Math.floor(s / 60)}m ago`;
@@ -467,65 +469,86 @@ async function fetchCollectionSales(
   });
 }
 
-/** Chain-wide live sales — pulls marketplace-wide feed and filters by chain. */
+/** Chain-wide live sales — one fast OpenSea page, newest first. */
 async function fetchChainWideSales(
   scope: NftsScope,
   limit: number,
 ): Promise<SaleRow[]> {
   const target = Math.min(limit, 40);
+  const after = Math.floor(Date.now() / 1000) - 180;
+  const params = new URLSearchParams({
+    event_type: "sale",
+    limit: "100",
+    after: String(after),
+  });
+
+  const data = (await osFetch(`/events?${params.toString()}`)) as {
+    asset_events?: OsEvent[];
+  } | null;
+
   const seenIds = new Set<string>();
   const rows: SaleRow[] = [];
-  let nextCursor: string | undefined;
-  let pages = 0;
 
-  while (rows.length < target && pages < 6) {
-    const params = new URLSearchParams({
-      event_type: "sale",
-      limit: "200",
-    });
-    if (nextCursor) params.set("next", nextCursor);
+  for (const ev of data?.asset_events || []) {
+    if (ev.chain && ev.chain !== scope.openseaChain) continue;
+    const nft = ev.nft;
+    if (!nft?.collection) continue;
 
-    const data = (await osFetch(`/events?${params.toString()}`)) as {
-      asset_events?: OsEvent[];
-      next?: string;
-    } | null;
+    const slug = nft.collection;
+    const known = scope.collections.find((c) => c.slug === slug);
+    const colName =
+      known?.name ||
+      nft.name?.replace(/\s*#\d+$/, "").trim() ||
+      slug.replace(/-/g, " ");
+    const colImage =
+      known?.image && !known.image.startsWith("/images/hood-rpc/nfts/")
+        ? known.image
+        : pickNftImage(nft, NEUTRAL_NFT_IMAGE);
 
-    const events = data?.asset_events || [];
-    if (!events.length) break;
+    const row = mapEvent(
+      ev,
+      colName,
+      slug,
+      colImage,
+      scope.chainLabel,
+      scope.openseaAssetsChain,
+    );
+    if (!row || seenIds.has(row.id)) continue;
+    seenIds.add(row.id);
+    rows.push(row);
+    if (rows.length >= target) break;
+  }
 
-    for (const ev of events) {
-      if (ev.chain && ev.chain !== scope.openseaChain) continue;
-      const nft = ev.nft;
-      if (!nft?.collection) continue;
+  if (rows.length >= Math.min(8, target)) {
+    return rows.sort(sortNewest).slice(0, target);
+  }
 
-      const slug = nft.collection;
-      const known = scope.collections.find((c) => c.slug === slug);
-      const colName =
-        known?.name ||
-        nft.name?.replace(/\s*#\d+$/, "").trim() ||
-        slug.replace(/-/g, " ");
-      const colImage =
-        known?.image && !known.image.startsWith("/images/hood-rpc/nfts/")
-          ? known.image
-          : pickNftImage(nft, NEUTRAL_NFT_IMAGE);
-
-      const row = mapEvent(
-        ev,
-        colName,
-        slug,
-        colImage,
-        scope.chainLabel,
-        scope.openseaAssetsChain,
-      );
-      if (!row || seenIds.has(row.id)) continue;
-      seenIds.add(row.id);
-      rows.push(row);
-      if (rows.length >= target) break;
-    }
-
-    nextCursor = data?.next || undefined;
-    pages += 1;
-    if (!nextCursor) break;
+  // Quiet window — one unfiltered page so the board is not empty
+  const fallback = (await osFetch("/events?event_type=sale&limit=100")) as {
+    asset_events?: OsEvent[];
+  } | null;
+  for (const ev of fallback?.asset_events || []) {
+    if (ev.chain && ev.chain !== scope.openseaChain) continue;
+    const nft = ev.nft;
+    if (!nft?.collection) continue;
+    const slug = nft.collection;
+    const known = scope.collections.find((c) => c.slug === slug);
+    const colName =
+      known?.name ||
+      nft.name?.replace(/\s*#\d+$/, "").trim() ||
+      slug.replace(/-/g, " ");
+    const row = mapEvent(
+      ev,
+      colName,
+      slug,
+      pickNftImage(nft, NEUTRAL_NFT_IMAGE),
+      scope.chainLabel,
+      scope.openseaAssetsChain,
+    );
+    if (!row || seenIds.has(row.id)) continue;
+    seenIds.add(row.id);
+    rows.push(row);
+    if (rows.length >= target) break;
   }
 
   return rows.sort(sortNewest).slice(0, target);
@@ -710,79 +733,23 @@ export async function GET(req: Request) {
       });
     }
 
-    type LiveCol = {
-      name: string;
-      slug: string;
-      image: string;
-      website?: string;
-      twitter?: string;
-      discord?: string;
-    };
-    let liveCols: LiveCol[] = collections.slice(0, 10);
-    try {
-      const vol = (await osFetch(
-        `/collections?chain=${scope.openseaChain}&order_by=seven_day_volume&limit=12`,
-      )) as { collections?: { collection?: string; name?: string; image_url?: string }[] } | null;
-      const fromVol = ((vol?.collections || []) as { collection?: string; name?: string; image_url?: string }[])
-        .map((c) => ({
-          name: c.name || c.collection || "",
-          slug: c.collection || "",
-          image: c.image_url || NEUTRAL_NFT_IMAGE,
-          website: `https://opensea.io/collection/${c.collection}`,
-          twitter: "",
-          discord: "",
-        }))
-        .filter((c) => c.slug);
-      if (fromVol.length) {
-        const seen = new Set(fromVol.map((c) => c.slug));
-        liveCols = [
-          ...fromVol,
-          ...collections.filter((c) => !seen.has(c.slug)),
-        ].slice(0, 12);
-      }
-    } catch {
-      /* keep curated */
-    }
+    const sales = await fetchChainWideSales(scope, limit);
 
-    // Primary: marketplace-wide sales feed filtered to this chain
-    let sales = await fetchChainWideSales(scope, limit);
-
-    // Fallback: per-collection polling if global feed is quiet / rate-limited
-    if (sales.length < Math.min(8, limit)) {
-      const batches = await Promise.all(
-        liveCols.map((col) =>
-          fetchCollectionSales(col, 8, scope, { enrich: false }),
-        ),
-      );
-
-      const nowSec = Math.floor(Date.now() / 1000);
-      const MAX_AGE_SEC = 48 * 3600;
-      const merged = batches
-        .flat()
-        .filter((r) => (r.eventTs || 0) > 0 && nowSec - (r.eventTs || 0) <= MAX_AGE_SEC)
-        .sort(sortNewest);
-
-      const seenIds = new Set(sales.map((r) => r.id));
-      for (const row of merged) {
-        if (seenIds.has(row.id)) continue;
-        seenIds.add(row.id);
-        sales.push(row);
-        if (sales.length >= limit) break;
-      }
-      sales.sort(sortNewest);
-    }
-
-    await enrichRarity(sales.slice(0, 10), scope.openseaChain);
-    sales.sort(sortNewest);
-
-    return NextResponse.json({
-      source: "opensea",
-      live: true,
-      collections,
-      sales: sales.length ? sales : fallbackLive(limit, scope),
-      projectSales: [],
-      listings: [],
-    });
+    return NextResponse.json(
+      {
+        source: "opensea",
+        live: true,
+        collections,
+        sales: sales.length ? sales : fallbackLive(limit, scope),
+        projectSales: [],
+        listings: [],
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate",
+        },
+      },
+    );
   } catch (err) {
     return NextResponse.json({
       source: "fallback",

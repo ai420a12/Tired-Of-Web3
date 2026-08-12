@@ -13,6 +13,17 @@ type Props = {
 };
 
 const LIVE_LIMIT = 28;
+const LIVE_POLL_MS = 2000;
+
+function formatAgo(tsSec?: number): string {
+  if (!tsSec) return "just now";
+  const s = Math.max(0, Math.floor(Date.now() / 1000) - tsSec);
+  if (s < 2) return "just now";
+  if (s < 60) return `${s}s ago`;
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+  return `${Math.floor(s / 86400)}d ago`;
+}
 
 /** Keep newest sales across polls — never let a laggy response overwrite fresher rows */
 function mergeLiveSales(
@@ -323,10 +334,15 @@ export default function HoodNftPanels({
 
   useEffect(() => {
     let cancelled = false;
+    let inFlight = false;
 
     async function loadLive() {
+      if (inFlight) return;
+      inFlight = true;
       try {
-        const res = await fetch(`${apiBase}/nfts?limit=${LIVE_LIMIT}`);
+        const res = await fetch(`${apiBase}/nfts?limit=${LIVE_LIMIT}&t=${Date.now()}`, {
+          cache: "no-store",
+        });
         if (!res.ok || cancelled) return;
         const data = await res.json();
         if (Array.isArray(data.sales) && data.sales.length) {
@@ -336,14 +352,22 @@ export default function HoodNftPanels({
         }
       } catch {
         /* keep previous live rows */
+      } finally {
+        inFlight = false;
       }
     }
 
     void loadLive();
-    const id = window.setInterval(() => void loadLive(), 8_000);
+    const poll = window.setInterval(() => void loadLive(), LIVE_POLL_MS);
+    const tick = window.setInterval(() => {
+      setLive((prev) =>
+        prev.map((row) => ({ ...row, ago: formatAgo(row.eventTs) })),
+      );
+    }, 1000);
     return () => {
       cancelled = true;
-      window.clearInterval(id);
+      window.clearInterval(poll);
+      window.clearInterval(tick);
     };
   }, [apiBase]);
 
@@ -358,7 +382,9 @@ export default function HoodNftPanels({
           limit: "20",
           name: focus!.collection,
         });
-        const res = await fetch(`${apiBase}/nfts?${params.toString()}`);
+        const res = await fetch(`${apiBase}/nfts?${params.toString()}`, {
+          cache: "no-store",
+        });
         if (!res.ok || cancelled) return;
         const data = await res.json();
         // Only use project-scoped payloads for THIS collection
@@ -381,7 +407,7 @@ export default function HoodNftPanels({
     }
 
     void loadProject();
-    const id = window.setInterval(() => void loadProject(), 12_000);
+    const id = window.setInterval(() => void loadProject(), 4_000);
     return () => {
       cancelled = true;
       window.clearInterval(id);
