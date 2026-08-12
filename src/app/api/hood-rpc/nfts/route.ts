@@ -8,7 +8,7 @@ import {
 import { parseOpenSeaRarityRank } from "@/components/hood-rpc/hood-rarity";
 import {
   fetchAlchemyEthSales,
-  fetchBlockscoutRobinhoodActivity,
+  fetchBlockscoutActivity,
   type LiveSaleRow,
 } from "@/lib/nft-live-sources";
 
@@ -595,10 +595,17 @@ async function fetchChainWideSales(
 
   // --- OpenSea down / empty: alternate live sources ---
   let alt: LiveSaleRow[] = [];
+  let altSource = "empty";
   if (scope.openseaChain === "ethereum") {
     alt = await fetchAlchemyEthSales(target);
+    if (alt.length) altSource = "alchemy";
+    if (!alt.length) {
+      alt = await fetchBlockscoutActivity("ethereum", target);
+      if (alt.length) altSource = "blockscout";
+    }
   } else if (scope.openseaChain === "robinhood") {
-    alt = await fetchBlockscoutRobinhoodActivity(target);
+    alt = await fetchBlockscoutActivity("robinhood", target);
+    if (alt.length) altSource = "blockscout";
   }
 
   if (alt.length) {
@@ -606,7 +613,7 @@ async function fetchChainWideSales(
     liveSalesCache.set(cacheKey, { rows: mapped, at: Date.now() });
     return {
       rows: mapped.slice(0, target),
-      source: scope.openseaChain === "ethereum" ? "alchemy" : "blockscout",
+      source: altSource,
     };
   }
 

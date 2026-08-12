@@ -247,12 +247,20 @@ type BsTransfer = {
 const BS_SKIP =
   /uniswap|position|v3 positions|v4 positions|liquidity|lp nft/i;
 
-/** Robinhood live NFT activity via Blockscout (no OpenSea key required). */
-export async function fetchBlockscoutRobinhoodActivity(
+/** Live NFT activity via Blockscout (no OpenSea key required). */
+export async function fetchBlockscoutActivity(
+  chain: "robinhood" | "ethereum",
   limit: number,
 ): Promise<LiveSaleRow[]> {
+  const base =
+    chain === "ethereum"
+      ? "https://eth.blockscout.com/api/v2"
+      : "https://robinhoodchain.blockscout.com/api/v2";
+  const assetsChain = chain === "ethereum" ? "ethereum" : "robinhood";
+  const chainLabel = chain === "ethereum" ? "Ethereum" : "Robinhood";
+
   const data = (await fetchJson(
-    "https://robinhoodchain.blockscout.com/api/v2/token-transfers?type=ERC-721",
+    `${base}/token-transfers?type=ERC-721`,
     undefined,
     6_000,
   )) as { items?: BsTransfer[] } | null;
@@ -269,12 +277,7 @@ export async function fetchBlockscoutRobinhoodActivity(
 
     const md = ti?.metadata && typeof ti.metadata === "object" ? ti.metadata : {};
     const tokenName = md.name || `${name} #${tokenId}`;
-    const rawImage =
-      ti?.image_url ||
-      ti?.media_url ||
-      md.image ||
-      "";
-    // Skip giant base64 data-URIs — they blow up the API payload
+    const rawImage = ti?.image_url || ti?.media_url || md.image || "";
     const image =
       typeof rawImage === "string" &&
       (rawImage.startsWith("http://") || rawImage.startsWith("https://"))
@@ -283,18 +286,20 @@ export async function fetchBlockscoutRobinhoodActivity(
     const ts = t.timestamp
       ? Math.floor(Date.parse(t.timestamp) / 1000)
       : Math.floor(Date.now() / 1000);
-    const fromZero = (t.from?.hash || "").toLowerCase() === "0x0000000000000000000000000000000000000000";
+    const fromZero =
+      (t.from?.hash || "").toLowerCase() ===
+      "0x0000000000000000000000000000000000000000";
     const traits = (md.attributes || []).slice(0, 6).map((a) => ({
       trait: String(a.trait_type || "Trait"),
       value: String(a.value ?? ""),
     }));
 
     rows.push({
-      id: `bs-${contract}-${tokenId}-${t.transaction_hash || ts}`,
+      id: `bs-${chain}-${contract}-${tokenId}-${t.transaction_hash || ts}`,
       tokenName,
       collection: name,
       collectionSlug: slugify(name),
-      openseaUrl: `https://opensea.io/assets/robinhood/${contract}/${tokenId}`,
+      openseaUrl: `https://opensea.io/assets/${assetsChain}/${contract}/${tokenId}`,
       eth: 0,
       usd: 0,
       ago: ago(ts),
@@ -306,7 +311,7 @@ export async function fetchBlockscoutRobinhoodActivity(
       traits: traits.length
         ? traits
         : [
-            { trait: "Chain", value: "Robinhood" },
+            { trait: "Chain", value: chainLabel },
             { trait: "Event", value: fromZero ? "Mint" : "Transfer" },
             { trait: "Source", value: "Blockscout" },
           ],
@@ -317,4 +322,11 @@ export async function fetchBlockscoutRobinhoodActivity(
     if (rows.length >= limit) break;
   }
   return rows;
+}
+
+/** @deprecated use fetchBlockscoutActivity("robinhood", limit) */
+export async function fetchBlockscoutRobinhoodActivity(
+  limit: number,
+): Promise<LiveSaleRow[]> {
+  return fetchBlockscoutActivity("robinhood", limit);
 }
