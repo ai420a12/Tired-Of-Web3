@@ -3066,10 +3066,19 @@ html[data-eth-rpc="1"] .hrpc.hrpc-eth {
 .hrpc.hrpc-eth .hrpc-btn,
 .hrpc.hrpc-eth .hrpc-section-title,
 .hrpc.hrpc-eth .hrpc-drop-clock,
-.hrpc.hrpc-eth .hrpc-ticker span,
 .hrpc.hrpc-eth .hrpc-pnl-val,
 .hrpc.hrpc-eth .hrpc-price-eth {
   color: #7dd3fc;
+}
+
+/* Ticker on ETH must be blue bar + black text (never Hood lime) */
+.hrpc.hrpc-eth .hrpc-ticker {
+  background: #7dd3fc !important;
+  color: #000 !important;
+}
+
+.hrpc.hrpc-eth .hrpc-ticker span {
+  color: #000 !important;
 }
 
 .hrpc.hrpc-eth .hrpc-status-live {

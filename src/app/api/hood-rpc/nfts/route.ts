@@ -461,7 +461,11 @@ async function enrichNftDetails(
     )) as { nft?: OsNft } | null;
     const nft = data?.nft;
     const key = rarityCacheKey(openseaChain, row.contract, row.tokenId);
-    if (!nft) return;
+    if (!nft) {
+      // Remember miss briefly so we don't hammer OpenSea for the same token
+      if (key) rarityCache.set(key, { rank: null, at: Date.now() });
+      return;
+    }
     if (nft.name) row.tokenName = nft.name;
     const nextImage = pickNftImage(nft, "");
     if (nextImage) row.image = nextImage;
@@ -558,6 +562,17 @@ async function fetchChainWideSales(
     cached &&
     Date.now() - cached.at < 15_000
   ) {
+    // Backfill rarity on warm cache if ranks are still missing
+    const missing = fresh.filter(
+      (r) => r.rarityUnavailable && r.contract && r.tokenId,
+    ).length;
+    if (missing > 0 && openseaKeys().length) {
+      await enrichNftDetails(fresh, scope.openseaChain, {
+        limit: Math.min(16, missing),
+        concurrency: 2,
+      });
+      liveSalesCache.set(cacheKey, { rows: fresh, at: cached.at });
+    }
     return { rows: fresh.slice(0, target), source: "cache" };
   }
 
@@ -585,8 +600,8 @@ async function fetchChainWideSales(
 
   if (rows.length) {
     await enrichNftDetails(rows, scope.openseaChain, {
-      limit: 4,
-      concurrency: 1,
+      limit: Math.min(20, rows.length),
+      concurrency: 2,
     });
     const sorted = rows.sort(sortNewest).slice(0, target);
     liveSalesCache.set(cacheKey, { rows: sorted, at: Date.now() });
@@ -610,6 +625,11 @@ async function fetchChainWideSales(
 
   if (alt.length) {
     const mapped = alt as SaleRow[];
+    // Pull OpenSea rarity ranks even when sales came from Alchemy/Blockscout
+    await enrichNftDetails(mapped, scope.openseaChain, {
+      limit: Math.min(16, mapped.length),
+      concurrency: 2,
+    });
     liveSalesCache.set(cacheKey, { rows: mapped, at: Date.now() });
     return {
       rows: mapped.slice(0, target),
