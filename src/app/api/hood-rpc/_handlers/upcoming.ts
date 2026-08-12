@@ -64,6 +64,14 @@ function mintgoSupply(item: MintgoRadarItem): string {
   return Number(max).toLocaleString();
 }
 
+function isJunkName(name: string): boolean {
+  const t = name.trim();
+  if (t.length < 2) return true;
+  if (/^[.\-_\/\\]+$/.test(t)) return true;
+  if (/^test/i.test(t) && t.length < 18) return true;
+  return false;
+}
+
 function mapMintgoItem(
   item: MintgoRadarItem,
   fallbackLogo: string,
@@ -71,7 +79,7 @@ function mapMintgoItem(
 ): Upcoming | null {
   const name = (item.displayName || "").trim();
   const contract = (item.contractAddress || "").toLowerCase();
-  if (!name || !contract || item.soldOut) return null;
+  if (!name || !contract || item.soldOut || isJunkName(name)) return null;
   const status = (item.status || "").toLowerCase();
   if (status && status !== "upcoming" && status !== "live") return null;
 
@@ -146,7 +154,12 @@ export async function handleUpcoming(variant: HoodRpcVariant) {
     });
   }
 
-  rows.sort((a, b) => a.etaSeconds - b.etaSeconds);
+  rows.sort((a, b) => {
+    const aLive = a.etaSeconds <= 0 ? 1 : 0;
+    const bLive = b.etaSeconds <= 0 ? 1 : 0;
+    if (aLive !== bLive) return aLive - bLive;
+    return a.etaSeconds - b.etaSeconds;
+  });
 
   return NextResponse.json({
     source,
