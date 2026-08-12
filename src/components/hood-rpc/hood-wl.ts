@@ -2,6 +2,10 @@
 export const TIRED_OF_WEB3_OPENSEA_URL =
   "https://opensea.io/collection/tired-of-web3/overview" as const;
 
+/** Ethereum mainnet ERC-721 Access Key contract */
+export const TIRED_OF_WEB3_ACCESS_KEY_CA =
+  "0x22032052e8c708474d8d23983cf749976a95202e" as const;
+
 export const HOOD_RPC_LINKS = {
   x: "https://x.com/TiredOfWeb3",
   /** Open profile — users quote the pinned post from here */

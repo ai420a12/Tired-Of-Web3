@@ -26,6 +26,10 @@ import {
   HOOD_RPC_DEMO,
 } from "@/lib/hood-rpc-demo";
 import {
+  ACCESS_KEY_CONTRACT,
+  ACCESS_OPENSEA_URL,
+} from "@/lib/access-key-shared";
+import {
   getHoodRpcConfig,
   type HoodRpcVariant,
 } from "@/lib/hood-rpc-chain";
@@ -96,6 +100,8 @@ export default function HoodDashboard({
   const [toast, setToast] = useState<string | null>(null);
   const [wallet, setWallet] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
+  const [hasAccess, setHasAccess] = useState(false);
+  const [accessChecking, setAccessChecking] = useState(true);
   const [launchWalletIds, setLaunchWalletIds] = useState<number[]>(() =>
     FLEET.slice(0, 5).map((w) => w.id),
   );
@@ -227,11 +233,37 @@ export default function HoodDashboard({
     return () => window.clearTimeout(id);
   }, [toast]);
 
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/access/session", { cache: "no-store" });
+        const data = (await res.json()) as {
+          hasAccess?: boolean;
+          address?: string;
+        };
+        if (cancelled) return;
+        if (data.hasAccess && data.address) {
+          setHasAccess(true);
+          setWallet(data.address);
+        }
+      } catch {
+        /* ignore */
+      } finally {
+        if (!cancelled) setAccessChecking(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   async function connectWallet() {
     if (HOOD_RPC_DEMO) {
       setConnecting(true);
       await new Promise((r) => setTimeout(r, 350));
       setWallet(DEMO_WALLET);
+      setHasAccess(true);
       setConnecting(false);
       setToast(DEMO_TOAST);
       return;
@@ -246,19 +278,76 @@ export default function HoodDashboard({
       const accounts = (await eth.request({
         method: "eth_requestAccounts",
       })) as string[];
-      if (accounts?.[0]) {
-        setWallet(accounts[0]);
-        setToast(`> WALLET CONNECTED · ${shortAddr(accounts[0])}`);
+      const address = accounts?.[0];
+      if (!address) {
+        setToast("> NO ACCOUNT RETURNED");
+        return;
       }
+
+      const nonceRes = await fetch("/api/access/nonce", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ address }),
+      });
+      const nonceData = (await nonceRes.json()) as {
+        message?: string;
+        error?: string;
+      };
+      if (!nonceRes.ok || !nonceData.message) {
+        setToast(`> ${nonceData.error || "COULD NOT START VERIFICATION"}`);
+        return;
+      }
+
+      const signature = (await eth.request({
+        method: "personal_sign",
+        params: [nonceData.message, address],
+      })) as string;
+
+      const verifyRes = await fetch("/api/access/verify", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          address,
+          message: nonceData.message,
+          signature,
+        }),
+      });
+      const verifyData = (await verifyRes.json()) as {
+        ok?: boolean;
+        hasKey?: boolean;
+        error?: string;
+        code?: string;
+      };
+
+      if (!verifyRes.ok || !verifyData.ok) {
+        setWallet(address);
+        setHasAccess(false);
+        if (verifyData.code === "NO_ACCESS_KEY") {
+          setToast("> NO ACCESS KEY IN THIS WALLET · MINT / BUY ON OPENSEA");
+        } else {
+          setToast(`> ${verifyData.error || "ACCESS DENIED"}`);
+        }
+        return;
+      }
+
+      setWallet(address);
+      setHasAccess(true);
+      setToast(`> ACCESS KEY VERIFIED · ${shortAddr(address)}`);
     } catch {
-      setToast("> WALLET CONNECTION REJECTED");
+      setToast("> WALLET CONNECTION / SIGN REJECTED");
     } finally {
       setConnecting(false);
     }
   }
 
-  function disconnectWallet() {
+  async function disconnectWallet() {
+    try {
+      await fetch("/api/access/logout", { method: "POST" });
+    } catch {
+      /* ignore */
+    }
     setWallet(null);
+    setHasAccess(false);
     setUsername("");
     setProfileOpen(false);
     setToast(HOOD_RPC_DEMO ? "> DEMO SESSION CLEARED" : "> WALLET DISCONNECTED");
@@ -376,11 +465,52 @@ export default function HoodDashboard({
           </div>
         </div>
         <div className="hrpc-demo-banner" role="status">
-          Demo Version — Full version will have much faster NODES. Check the
-          countdowns above for when everything goes live!
+          {accessChecking
+            ? "Checking Access Key…"
+            : hasAccess
+              ? "Access Key verified — Hood_RPC + ETH_RPC unlocked."
+              : "Access Key holders only — Connect Wallet with MetaMask to verify ownership."}
         </div>
       </div>
 
+      {!hasAccess ? (
+        <section className="hrpc-access-gate" aria-label="Access Key gate">
+          <div className="hrpc-access-card">
+            <p className="hrpc-access-kicker hrpc-mono">ACCESS REQUIRED</p>
+            <h2 className="hrpc-section-title">Hold a Tired Of Web3 Access Key</h2>
+            <p className="hrpc-muted">
+              Connect MetaMask, sign once, and we check on-chain ownership of the
+              Access Key NFT. One key unlocks both Hood_RPC and ETH_RPC.
+            </p>
+            <div className="hrpc-access-actions">
+              <button
+                type="button"
+                className="hrpc-wallet"
+                onClick={connectWallet}
+                disabled={connecting || accessChecking}
+              >
+                {connecting
+                  ? "Verifying…"
+                  : accessChecking
+                    ? "Loading…"
+                    : "Connect Wallet"}
+              </button>
+              <a
+                className="hrpc-btn hrpc-btn-ghost"
+                href={ACCESS_OPENSEA_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Get key on OpenSea
+              </a>
+            </div>
+            <p className="hrpc-mono hrpc-access-ca">
+              CA · {ACCESS_KEY_CONTRACT}
+            </p>
+          </div>
+        </section>
+      ) : (
+        <>
       {profileOpen ? (
         <div
           className="hrpc-modal-backdrop"
@@ -666,6 +796,8 @@ export default function HoodDashboard({
 
         <HoodTools onToast={setToast} connectedWallet={wallet} />
       </main>
+        </>
+      )}
 
       <div
         className={`hrpc-toast hrpc-mono ${toast ? "hrpc-toast-show" : ""}`}

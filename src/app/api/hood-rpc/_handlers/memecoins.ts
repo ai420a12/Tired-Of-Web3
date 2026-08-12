@@ -182,6 +182,12 @@ async function fetchNewPools(network: string, pages = 2): Promise<GeckoPool[]> {
 }
 
 export async function handleMemecoins(cfg: HoodRpcChainConfig) {
+  const { isAccessDenied, requireAccessKey } = await import(
+    "@/lib/require-access"
+  );
+  const access = await requireAccessKey();
+  if (isAccessDenied(access)) return access;
+
   try {
     const network = cfg.geckoNetwork;
     const pools = await fetchNewPools(network, 2);

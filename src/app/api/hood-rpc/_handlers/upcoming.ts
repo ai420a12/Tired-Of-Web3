@@ -135,6 +135,12 @@ function sortUpcoming(rows: Upcoming[], now: number): Upcoming[] {
 }
 
 export async function handleUpcoming(variant: HoodRpcVariant) {
+  const { isAccessDenied, requireAccessKey } = await import(
+    "@/lib/require-access"
+  );
+  const access = await requireAccessKey();
+  if (isAccessDenied(access)) return access;
+
   const cfg = getHoodRpcConfig(variant);
   const chain: MintgoChain = variant === "eth" ? "ethereum" : "robinhood";
   const curated = getCuratedUpcoming(variant);

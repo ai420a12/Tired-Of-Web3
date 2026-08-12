@@ -759,6 +759,12 @@ async function fetchCollectionListings(
 }
 
 export async function GET(req: Request) {
+  const { isAccessDenied, requireAccessKey } = await import(
+    "@/lib/require-access"
+  );
+  const access = await requireAccessKey(req);
+  if (isAccessDenied(access)) return access;
+
   const { searchParams } = new URL(req.url);
   const slug = searchParams.get("slug");
   const limit = Math.min(40, Math.max(8, Number(searchParams.get("limit") || 24)));
