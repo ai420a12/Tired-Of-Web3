@@ -1,9 +1,44 @@
 import { NextResponse } from "next/server";
-import { HOOD_COLLECTIONS } from "@/components/hood-rpc/mock-data";
+import {
+  getCollections,
+  getHoodRpcConfig,
+  resolveApiVariant,
+  type HoodRpcVariant,
+} from "@/lib/hood-rpc-chain";
 import { parseOpenSeaRarityRank } from "@/components/hood-rpc/hood-rarity";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+type CuratedCollection = {
+  name: string;
+  slug: string;
+  image: string;
+  website: string;
+  twitter?: string;
+  discord?: string;
+};
+
+type NftsScope = {
+  variant: HoodRpcVariant;
+  collections: readonly CuratedCollection[];
+  chainLabel: string;
+  openseaChain: string;
+  openseaAssetsChain: string;
+  curatedSource: string;
+};
+
+function makeScope(variant: HoodRpcVariant): NftsScope {
+  const cfg = getHoodRpcConfig(variant);
+  return {
+    variant,
+    collections: getCollections(variant) as readonly CuratedCollection[],
+    chainLabel: cfg.chainLabel,
+    openseaChain: cfg.openseaChain,
+    openseaAssetsChain: cfg.openseaAssetsChain,
+    curatedSource: cfg.curatedSource,
+  };
+}
 
 type OsNft = {
   identifier?: string;
@@ -144,9 +179,10 @@ function isWeakOrLocalImage(url: string | undefined, colImage?: string): boolean
 /** Resolve a project by slug — never substitute a different curated collection. */
 function resolveProjectCol(
   slug: string,
-  nameHint?: string | null,
+  nameHint: string | null | undefined,
+  scope: NftsScope,
 ): ProjectCol {
-  const known = HOOD_COLLECTIONS.find((c) => c.slug === slug);
+  const known = scope.collections.find((c) => c.slug === slug);
   if (known) {
     return {
       name: known.name,
@@ -167,9 +203,10 @@ function resolveProjectCol(
 /** Prefer live OpenSea collection metadata (real image) over local stand-ins. */
 async function resolveProjectColAsync(
   slug: string,
-  nameHint?: string | null,
+  nameHint: string | null | undefined,
+  scope: NftsScope,
 ): Promise<ProjectCol> {
-  const base = resolveProjectCol(slug, nameHint);
+  const base = resolveProjectCol(slug, nameHint, scope);
 
   const data = (await osFetch(
     `/collections/${encodeURIComponent(slug)}`,
@@ -206,10 +243,11 @@ async function resolveProjectColAsync(
 function fallbackForCollection(
   slug: string,
   limit: number,
+  scope: NftsScope,
   kindBias: "mix" | "eth" | "weth" = "mix",
   nameHint?: string | null,
 ): SaleRow[] {
-  const col = resolveProjectCol(slug, nameHint);
+  const col = resolveProjectCol(slug, nameHint, scope);
   const now = Date.now();
   const rows: SaleRow[] = [];
   for (let i = 0; i < limit; i++) {
@@ -233,7 +271,7 @@ function fallbackForCollection(
       rarityUnavailable: false,
       rarityLabel: "",
       traits: [
-        { trait: "Chain", value: "Robinhood" },
+        { trait: "Chain", value: scope.chainLabel },
         { trait: "Collection", value: col.name },
       ],
       eventTs: Math.floor(now / 1000) - i * 14,
@@ -242,11 +280,11 @@ function fallbackForCollection(
   return rows;
 }
 
-function fallbackLive(limit: number): SaleRow[] {
+function fallbackLive(limit: number, scope: NftsScope): SaleRow[] {
   const rows: SaleRow[] = [];
   for (let i = 0; i < limit; i++) {
-    const col = HOOD_COLLECTIONS[i % HOOD_COLLECTIONS.length];
-    rows.push(...fallbackForCollection(col.slug, 1, i % 3 === 0 ? "weth" : "eth").map((r, j) => ({
+    const col = scope.collections[i % scope.collections.length];
+    rows.push(...fallbackForCollection(col.slug, 1, scope, i % 3 === 0 ? "weth" : "eth").map((r, j) => ({
       ...r,
       id: `${r.id}-live-${i}-${j}`,
       ago: ago(Math.floor(Date.now() / 1000) - i * 14),
@@ -303,6 +341,7 @@ function mapEvent(
   colName: string,
   colSlug: string,
   colImage: string,
+  chainLabel: string,
 ): SaleRow | null {
   const nft = ev.nft;
   if (!nft) return null;
@@ -331,7 +370,7 @@ function mapEvent(
     traits: traits.length
       ? traits
       : [
-          { trait: "Chain", value: "Robinhood" },
+          { trait: "Chain", value: chainLabel },
           { trait: "Collection", value: colName },
         ],
     tokenId: nft.identifier,
@@ -343,6 +382,7 @@ function mapEvent(
 /** Pull per-token art + rarity from the NFT endpoint when event/listing payloads are thin. */
 async function enrichNftDetails(
   rows: SaleRow[],
+  openseaChain: string,
   opts: {
     colImage?: string;
     forceImage?: boolean;
@@ -367,7 +407,7 @@ async function enrichNftDetails(
 
   await mapPool(targets, concurrency, async (row) => {
     const data = (await osFetch(
-      `/chain/robinhood/contract/${row.contract}/nfts/${row.tokenId}`,
+      `/chain/${openseaChain}/contract/${row.contract}/nfts/${row.tokenId}`,
     )) as { nft?: OsNft } | null;
     const nft = data?.nft;
     if (!nft) return;
@@ -384,8 +424,8 @@ async function enrichNftDetails(
   return rows;
 }
 
-async function enrichRarity(rows: SaleRow[]): Promise<SaleRow[]> {
-  return enrichNftDetails(rows, {
+async function enrichRarity(rows: SaleRow[], openseaChain: string): Promise<SaleRow[]> {
+  return enrichNftDetails(rows, openseaChain, {
     forceImage: false,
     limit: 10,
     concurrency: 2,
@@ -395,6 +435,7 @@ async function enrichRarity(rows: SaleRow[]): Promise<SaleRow[]> {
 async function fetchCollectionSales(
   col: { name: string; slug: string; image: string },
   limit: number,
+  scope: NftsScope,
   opts: { enrich?: boolean } = {},
 ): Promise<SaleRow[]> {
   const data = (await osFetch(
@@ -402,12 +443,11 @@ async function fetchCollectionSales(
   )) as { asset_events?: OsEvent[]; events?: OsEvent[] } | null;
   const events = (data?.asset_events || data?.events || []) as OsEvent[];
   const mapped = events
-    .map((ev) => mapEvent(ev, col.name, col.slug, col.image))
+    .map((ev) => mapEvent(ev, col.name, col.slug, col.image, scope.chainLabel))
     .filter((r): r is SaleRow => Boolean(r))
     .sort(sortNewest);
   if (opts.enrich === false) return mapped;
-  // Events already carry art — only backfill missing/weak thumbs (don't blast OpenSea)
-  return enrichNftDetails(mapped, {
+  return enrichNftDetails(mapped, scope.openseaChain, {
     colImage: col.image,
     forceImage: false,
     limit: Math.min(12, mapped.length),
@@ -444,6 +484,7 @@ function listingToken(L: OsListing): { tokenId: string; contract?: string } {
 async function fetchCollectionListings(
   col: { name: string; slug: string; image: string },
   limit: number,
+  scope: NftsScope,
 ): Promise<SaleRow[]> {
   // Pull extra rows — "best" mixes ACTIVE with fulfilled/cancelled
   const data = (await osFetch(
@@ -489,7 +530,7 @@ async function fetchCollectionListings(
       tokenName: `${col.name} #${tokenId}`,
       collection: col.name,
       collectionSlug: col.slug,
-      openseaUrl: `https://opensea.io/assets/robinhood/${contract}/${tokenId}`,
+      openseaUrl: `https://opensea.io/assets/${scope.openseaAssetsChain}/${contract}/${tokenId}`,
       eth: Number(eth.toFixed(4)),
       usd: Number((eth * 3200).toFixed(2)),
       ago: ago(createdSec),
@@ -499,7 +540,7 @@ async function fetchCollectionListings(
       rarityUnavailable: true,
       rarityLabel: "",
       traits: [
-        { trait: "Chain", value: "Robinhood" },
+        { trait: "Chain", value: scope.chainLabel },
         { trait: "Collection", value: col.name },
       ],
       tokenId,
@@ -510,7 +551,7 @@ async function fetchCollectionListings(
 
   rows.sort((a, b) => (b.eventTs || 0) - (a.eventTs || 0));
 
-  await enrichNftDetails(rows, {
+  await enrichNftDetails(rows, scope.openseaChain, {
     colImage: col.image,
     forceImage: true,
     limit: rows.length,
@@ -535,9 +576,10 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const slug = searchParams.get("slug");
   const limit = Math.min(40, Math.max(8, Number(searchParams.get("limit") || 24)));
+  const scope = makeScope(resolveApiVariant(req));
 
   const hasKey = Boolean(process.env.OPENSEA_API_KEY);
-  const collections = HOOD_COLLECTIONS.map((c) => ({
+  const collections = scope.collections.map((c) => ({
     name: c.name,
     slug: c.slug,
     image: c.image,
@@ -550,33 +592,31 @@ export async function GET(req: Request) {
 
   if (!hasKey) {
     const project = slug
-      ? fallbackForCollection(slug, 14, "mix", nameParam)
+      ? fallbackForCollection(slug, 14, scope, "mix", nameParam)
       : [];
     return NextResponse.json({
-      source: "curated-robinhood",
+      source: scope.curatedSource,
       live: true,
       note: "Add OPENSEA_API_KEY for live OpenSea sales.",
       collections,
-      sales: fallbackLive(limit),
+      sales: fallbackLive(limit, scope),
       projectSales: project,
       listings: slug
-        ? fallbackForCollection(slug, 14, "mix", nameParam)
+        ? fallbackForCollection(slug, 14, scope, "mix", nameParam)
         : [],
       focusSlug: slug || undefined,
-      focusName: slug ? resolveProjectCol(slug, nameParam).name : undefined,
+      focusName: slug ? resolveProjectCol(slug, nameParam, scope).name : undefined,
     });
   }
 
   try {
     if (slug) {
-      // Never fall back to another collection (was causing Punks when clicking Zaibatsu, etc.)
-      const col = await resolveProjectColAsync(slug, nameParam);
+      const col = await resolveProjectColAsync(slug, nameParam, scope);
       const [projectSalesRaw, listingsRaw] = await Promise.all([
-        fetchCollectionSales(col, 20),
-        fetchCollectionListings(col, 20),
+        fetchCollectionSales(col, 20, scope),
+        fetchCollectionListings(col, 20, scope),
       ]);
 
-      // Hard filter — only rows for the requested slug
       const projectSales = projectSalesRaw.filter(
         (r) => r.collectionSlug === slug,
       );
@@ -594,8 +634,6 @@ export async function GET(req: Request) {
       });
     }
 
-    // Live feed — fast path: recent sales, no rarity enrichment delay
-    // Prefer volume-active RH collections + curated list
     type LiveCol = {
       name: string;
       slug: string;
@@ -607,7 +645,7 @@ export async function GET(req: Request) {
     let liveCols: LiveCol[] = collections.slice(0, 10);
     try {
       const vol = (await osFetch(
-        "/collections?chain=robinhood&order_by=seven_day_volume&limit=12",
+        `/collections?chain=${scope.openseaChain}&order_by=seven_day_volume&limit=12`,
       )) as { collections?: { collection?: string; name?: string; image_url?: string }[] } | null;
       const fromVol = ((vol?.collections || []) as { collection?: string; name?: string; image_url?: string }[])
         .map((c) => ({
@@ -620,7 +658,6 @@ export async function GET(req: Request) {
         }))
         .filter((c) => c.slug);
       if (fromVol.length) {
-        // Merge volume leaders first, then curated
         const seen = new Set(fromVol.map((c) => c.slug));
         liveCols = [
           ...fromVol,
@@ -633,19 +670,17 @@ export async function GET(req: Request) {
 
     const batches = await Promise.all(
       liveCols.map((col) =>
-        fetchCollectionSales(col, 8, { enrich: false }),
+        fetchCollectionSales(col, 8, scope, { enrich: false }),
       ),
     );
 
     const nowSec = Math.floor(Date.now() / 1000);
-    // Prefer sales from the last 48h so stale collection history doesn't swamp the feed
     const MAX_AGE_SEC = 48 * 3600;
     const merged = batches
       .flat()
       .filter((r) => (r.eventTs || 0) > 0 && nowSec - (r.eventTs || 0) <= MAX_AGE_SEC)
       .sort(sortNewest);
 
-    // Dedupe by id (keep newest occurrence)
     const seenIds = new Set<string>();
     const sales: SaleRow[] = [];
     for (const row of merged) {
@@ -655,7 +690,6 @@ export async function GET(req: Request) {
       if (sales.length >= limit) break;
     }
 
-    // If filter was too strict (quiet market), fall back to all timed sales
     if (sales.length < Math.min(8, limit)) {
       const allTimed = batches
         .flat()
@@ -669,15 +703,14 @@ export async function GET(req: Request) {
       }
     }
 
-    // Light rarity enrich for newest rows only (keeps feed snappy)
-    await enrichRarity(sales.slice(0, 10));
+    await enrichRarity(sales.slice(0, 10), scope.openseaChain);
     sales.sort(sortNewest);
 
     return NextResponse.json({
       source: "opensea",
       live: true,
       collections,
-      sales: sales.length ? sales : fallbackLive(limit),
+      sales: sales.length ? sales : fallbackLive(limit, scope),
       projectSales: [],
       listings: [],
     });
@@ -687,15 +720,15 @@ export async function GET(req: Request) {
       live: true,
       error: err instanceof Error ? err.message : "OpenSea fetch failed",
       collections,
-      sales: fallbackLive(limit),
+      sales: fallbackLive(limit, scope),
       projectSales: slug
-        ? fallbackForCollection(slug, 14, "mix", nameParam)
+        ? fallbackForCollection(slug, 14, scope, "mix", nameParam)
         : [],
       listings: slug
-        ? fallbackForCollection(slug, 14, "mix", nameParam)
+        ? fallbackForCollection(slug, 14, scope, "mix", nameParam)
         : [],
       focusSlug: slug || undefined,
-      focusName: slug ? resolveProjectCol(slug, nameParam).name : undefined,
+      focusName: slug ? resolveProjectCol(slug, nameParam, scope).name : undefined,
     });
   }
 }

@@ -2868,3 +2868,79 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ETH_RPC — blue theme (clone of HOOD_RPC for Ethereum) */
+.hrpc.hrpc-eth,
+html[data-eth-rpc="1"] .hrpc.hrpc-eth {
+  --lime: #7dd3fc;
+  --lime-dim: #38bdf8;
+  --line: rgba(125, 211, 252, 0.35);
+  --ok: #7dd3fc;
+  background:
+    radial-gradient(ellipse 70% 45% at 80% 10%, rgba(56, 189, 248, 0.14), transparent 55%),
+    radial-gradient(ellipse 50% 40% at 10% 80%, rgba(59, 130, 246, 0.08), transparent 50%),
+    linear-gradient(180deg, #050508 0%, #000205 40%, #020308 100%);
+}
+
+.hrpc.hrpc-eth,
+.hrpc.hrpc-eth * {
+  scrollbar-color: #7dd3fc #111 !important;
+}
+
+.hrpc.hrpc-eth::-webkit-scrollbar-thumb,
+.hrpc.hrpc-eth *::-webkit-scrollbar-thumb {
+  background: #7dd3fc !important;
+}
+
+.hrpc.hrpc-eth::-webkit-scrollbar-thumb:hover,
+.hrpc.hrpc-eth *::-webkit-scrollbar-thumb:hover {
+  background: #38bdf8 !important;
+}
+
+.hrpc-wordmark-eth {
+  color: #7dd3fc;
+  text-shadow:
+    0 0 12px rgba(125, 211, 252, 0.55),
+    0 0 28px rgba(56, 189, 248, 0.35);
+}
+
+.hrpc.hrpc-eth .hrpc-hero-art::after {
+  content: "> ETHEREUM";
+}
+
+.hrpc.hrpc-eth .hrpc-hero-video {
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.8),
+    0 20px 60px rgba(0, 0, 0, 0.65),
+    0 0 50px rgba(56, 189, 248, 0.18);
+}
+
+.hrpc.hrpc-eth .hrpc-hrpc-glow {
+  color: #7dd3fc;
+  text-shadow: 0 0 14px rgba(125, 211, 252, 0.55);
+}
+
+.hrpc.hrpc-eth .hrpc-chain-option-eth.hrpc-chain-on a {
+  border-color: rgba(125, 211, 252, 0.65);
+  box-shadow: 0 0 18px rgba(56, 189, 248, 0.22);
+  color: #7dd3fc;
+}
+
+.hrpc.hrpc-eth .hrpc-chain-option-hood.hrpc-chain-off a {
+  color: rgba(125, 211, 252, 0.35);
+}
+
+.hrpc.hrpc-eth .hrpc-btn,
+.hrpc.hrpc-eth .hrpc-wallet-connected,
+.hrpc.hrpc-eth .hrpc-status-live {
+  border-color: rgba(125, 211, 252, 0.55);
+}
+
+.hrpc.hrpc-eth .hrpc-drop-card {
+  border-color: rgba(125, 211, 252, 0.35);
+}
+
+.hrpc.hrpc-eth .hrpc-demo-banner {
+  border-color: rgba(125, 211, 252, 0.25);
+  color: rgba(186, 230, 253, 0.9);
+}

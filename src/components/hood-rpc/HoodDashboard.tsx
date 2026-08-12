@@ -26,6 +26,10 @@ import {
   DEMO_WALLET,
   HOOD_RPC_DEMO,
 } from "@/lib/hood-rpc-demo";
+import {
+  getHoodRpcConfig,
+  type HoodRpcVariant,
+} from "@/lib/hood-rpc-chain";
 import "./hood-rpc.css";
 
 const NAV_LINKS = [
@@ -82,7 +86,13 @@ function shortAddr(addr: string) {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }
 
-export default function HoodDashboard() {
+export default function HoodDashboard({
+  variant = "hood",
+}: {
+  variant?: HoodRpcVariant;
+}) {
+  const cfg = getHoodRpcConfig(variant);
+  const isEth = variant === "eth";
   const [launches, setLaunches] = useState<MemecoinLaunch[]>(() => makeLaunches(12, 1));
   const [nfts, setNfts] = useState<UpcomingNft[]>(() => makeNfts(8, 2));
   const [toast, setToast] = useState<string | null>(null);
@@ -110,13 +120,13 @@ export default function HoodDashboard() {
       return;
     }
     try {
-      const saved = localStorage.getItem(`hrpc-username:${wallet.toLowerCase()}`);
+      const saved = localStorage.getItem(`${cfg.storagePrefix}-username:${wallet.toLowerCase()}`);
       setUsername(saved ?? "");
       setProfileDraft(saved ?? "");
     } catch {
       setUsername("");
     }
-  }, [wallet]);
+  }, [wallet, cfg.storagePrefix]);
 
   function saveProfile() {
     if (!wallet) {
@@ -129,7 +139,7 @@ export default function HoodDashboard() {
       return;
     }
     try {
-      localStorage.setItem(`hrpc-username:${wallet.toLowerCase()}`, next);
+      localStorage.setItem(`${cfg.storagePrefix}-username:${wallet.toLowerCase()}`, next);
     } catch {
       /* ignore */
     }
@@ -138,15 +148,15 @@ export default function HoodDashboard() {
     setToast(`> PROFILE SAVED · @${next}`);
   }
 
-  // Live Robinhood memecoins + upcoming NFT schedule
+  // Live memecoins + upcoming NFT schedule
   useEffect(() => {
     let cancelled = false;
 
     async function loadFeeds() {
       try {
         const [memeRes, upRes] = await Promise.all([
-          fetch("/api/hood-rpc/memecoins"),
-          fetch("/api/hood-rpc/upcoming"),
+          fetch(`${cfg.apiBase}/memecoins`),
+          fetch(`${cfg.apiBase}/upcoming`),
         ]);
         if (cancelled) return;
         if (memeRes.ok) {
@@ -172,7 +182,7 @@ export default function HoodDashboard() {
       cancelled = true;
       window.clearInterval(id);
     };
-  }, []);
+  }, [cfg.apiBase]);
 
   // Tick upcoming countdowns locally between refreshes (keep mint date intact)
   useEffect(() => {
@@ -246,20 +256,20 @@ export default function HoodDashboard() {
   }
 
   return (
-    <div className="hrpc">
+    <div className={cfg.rootClass}>
       <nav className="hrpc-nav">
         <div className="hrpc-nav-left">
           <ChainSwitcher />
-          <a className="hrpc-brand" href="/hood-rpc">
+          <a className="hrpc-brand" href={cfg.homePath}>
             <Image
-              src="/images/hood-rpc/mascot-lime.png"
-              alt="HOOD_RPC"
+              src={cfg.mascotLogo}
+              alt={cfg.brand}
               width={40}
               height={40}
               className="hrpc-nav-logo"
               priority
             />
-            <span className="hrpc-wordmark">HOOD_RPC</span>
+            <span className={cfg.wordmarkClass}>{cfg.brand}</span>
           </a>
         </div>
         <div className="hrpc-nav-links" aria-label="Sections">
@@ -341,12 +351,14 @@ export default function HoodDashboard() {
         <div className="hrpc-drop-strip">
           <a
             className="hrpc-drop-card hrpc-drop-nft"
-            href={HOOD_RPC_LINKS.opensea}
+            href={cfg.openseaCollectionUrl}
             target="_blank"
             rel="noopener noreferrer"
           >
             <span className="hrpc-drop-meta">
-              <span className="hrpc-drop-label">NFT collection</span>
+              <span className="hrpc-drop-label">
+                {isEth ? "ETH_RPC collection" : "NFT collection"}
+              </span>
             </span>
             <span className="hrpc-btn hrpc-drop-opensea">OpenSea</span>
             <span className="hrpc-drop-clock hrpc-mono" aria-live="polite">
@@ -356,7 +368,8 @@ export default function HoodDashboard() {
           <div className="hrpc-drop-card hrpc-drop-token">
             <span className="hrpc-drop-meta">
               <span className="hrpc-drop-label">
-                <span className="hrpc-hrpc-glow">$HRPC</span> token
+                <span className="hrpc-hrpc-glow">{isEth ? "$ETH_RPC" : "$HRPC"}</span>{" "}
+                token
               </span>
             </span>
             <span className="hrpc-drop-clock hrpc-mono" aria-live="polite">
@@ -428,17 +441,17 @@ export default function HoodDashboard() {
         </div>
       ) : null}
 
-      <section className="hrpc-hero hrpc-hero-pnl" aria-label="HOOD RPC hero">
+      <section className="hrpc-hero hrpc-hero-pnl" aria-label={`${cfg.brand} hero`}>
         <div className="hrpc-hero-video-wrap">
-          <p className="hrpc-hero-video-label">How HOOD_RPC works</p>
+          <p className="hrpc-hero-video-label">{cfg.videoLabel}</p>
           <video
             className="hrpc-hero-video"
             src="/videos/hood-rpc-tutorial.mp4"
-            poster="/images/hood-rpc/mascot-lime.png"
+            poster={cfg.mascotLogo}
             controls
             playsInline
             preload="metadata"
-            aria-label="HOOD_RPC tutorial — snipe NFTs and memecoins on Robinhood Chain"
+            aria-label={`${cfg.brand} tutorial — snipe NFTs and memecoins on ${cfg.chainLabel}`}
           >
             Your browser does not support the video tag.
           </video>
@@ -468,7 +481,7 @@ export default function HoodDashboard() {
       </div>
 
       <main className="hrpc-main">
-        <HoodNftPanels onToast={setToast} />
+        <HoodNftPanels onToast={setToast} apiBase={cfg.apiBase} />
 
         <div className="hrpc-grid-2" id="launches">
           <section className="hrpc-panel" aria-label="Upcoming NFT collections" id="upcoming-nfts">

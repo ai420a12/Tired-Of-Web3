@@ -145,7 +145,76 @@ export const HOOD_COLLECTIONS = [
   },
 ] as const;
 
+/** Curated Ethereum collections for ETH_RPC dashboard */
+export const ETH_COLLECTIONS = [
+  {
+    name: "Tired Of Web3",
+    slug: "tired-of-web3",
+    image: "/images/hood-rpc/mascot-lime.png",
+    twitter: "https://x.com/tiredofweb3",
+    discord: "https://discord.com",
+    website: "https://opensea.io/collection/tired-of-web3",
+  },
+  {
+    name: "Bored Ape Yacht Club",
+    slug: "boredapeyachtclub",
+    image: "/images/hood-rpc/mascot-lime.png",
+    twitter: "https://x.com/BoredApeYC",
+    discord: "https://discord.com",
+    website: "https://opensea.io/collection/boredapeyachtclub",
+  },
+  {
+    name: "Azuki",
+    slug: "azuki",
+    image: "/images/hood-rpc/mascot-lime.png",
+    twitter: "https://x.com/Azuki",
+    discord: "https://discord.com",
+    website: "https://opensea.io/collection/azuki",
+  },
+  {
+    name: "Pudgy Penguins",
+    slug: "pudgypenguins",
+    image: "/images/hood-rpc/mascot-lime.png",
+    twitter: "https://x.com/pudgypenguins",
+    discord: "https://discord.com",
+    website: "https://opensea.io/collection/pudgypenguins",
+  },
+  {
+    name: "Doodles",
+    slug: "doodles-official",
+    image: "/images/hood-rpc/mascot-lime.png",
+    twitter: "https://x.com/doodles",
+    discord: "https://discord.com",
+    website: "https://opensea.io/collection/doodles-official",
+  },
+  {
+    name: "Mutant Ape Yacht Club",
+    slug: "mutant-ape-yacht-club",
+    image: "/images/hood-rpc/mascot-lime.png",
+    twitter: "https://x.com/BoredApeYC",
+    discord: "https://discord.com",
+    website: "https://opensea.io/collection/mutant-ape-yacht-club",
+  },
+  {
+    name: "Clone X",
+    slug: "clonex",
+    image: "/images/hood-rpc/mascot-lime.png",
+    twitter: "https://x.com/RTFKT",
+    discord: "https://discord.com",
+    website: "https://opensea.io/collection/clonex",
+  },
+  {
+    name: "Moonbirds",
+    slug: "proof-moonbirds",
+    image: "/images/hood-rpc/mascot-lime.png",
+    twitter: "https://x.com/moonbirds",
+    discord: "https://discord.com",
+    website: "https://opensea.io/collection/proof-moonbirds",
+  },
+] as const;
+
 export type HoodCollection = (typeof HOOD_COLLECTIONS)[number];
+export type EthCollection = (typeof ETH_COLLECTIONS)[number];
 
 export function getHoodCollection(slug: string): HoodCollection {
   return (

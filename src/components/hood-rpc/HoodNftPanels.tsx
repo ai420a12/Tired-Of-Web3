@@ -9,6 +9,7 @@ import { DEMO_TOAST, HOOD_RPC_DEMO } from "@/lib/hood-rpc-demo";
 
 type Props = {
   onToast: (msg: string) => void;
+  apiBase?: string;
 };
 
 const LIVE_LIMIT = 28;
@@ -245,7 +246,10 @@ function SaleTable({
   );
 }
 
-export default function HoodNftPanels({ onToast }: Props) {
+export default function HoodNftPanels({
+  onToast,
+  apiBase = "/api/hood-rpc",
+}: Props) {
   const [live, setLive] = useState<HoodNftSale[]>([]);
   const [focus, setFocus] = useState<HoodNftSale | null>(null);
   const [sales, setSales] = useState<HoodNftSale[]>([]);
@@ -315,7 +319,7 @@ export default function HoodNftPanels({ onToast }: Props) {
 
     async function loadLive() {
       try {
-        const res = await fetch(`/api/hood-rpc/nfts?limit=${LIVE_LIMIT}`);
+        const res = await fetch(`${apiBase}/nfts?limit=${LIVE_LIMIT}`);
         if (!res.ok || cancelled) return;
         const data = await res.json();
         if (Array.isArray(data.sales) && data.sales.length) {
@@ -334,7 +338,7 @@ export default function HoodNftPanels({ onToast }: Props) {
       cancelled = true;
       window.clearInterval(id);
     };
-  }, []);
+  }, [apiBase]);
 
   useEffect(() => {
     if (!focus) return;
@@ -347,7 +351,7 @@ export default function HoodNftPanels({ onToast }: Props) {
           limit: "20",
           name: focus!.collection,
         });
-        const res = await fetch(`/api/hood-rpc/nfts?${params.toString()}`);
+        const res = await fetch(`${apiBase}/nfts?${params.toString()}`);
         if (!res.ok || cancelled) return;
         const data = await res.json();
         // Only use project-scoped payloads for THIS collection
@@ -375,7 +379,7 @@ export default function HoodNftPanels({ onToast }: Props) {
       cancelled = true;
       window.clearInterval(id);
     };
-  }, [focus]);
+  }, [focus, apiBase]);
 
   function selectSale(item: HoodNftSale) {
     hideFlyout();
