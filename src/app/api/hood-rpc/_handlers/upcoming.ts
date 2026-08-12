@@ -4,6 +4,11 @@ import {
   getHoodRpcConfig,
   type HoodRpcVariant,
 } from "@/lib/hood-rpc-chain";
+import {
+  fetchMintgoUpcoming,
+  type MintgoChain,
+  type MintgoRadarItem,
+} from "@/lib/mintgo";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,26 +26,8 @@ type Upcoming = {
   openseaUrl: string;
 };
 
-type DropStage = {
-  label?: string;
-  price?: string;
-  start_time?: string;
-  end_time?: string;
-  max_per_wallet?: string;
-};
-
-type OsDrop = {
-  collection_slug?: string;
-  collection_name?: string;
-  chain?: string;
-  is_minting?: boolean;
-  image_url?: string;
-  opensea_url?: string;
-  active_stage?: DropStage | null;
-  next_stage?: DropStage | null;
-};
-
 function formatCountdown(etaSeconds: number): string {
+  if (etaSeconds <= 0) return "LIVE";
   const h = Math.floor(etaSeconds / 3600);
   const m = Math.floor((etaSeconds % 3600) / 60);
   const s = etaSeconds % 60;
@@ -64,110 +51,81 @@ function formatMintDate(iso: string): string {
   });
 }
 
-function stagePrice(stage: DropStage | null | undefined): string {
-  if (!stage?.price) return "TBA";
-  const raw = Number(stage.price);
-  if (!Number.isFinite(raw) || raw < 0) return "TBA";
-  if (raw === 0) return "FREE";
-  const eth = raw > 1e9 ? raw / 1e18 : raw;
-  return `${eth.toFixed(eth < 0.01 ? 4 : 3)} ETH`;
+function mintgoPrice(item: MintgoRadarItem): string {
+  const n = Number(item.priceEth);
+  if (!Number.isFinite(n) || n < 0) return "TBA";
+  if (n === 0) return "FREE";
+  return `${n.toFixed(n < 0.01 ? 4 : 3)} ETH`;
 }
 
-async function osFetch(path: string) {
-  const key = process.env.OPENSEA_API_KEY;
-  if (!key) return null;
-  const res = await fetch(`https://api.opensea.io/api/v2${path}`, {
-    headers: {
-      Accept: "application/json",
-      "X-API-KEY": key,
-      "User-Agent": "HOOD_RPC/1.0",
-    },
-    cache: "no-store",
-  });
-  if (!res.ok) return null;
-  return res.json();
+function mintgoSupply(item: MintgoRadarItem): string {
+  const max = item.supply?.max;
+  if (max == null || !Number.isFinite(Number(max))) return "—";
+  return Number(max).toLocaleString();
 }
 
-function pickStage(
-  drop: OsDrop,
-  nowMs: number,
-): { stage: DropStage; targetIso: string } | null {
-  const next = drop.next_stage;
-  if (next?.start_time) {
-    const start = new Date(next.start_time).getTime();
-    if (Number.isFinite(start) && start > nowMs) {
-      return { stage: next, targetIso: next.start_time };
-    }
-  }
+function mapMintgoItem(
+  item: MintgoRadarItem,
+  fallbackLogo: string,
+  now: number,
+): Upcoming | null {
+  const name = (item.displayName || "").trim();
+  const contract = (item.contractAddress || "").toLowerCase();
+  if (!name || !contract || item.soldOut) return null;
+  const status = (item.status || "").toLowerCase();
+  if (status && status !== "upcoming" && status !== "live") return null;
 
-  const active = drop.active_stage;
-  if (active?.start_time) {
-    const start = new Date(active.start_time).getTime();
-    if (Number.isFinite(start) && start > nowMs) {
-      return { stage: active, targetIso: active.start_time };
-    }
-  }
+  const startMs = Number(item.startAt) || Date.parse(item.startTime || "");
+  const etaSeconds = Number.isFinite(startMs)
+    ? Math.max(0, Math.floor((startMs - now) / 1000))
+    : 0;
+  const live = status === "live" || etaSeconds <= 0;
+  const slug =
+    (item.openSeaSlug || "").trim() ||
+    contract.replace(/^0x/, "").slice(0, 10);
 
-  return null;
+  return {
+    id: contract,
+    name,
+    mintTime: item.startTime ? formatMintDate(item.startTime) : "TBA",
+    supply: mintgoSupply(item),
+    price: mintgoPrice(item),
+    countdown: live ? "LIVE" : formatCountdown(etaSeconds),
+    etaSeconds: live ? 0 : etaSeconds,
+    logo: item.imageUrl || fallbackLogo,
+    collectionSlug: slug,
+    openseaUrl:
+      item.openseaUrl ||
+      (item.openSeaSlug
+        ? `https://opensea.io/collection/${item.openSeaSlug}`
+        : `https://mintgo.fun/`),
+  };
 }
 
 export async function handleUpcoming(variant: HoodRpcVariant) {
   const cfg = getHoodRpcConfig(variant);
+  const chain: MintgoChain = variant === "eth" ? "ethereum" : "robinhood";
   const curated = getCuratedUpcoming(variant);
   const now = Date.now();
   const rows: Upcoming[] = [];
   const seen = new Set<string>();
+  let source = "schedule";
 
-  if (process.env.OPENSEA_API_KEY) {
-    try {
-      const data = await osFetch(`/drops?chains=${cfg.openseaChain}&limit=50`);
-      const drops = (data?.drops || []) as OsDrop[];
-
-      await Promise.all(
-        drops.map(async (drop) => {
-          const slug = drop.collection_slug || "";
-          if (!slug || seen.has(slug)) return;
-          const picked = pickStage(drop, now);
-          if (!picked) return;
-
-          const targetMs = new Date(picked.targetIso).getTime();
-          const etaSeconds = Math.max(0, Math.floor((targetMs - now) / 1000));
-          if (etaSeconds <= 0) return;
-
-          let supply = "—";
-          const meta = await osFetch(`/collections/${slug}`);
-          if (meta?.total_supply != null) supply = String(meta.total_supply);
-
-          seen.add(slug);
-          rows.push({
-            id: slug,
-            name: drop.collection_name || slug,
-            mintTime: formatMintDate(picked.targetIso),
-            supply,
-            price: stagePrice(picked.stage),
-            countdown: formatCountdown(etaSeconds),
-            etaSeconds,
-            logo:
-              cfg.variant === "eth"
-                ? cfg.defaultTokenLogo
-                : drop.image_url ||
-                  meta?.image_url ||
-                  cfg.mascotLogo,
-            collectionSlug: slug,
-            openseaUrl:
-              drop.opensea_url ||
-              meta?.opensea_url ||
-              `https://opensea.io/collection/${slug}`,
-          });
-        }),
-      );
-    } catch {
-      /* curated fallback below */
+  try {
+    const items = await fetchMintgoUpcoming(chain);
+    for (const item of items) {
+      const row = mapMintgoItem(item, cfg.defaultTokenLogo, now);
+      if (!row || seen.has(row.id)) continue;
+      seen.add(row.id);
+      rows.push(row);
     }
+    if (rows.length) source = "mintgo";
+  } catch {
+    /* curated fallback below */
   }
 
   for (const drop of curated) {
-    if (seen.has(drop.id)) continue;
+    if (seen.has(drop.id) || seen.has(drop.collectionSlug)) continue;
     const mintMs = new Date(drop.mintAt).getTime();
     if (!Number.isFinite(mintMs)) continue;
     const etaSeconds = Math.floor((mintMs - now) / 1000);
@@ -191,11 +149,9 @@ export async function handleUpcoming(variant: HoodRpcVariant) {
   rows.sort((a, b) => a.etaSeconds - b.etaSeconds);
 
   return NextResponse.json({
-    source: process.env.OPENSEA_API_KEY
-      ? "opensea-drops+schedule"
-      : "schedule",
-    chain: cfg.openseaChain,
+    source,
+    chain,
     updatedAt: new Date().toISOString(),
-    nfts: rows.slice(0, 12),
+    nfts: rows.slice(0, 16),
   });
 }

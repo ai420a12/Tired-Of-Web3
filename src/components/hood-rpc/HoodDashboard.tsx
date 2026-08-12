@@ -489,9 +489,10 @@ export default function HoodDashboard({
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
                             className="hrpc-row-logo"
-                            src={variant === "eth" ? cfg.defaultTokenLogo : row.logo}
+                            src={row.logo}
                             alt=""
                             loading="lazy"
+                            referrerPolicy="no-referrer"
                           />
                           <div className="hrpc-asset-text">
                             <div className="hrpc-ticker-cell">{row.name}</div>
@@ -595,6 +596,7 @@ export default function HoodDashboard({
                             src={variant === "eth" ? cfg.defaultTokenLogo : row.logo}
                             alt=""
                             loading="lazy"
+                            referrerPolicy="no-referrer"
                           />
                           <div className="hrpc-asset-text">
                             <div className="hrpc-ticker-cell">{row.ticker}</div>
