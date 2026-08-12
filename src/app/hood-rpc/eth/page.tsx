@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import HoodDashboard from "@/components/hood-rpc/HoodDashboard";
+import { SNIPER_SITE } from "@/lib/site-domains";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://hoodrpc.xyz"),
+  metadataBase: new URL(SNIPER_SITE),
   title: "Tired Of Web3 — Snipe Memecoins & NFTs on Ethereum",
   description:
     "Tired Of Web3 — the fastest sniper on Ethereum. Memecoin launches and NFT collections.",

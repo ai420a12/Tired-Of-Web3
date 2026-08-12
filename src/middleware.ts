@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { SNIPER_HOSTS } from "@/lib/site-domains";
 
-const HOOD_HOSTS = new Set(["hoodrpc.xyz", "www.hoodrpc.xyz"]);
-
-/** On hoodrpc.xyz, serve HOOD_RPC at the root. */
+/** On tiredofweb3.xyz, serve the sniper dashboard at the root. */
 export function middleware(request: NextRequest) {
   const host = request.headers.get("host")?.split(":")[0]?.toLowerCase();
-  if (!host || !HOOD_HOSTS.has(host)) {
+  if (!host || !SNIPER_HOSTS.has(host)) {
     return NextResponse.next();
   }
 
@@ -38,7 +37,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.rewrite(url);
   }
 
-  // Unknown paths on this host → HOOD_RPC home
+  // Unknown paths on this host → sniper home
   url.pathname = "/hood-rpc";
   return NextResponse.rewrite(url);
 }

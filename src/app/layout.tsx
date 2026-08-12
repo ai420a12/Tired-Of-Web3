@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { JetBrains_Mono, Space_Grotesk } from "next/font/google";
 import "./globals.css";
+import { MARKETING_SITE } from "@/lib/site-domains";
 // Favicon refresh for Google Search
 
 
@@ -17,7 +18,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://tiredofweb3.xyz"),
+  metadataBase: new URL(MARKETING_SITE),
   title: "Tired Of Web3 — Factory, NFTs & Support",
   description:
     "Finally, a project that's as tired of this shit as you are. Tired Of Web3 builds a factory for NFT merch, offers free 1:1 support, and ships real physical collectibles.",
