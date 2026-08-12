@@ -254,6 +254,31 @@ html[data-hood-rpc] ::-webkit-scrollbar-thumb:hover {
   background: #a8d400 !important;
 }
 
+/* Tired Of Web3 / ETH_RPC — blue scrollbars */
+html[data-eth-rpc],
+html[data-eth-rpc] * {
+  scrollbar-width: thin !important;
+  scrollbar-color: #7dd3fc #111 !important;
+}
+
+html[data-eth-rpc] ::-webkit-scrollbar {
+  width: 8px !important;
+  height: 8px !important;
+}
+
+html[data-eth-rpc] ::-webkit-scrollbar-track {
+  background: #111 !important;
+}
+
+html[data-eth-rpc] ::-webkit-scrollbar-thumb {
+  background: #7dd3fc !important;
+  border-radius: 4px !important;
+}
+
+html[data-eth-rpc] ::-webkit-scrollbar-thumb:hover {
+  background: #38bdf8 !important;
+}
+
 /* Dexscreener iframe styling */
 .dex-iframe {
   border: 1px solid rgba(32, 129, 226, 0.3);

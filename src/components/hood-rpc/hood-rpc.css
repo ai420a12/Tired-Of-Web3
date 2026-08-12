@@ -2884,7 +2884,19 @@ html[data-eth-rpc="1"] .hrpc.hrpc-eth {
 
 .hrpc.hrpc-eth,
 .hrpc.hrpc-eth * {
+  scrollbar-width: thin !important;
   scrollbar-color: #7dd3fc #111 !important;
+}
+
+.hrpc.hrpc-eth::-webkit-scrollbar,
+.hrpc.hrpc-eth *::-webkit-scrollbar {
+  width: 8px !important;
+  height: 8px !important;
+}
+
+.hrpc.hrpc-eth::-webkit-scrollbar-track,
+.hrpc.hrpc-eth *::-webkit-scrollbar-track {
+  background: #111 !important;
 }
 
 .hrpc.hrpc-eth::-webkit-scrollbar-thumb,
