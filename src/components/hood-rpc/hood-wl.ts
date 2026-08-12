@@ -5,7 +5,7 @@ export const TIRED_OF_WEB3_OPENSEA_URL =
 export const HOOD_RPC_LINKS = {
   x: "https://x.com/TiredOfWeb3",
   /** Open profile — users quote the pinned post from here */
-  pinnedPost: "https://x.com/TiredOfWeb3/status/2087518471248609353",
+  pinnedPost: "https://x.com/TiredOfWeb3/status/2087589640257581411",
   home: "/hood-rpc",
   wl: "/hood-rpc/wl",
   /** Live OpenSea collection drop */
