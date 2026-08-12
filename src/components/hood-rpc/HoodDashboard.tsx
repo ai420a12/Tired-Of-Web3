@@ -26,7 +26,6 @@ import {
   HOOD_RPC_DEMO,
 } from "@/lib/hood-rpc-demo";
 import {
-  ACCESS_KEY_CONTRACT,
   ACCESS_OPENSEA_URL,
 } from "@/lib/access-key-shared";
 import {
@@ -355,6 +354,12 @@ export default function HoodDashboard({
 
   return (
     <div className={cfg.rootClass}>
+      <div
+        className={
+          hasAccess ? "hrpc-app-shell" : "hrpc-app-shell hrpc-app-shell-locked"
+        }
+        aria-hidden={!hasAccess}
+      >
       <nav className="hrpc-nav">
         <div className="hrpc-nav-left">
           <ChainSwitcher />
@@ -465,53 +470,11 @@ export default function HoodDashboard({
           </div>
         </div>
         <div className="hrpc-demo-banner" role="status">
-          {accessChecking
-            ? "Checking Access Key…"
-            : hasAccess
-              ? "Access Key verified — Hood_RPC + ETH_RPC unlocked."
-              : "Access Key holders only — Connect Wallet with MetaMask to verify ownership."}
+          Access Key holders only — connect your wallet to unlock Hood_RPC + ETH_RPC.
         </div>
       </div>
 
-      {!hasAccess ? (
-        <section className="hrpc-access-gate" aria-label="Access Key gate">
-          <div className="hrpc-access-card">
-            <p className="hrpc-access-kicker hrpc-mono">ACCESS REQUIRED</p>
-            <h2 className="hrpc-section-title">Hold a Tired Of Web3 Access Key</h2>
-            <p className="hrpc-muted">
-              Connect MetaMask, sign once, and we check on-chain ownership of the
-              Access Key NFT. One key unlocks both Hood_RPC and ETH_RPC.
-            </p>
-            <div className="hrpc-access-actions">
-              <button
-                type="button"
-                className="hrpc-wallet"
-                onClick={connectWallet}
-                disabled={connecting || accessChecking}
-              >
-                {connecting
-                  ? "Verifying…"
-                  : accessChecking
-                    ? "Loading…"
-                    : "Connect Wallet"}
-              </button>
-              <a
-                className="hrpc-btn hrpc-btn-ghost"
-                href={ACCESS_OPENSEA_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Get key on OpenSea
-              </a>
-            </div>
-            <p className="hrpc-mono hrpc-access-ca">
-              CA · {ACCESS_KEY_CONTRACT}
-            </p>
-          </div>
-        </section>
-      ) : (
-        <>
-      {profileOpen ? (
+      {profileOpen && hasAccess ? (
         <div
           className="hrpc-modal-backdrop"
           role="presentation"
@@ -796,8 +759,48 @@ export default function HoodDashboard({
 
         <HoodTools onToast={setToast} connectedWallet={wallet} />
       </main>
-        </>
-      )}
+      </div>
+
+      {!hasAccess ? (
+        <div className="hrpc-access-cover" role="dialog" aria-modal="true" aria-label="Access Key verification">
+          <div className="hrpc-access-cover-inner">
+            <video
+              className="hrpc-access-cover-video"
+              src="/videos/access-key-tutorial.mp4"
+              controls
+              playsInline
+              preload="metadata"
+              poster="/images/hood-rpc/access-key-snipe-still.png"
+            />
+            <h1 className="hrpc-access-cover-title">
+              Connect wallet to verify access key
+            </h1>
+            <p className="hrpc-access-cover-sub hrpc-muted">
+              Hold a Tired Of Web3 Access Key to unlock Hood_RPC and ETH_RPC.
+            </p>
+            <button
+              type="button"
+              className="hrpc-wallet hrpc-access-cover-btn"
+              onClick={connectWallet}
+              disabled={connecting || accessChecking}
+            >
+              {connecting
+                ? "Verifying…"
+                : accessChecking
+                  ? "Loading…"
+                  : "Connect Wallet"}
+            </button>
+            <a
+              className="hrpc-access-cover-opensea"
+              href={ACCESS_OPENSEA_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Get a key on OpenSea
+            </a>
+          </div>
+        </div>
+      ) : null}
 
       <div
         className={`hrpc-toast hrpc-mono ${toast ? "hrpc-toast-show" : ""}`}

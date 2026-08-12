@@ -337,6 +337,78 @@
   animation: hrpc-glow 2.4s ease-in-out infinite;
 }
 
+.hrpc-app-shell-locked {
+  filter: blur(14px) saturate(0.85);
+  transform: scale(1.02);
+  pointer-events: none;
+  user-select: none;
+  max-height: 100vh;
+  overflow: hidden;
+}
+
+.hrpc-access-cover {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 1.25rem;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(2px);
+}
+
+.hrpc-access-cover-inner {
+  width: min(720px, 100%);
+  display: grid;
+  gap: 0.85rem;
+  justify-items: center;
+  text-align: center;
+  padding: 1.1rem 1rem 1.25rem;
+  border: 1px solid rgba(var(--accent-rgb), 0.4);
+  background: rgba(0, 0, 0, 0.78);
+  box-shadow: 0 0 48px rgba(var(--accent-rgb), 0.15);
+}
+
+.hrpc-access-cover-video {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  background: #000;
+  border: 1px solid rgba(var(--accent-rgb), 0.25);
+}
+
+.hrpc-access-cover-title {
+  margin: 0.35rem 0 0;
+  font-size: clamp(1.15rem, 3.2vw, 1.65rem);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #fff;
+  text-shadow: 0 0 18px rgba(var(--accent-rgb), 0.35);
+}
+
+.hrpc-access-cover-sub {
+  margin: 0;
+  max-width: 34rem;
+  line-height: 1.4;
+}
+
+.hrpc-access-cover-btn {
+  min-width: 220px;
+  margin-top: 0.25rem;
+}
+
+.hrpc-access-cover-opensea {
+  color: var(--accent);
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.hrpc-access-cover-opensea:hover {
+  opacity: 0.85;
+}
+
 .hrpc-demo-banner {
   width: 100%;
   padding: 0.7rem 0.9rem;
@@ -353,53 +425,6 @@
     0 0 18px rgba(255, 40, 40, 0.45),
     0 0 28px rgba(255, 30, 30, 0.25);
   box-shadow: 0 0 24px rgba(255, 40, 40, 0.12);
-}
-
-.hrpc-access-gate {
-  min-height: calc(100vh - 180px);
-  display: grid;
-  place-items: center;
-  padding: 2rem 1rem 3rem;
-}
-
-.hrpc-access-card {
-  width: min(560px, 100%);
-  border: 1px solid rgba(var(--accent-rgb), 0.45);
-  background: rgba(0, 0, 0, 0.72);
-  padding: 1.5rem 1.35rem;
-  box-shadow: 0 0 40px rgba(var(--accent-rgb), 0.12);
-  display: grid;
-  gap: 0.85rem;
-}
-
-.hrpc-access-kicker {
-  color: var(--accent);
-  letter-spacing: 0.12em;
-  font-size: 0.75rem;
-  margin: 0;
-}
-
-.hrpc-access-card .hrpc-section-title {
-  margin: 0;
-}
-
-.hrpc-access-card .hrpc-muted {
-  margin: 0;
-  line-height: 1.45;
-}
-
-.hrpc-access-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.65rem;
-  align-items: center;
-}
-
-.hrpc-access-ca {
-  margin: 0;
-  font-size: 0.72rem;
-  opacity: 0.7;
-  word-break: break-all;
 }
 
 .hrpc-nav-account {
