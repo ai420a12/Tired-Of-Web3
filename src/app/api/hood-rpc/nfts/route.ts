@@ -11,6 +11,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 export const fetchCache = "force-no-store";
+/** Keep under Vercel hobby/pro limits — never hang the live board on OpenSea 503 storms */
+export const maxDuration = 20;
 
 type CuratedCollection = {
   name: string;
@@ -266,28 +268,22 @@ function openseaKeys(): string[] {
   return out;
 }
 
-let keyCursor = 0;
-function nextOpenSeaKey(): string | null {
-  const keys = openseaKeys();
-  if (!keys.length) return null;
-  const key = keys[keyCursor % keys.length];
-  keyCursor = (keyCursor + 1) % keys.length;
-  return key;
-}
-
 /** Last-good chain-wide sales — OpenSea intermittently returns 503 / tiny rate limits. */
 const liveSalesCache = new Map<
   string,
   { rows: SaleRow[]; at: number; note?: string }
 >();
-const LIVE_CACHE_MS = 90_000;
+const LIVE_CACHE_MS = 5 * 60_000;
+const LIVE_STALE_SERVE_MS = 15 * 60_000;
 
 async function osFetch(path: string, attempt = 0): Promise<unknown | null> {
   const keys = openseaKeys();
   if (!keys.length) return null;
-  const key = keys[attempt % keys.length] || nextOpenSeaKey();
+  const key = keys[attempt % keys.length];
   if (!key) return null;
 
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 4_500);
   let res: Response;
   try {
     res = await fetch(`https://api.opensea.io/api/v2${path}`, {
@@ -297,23 +293,41 @@ async function osFetch(path: string, attempt = 0): Promise<unknown | null> {
         "User-Agent": "HOOD_RPC/1.0",
       },
       cache: "no-store",
+      signal: ctrl.signal,
     });
   } catch {
-    if (attempt < 5) {
-      await sleep(400 * (attempt + 1));
+    clearTimeout(timer);
+    // One quick retry on network abort / blip only
+    if (attempt < 1) {
+      await sleep(200);
       return osFetch(path, attempt + 1);
     }
     return null;
   }
+  clearTimeout(timer);
 
-  // 429 = rate limit; 502/503/504 = OpenSea backend flaky ("Backend service does not exist")
-  if ([429, 502, 503, 504].includes(res.status) && attempt < 6) {
+  // 429 / 5xx — rotate key once, short backoff (do NOT burn the whole serverless budget)
+  if ([429, 502, 503, 504].includes(res.status) && attempt < Math.min(2, keys.length)) {
     const retryAfter = Number(res.headers.get("retry-after") || 0);
-    await sleep(Math.max(retryAfter * 1000, 450 * (attempt + 1)));
+    await sleep(Math.min(1_200, Math.max(retryAfter * 1000, 250 * (attempt + 1))));
     return osFetch(path, attempt + 1);
   }
   if (!res.ok) return null;
-  return res.json();
+  try {
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+function cachedSales(chain: string, allowStale = true): SaleRow[] | null {
+  const cached = liveSalesCache.get(chain);
+  if (!cached) return null;
+  const age = Date.now() - cached.at;
+  if (age <= LIVE_CACHE_MS || (allowStale && age <= LIVE_STALE_SERVE_MS)) {
+    return cached.rows.map((r) => ({ ...r, ago: ago(r.eventTs) }));
+  }
+  return null;
 }
 
 /** Run async work with a hard concurrency cap (avoids OpenSea 429s). */
@@ -523,14 +537,20 @@ function ingestEvents(
   }
 }
 
-/** Chain-wide live sales — prefer /events, fall back to curated collection polls. */
+/** Chain-wide live sales — fast path + cache. Never block mint traffic on OpenSea outages. */
 async function fetchChainWideSales(
   scope: NftsScope,
   limit: number,
 ): Promise<SaleRow[]> {
   const target = Math.min(limit, 40);
   const cacheKey = scope.openseaChain;
-  // Wider window: OpenSea /events is flaky + rate-limited; 180s often returns empty
+  const fresh = cachedSales(cacheKey, false);
+  // Serve warm cache immediately while still refreshing when empty/stale
+  if (fresh && fresh.length >= Math.min(8, target)) {
+    // Fire-and-forget refresh would be ideal; serverless can't reliably do that — just return warm cache
+    return fresh.slice(0, target);
+  }
+
   const after = Math.floor(Date.now() / 1000) - 6 * 60 * 60;
   const params = new URLSearchParams({
     event_type: "sale",
@@ -541,48 +561,42 @@ async function fetchChainWideSales(
   const seenIds = new Set<string>();
   const rows: SaleRow[] = [];
 
+  // One primary call — OpenSea /events is the only reliable chain-wide source
   const data = (await osFetch(`/events?${params.toString()}`)) as {
     asset_events?: OsEvent[];
   } | null;
   ingestEvents(data?.asset_events || [], scope, rows, seenIds, target);
 
-  if (rows.length < Math.min(8, target)) {
-    // Quiet / 503 window — unfiltered page, then filter by chain
+  // If empty, one unfiltered page (still single call budget)
+  if (!rows.length) {
     const fallback = (await osFetch("/events?event_type=sale&limit=100")) as {
       asset_events?: OsEvent[];
     } | null;
     ingestEvents(fallback?.asset_events || [], scope, rows, seenIds, target);
   }
 
-  // Still thin — poll a few curated collections (higher OpenSea quota than global /events)
-  if (rows.length < Math.min(6, target) && scope.collections.length) {
-    const sample = scope.collections.slice(0, 6);
-    await mapPool(sample, 2, async (col) => {
-      if (rows.length >= target) return;
+  // Curated collection fallback — max 3 collections, concurrency 1 (avoid 503 storms)
+  if (rows.length < Math.min(4, target) && scope.collections.length) {
+    for (const col of scope.collections.slice(0, 3)) {
+      if (rows.length >= target) break;
       const colData = (await osFetch(
-        `/events/collection/${col.slug}?event_type=sale&limit=12`,
+        `/events/collection/${col.slug}?event_type=sale&limit=10`,
       )) as { asset_events?: OsEvent[]; events?: OsEvent[] } | null;
       const events = (colData?.asset_events || colData?.events || []).map(
         (ev) => ({ ...ev, chain: ev.chain || scope.openseaChain }),
       );
       ingestEvents(events, scope, rows, seenIds, target);
-    });
+    }
   }
 
   if (!rows.length) {
-    const cached = liveSalesCache.get(cacheKey);
-    if (cached && Date.now() - cached.at < LIVE_CACHE_MS) {
-      return cached.rows.map((r) => ({
-        ...r,
-        ago: ago(r.eventTs),
-      }));
-    }
-    return [];
+    return cachedSales(cacheKey, true) || [];
   }
 
+  // Light enrich only — images from events are usually enough for the board
   await enrichNftDetails(rows, scope.openseaChain, {
-    limit: 8,
-    concurrency: 2,
+    limit: 4,
+    concurrency: 1,
   });
   const sorted = rows.sort(sortNewest).slice(0, target);
   liveSalesCache.set(cacheKey, { rows: sorted, at: Date.now() });
