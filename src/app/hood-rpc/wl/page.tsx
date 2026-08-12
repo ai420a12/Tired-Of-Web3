@@ -6,8 +6,8 @@ import { HOOD_RPC_LINKS } from "@/components/hood-rpc/hood-wl";
 import "@/components/hood-rpc/hood-rpc.css";
 
 export const metadata: Metadata = {
-  title: "HOOD_RPC — Get WL",
-  description: "Apply for the HOOD_RPC whitelist. Follow, quote, tag, and drop your ETH wallet.",
+  title: "Tired Of Web3 — Get WL",
+  description: "Apply for the Tired Of Web3 whitelist. Follow, quote, tag, and drop your ETH wallet.",
   icons: {
     icon: [
       { url: "/images/hood-rpc/favicon.png", sizes: "32x32", type: "image/png" },
@@ -21,18 +21,20 @@ export const metadata: Metadata = {
 
 export default function HoodRpcWlPage() {
   return (
-    <div className="hrpc hrpc-wl-page">
+    <div className="hrpc hrpc-eth hrpc-wl-page">
       <nav className="hrpc-nav">
         <Link className="hrpc-brand" href={HOOD_RPC_LINKS.home}>
           <Image
-            src="/images/hood-rpc/mascot-lime.png"
-            alt="HOOD_RPC"
+            src="/images/hood-rpc/tired-of-web3-blue.png"
+            alt="Tired Of Web3"
             width={40}
             height={40}
             className="hrpc-nav-logo"
             priority
           />
-          <span className="hrpc-wordmark">HOOD_RPC</span>
+          <span className="hrpc-wordmark hrpc-wordmark-eth hrpc-wordmark-tow">
+            Tired Of Web3
+          </span>
         </Link>
         <div className="hrpc-nav-right">
           <div className="hrpc-nav-account">

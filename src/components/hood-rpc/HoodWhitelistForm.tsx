@@ -152,8 +152,8 @@ export default function HoodWhitelistForm() {
     return (
       <div className="hrpc-wl-success">
         <Image
-          src="/images/hood-rpc/mascot-lime.png"
-          alt=""
+          src="/images/hood-rpc/tired-of-web3-blue.png"
+          alt="Tired Of Web3"
           width={96}
           height={96}
           className="hrpc-wl-success-mascot"
@@ -168,7 +168,7 @@ export default function HoodWhitelistForm() {
           we&apos;ll reach out on X.
         </p>
         <Link href={HOOD_RPC_LINKS.home} className="hrpc-btn">
-          ← Back to HOOD_RPC
+          ← Back to Tired Of Web3
         </Link>
       </div>
     );

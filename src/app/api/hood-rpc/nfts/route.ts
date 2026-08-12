@@ -129,11 +129,6 @@ function sortNewest(a: SaleRow, b: SaleRow): number {
   return (b.eventTs || 0) - (a.eventTs || 0);
 }
 
-function demoRank(seed: number): number {
-  const bands = [5, 28, 120, 380, 750, 2400];
-  return bands[seed % bands.length] + (seed % 7);
-}
-
 function paymentToEth(payment?: OsEvent["payment"]): { eth: number; kind: "eth" | "weth"; usd: number } {
   const qty = Number(payment?.quantity || 0);
   const decimals = Number(payment?.token?.decimals ?? payment?.decimals ?? 18);
@@ -245,61 +240,6 @@ async function resolveProjectColAsync(
           ? NEUTRAL_NFT_IMAGE
           : base.image,
   };
-}
-
-/** Project-scoped fallback — only NFTs from the selected collection. */
-function fallbackForCollection(
-  slug: string,
-  limit: number,
-  scope: NftsScope,
-  kindBias: "mix" | "eth" | "weth" = "mix",
-  nameHint?: string | null,
-): SaleRow[] {
-  const col = resolveProjectCol(slug, nameHint, scope);
-  const now = Date.now();
-  const rows: SaleRow[] = [];
-  for (let i = 0; i < limit; i++) {
-    const idNum = 1000 + (((now / 1000 + i * 37) % 9000) | 0);
-    const eth = 0.01 + ((i * 17) % 90) / 1000;
-    const kind: "eth" | "weth" =
-      kindBias === "mix" ? (i % 3 === 0 ? "weth" : "eth") : kindBias;
-    const rank = demoRank(i + slug.length);
-    rows.push({
-      id: `${col.slug}-${idNum}-${i}`,
-      tokenName: `${col.name.split(" ")[0]} #${idNum}`,
-      collection: col.name,
-      collectionSlug: col.slug,
-      openseaUrl: col.website,
-      eth: Number(eth.toFixed(4)),
-      usd: Number((eth * 3200).toFixed(2)),
-      ago: ago(Math.floor(now / 1000) - i * 14),
-      kind,
-      image: col.image,
-      rarityRank: rank,
-      rarityUnavailable: false,
-      rarityLabel: "",
-      traits: [
-        { trait: "Chain", value: scope.chainLabel },
-        { trait: "Collection", value: col.name },
-      ],
-      eventTs: Math.floor(now / 1000) - i * 14,
-    });
-  }
-  return rows;
-}
-
-function fallbackLive(limit: number, scope: NftsScope): SaleRow[] {
-  const rows: SaleRow[] = [];
-  for (let i = 0; i < limit; i++) {
-    const col = scope.collections[i % scope.collections.length];
-    rows.push(...fallbackForCollection(col.slug, 1, scope, i % 3 === 0 ? "weth" : "eth").map((r, j) => ({
-      ...r,
-      id: `${r.id}-live-${i}-${j}`,
-      ago: ago(Math.floor(Date.now() / 1000) - i * 14),
-      eventTs: Math.floor(Date.now() / 1000) - i * 14,
-    })));
-  }
-  return rows.slice(0, limit);
 }
 
 async function sleep(ms: number) {
@@ -721,19 +661,14 @@ export async function GET(req: Request) {
   const nameParam = searchParams.get("name")?.trim() || null;
 
   if (!hasKey) {
-    const project = slug
-      ? fallbackForCollection(slug, 14, scope, "mix", nameParam)
-      : [];
     return NextResponse.json({
-      source: scope.curatedSource,
-      live: true,
+      source: "missing_key",
+      live: false,
       note: "Add OPENSEA_API_KEY for live OpenSea sales.",
       collections,
-      sales: fallbackLive(limit, scope),
-      projectSales: project,
-      listings: slug
-        ? fallbackForCollection(slug, 14, scope, "mix", nameParam)
-        : [],
+      sales: [],
+      projectSales: [],
+      listings: [],
       focusSlug: slug || undefined,
       focusName: slug ? resolveProjectCol(slug, nameParam, scope).name : undefined,
     });
@@ -771,7 +706,7 @@ export async function GET(req: Request) {
         source: "opensea",
         live: true,
         collections,
-        sales: sales.length ? sales : fallbackLive(limit, scope),
+        sales,
         projectSales: [],
         listings: [],
       },
@@ -783,17 +718,13 @@ export async function GET(req: Request) {
     );
   } catch (err) {
     return NextResponse.json({
-      source: "fallback",
-      live: true,
+      source: "error",
+      live: false,
       error: err instanceof Error ? err.message : "OpenSea fetch failed",
       collections,
-      sales: fallbackLive(limit, scope),
-      projectSales: slug
-        ? fallbackForCollection(slug, 14, scope, "mix", nameParam)
-        : [],
-      listings: slug
-        ? fallbackForCollection(slug, 14, scope, "mix", nameParam)
-        : [],
+      sales: [],
+      projectSales: [],
+      listings: [],
       focusSlug: slug || undefined,
       focusName: slug ? resolveProjectCol(slug, nameParam, scope).name : undefined,
     });

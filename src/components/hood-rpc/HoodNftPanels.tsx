@@ -292,6 +292,8 @@ export default function HoodNftPanels({
   apiBase = "/api/hood-rpc",
 }: Props) {
   const [live, setLive] = useState<HoodNftSale[]>([]);
+  const [liveLoading, setLiveLoading] = useState(true);
+  const [liveNote, setLiveNote] = useState<string | null>(null);
   const [focus, setFocus] = useState<HoodNftSale | null>(null);
   const [sales, setSales] = useState<HoodNftSale[]>([]);
   const [listings, setListings] = useState<HoodNftSale[]>([]);
@@ -299,6 +301,8 @@ export default function HoodNftPanels({
   const [flyVisible, setFlyVisible] = useState(false);
   const flyRef = useRef<HTMLDivElement | null>(null);
   const hideTimer = useRef<number | null>(null);
+  const liveSourceRef = useRef<string | null>(null);
+  const hadOpenSeaRef = useRef(false);
 
   const cancelHide = useCallback(() => {
     if (hideTimer.current != null) {
@@ -368,13 +372,40 @@ export default function HoodNftPanels({
         });
         if (!res.ok || cancelled) return;
         const data = await res.json();
-        if (Array.isArray(data.sales) && data.sales.length) {
-          setLive((prev) =>
-            mergeLiveSales(prev, data.sales as HoodNftSale[]),
+        if (cancelled) return;
+
+        const source = typeof data.source === "string" ? data.source : "";
+        if (source !== "opensea") {
+          liveSourceRef.current = source || null;
+          hadOpenSeaRef.current = false;
+          setLiveNote(
+            typeof data.note === "string"
+              ? data.note
+              : typeof data.error === "string"
+                ? data.error
+                : "Live feed unavailable — OpenSea API not connected.",
           );
+          setLive([]);
+          setLiveLoading(false);
+          return;
         }
+
+        liveSourceRef.current = "opensea";
+        setLiveNote(null);
+        const incoming = Array.isArray(data.sales)
+          ? (data.sales as HoodNftSale[])
+          : [];
+        if (incoming.length) {
+          setLive((prev) =>
+            mergeLiveSales(hadOpenSeaRef.current ? prev : [], incoming),
+          );
+          hadOpenSeaRef.current = true;
+        } else if (!hadOpenSeaRef.current) {
+          setLive([]);
+        }
+        setLiveLoading(false);
       } catch {
-        /* keep previous live rows */
+        if (!cancelled) setLiveLoading(false);
       } finally {
         inFlight = false;
       }
@@ -457,14 +488,22 @@ export default function HoodNftPanels({
           <HoodRarityLegend />
         </div>
         <div className="hrpc-table-wrap hrpc-nft-scroll">
-          <SaleTable
-            rows={live}
-            focusSlug={focus?.collectionSlug}
-            showCollection
-            onSelect={selectSale}
-            onThumbOver={showFlyout}
-            onThumbOut={handleThumbOut}
-          />
+          {liveLoading && live.length === 0 ? (
+            <p className="hrpc-nft-empty">Loading live OpenSea sales…</p>
+          ) : liveNote && live.length === 0 ? (
+            <p className="hrpc-nft-empty">{liveNote}</p>
+          ) : live.length === 0 ? (
+            <p className="hrpc-nft-empty">No recent sales on this chain right now.</p>
+          ) : (
+            <SaleTable
+              rows={live}
+              focusSlug={focus?.collectionSlug}
+              showCollection
+              onSelect={selectSale}
+              onThumbOver={showFlyout}
+              onThumbOut={handleThumbOut}
+            />
+          )}
         </div>
       </aside>
 

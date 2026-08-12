@@ -1,7 +1,7 @@
 export const HOOD_RPC_LINKS = {
   x: "https://x.com/TiredOfWeb3",
   /** Open profile — users quote the pinned post from here */
-  pinnedPost: "https://x.com/TiredOfWeb3/status/2084745609936830558",
+  pinnedPost: "https://x.com/TiredOfWeb3/status/2087518471248609353",
   home: "/hood-rpc",
   wl: "/hood-rpc/wl",
   /** Live OpenSea collection */
@@ -42,7 +42,7 @@ export const HOOD_RPC_WL_TASKS = [
     number: "03",
     title: "Tag 3 friends",
     description:
-      "Comment on the pinned post and tag 3 friends who want HOOD_RPC WL.",
+      "Comment on the pinned post and tag 3 friends who want Tired Of Web3 WL.",
     cta: "Open comments",
     href: HOOD_RPC_LINKS.pinnedPost,
     verificationLabel: "Add verification link",
