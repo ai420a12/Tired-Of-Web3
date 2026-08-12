@@ -8,12 +8,10 @@ export const HOOD_RPC_LINKS = {
   opensea: "https://opensea.io/collection/hoodrpc",
 } as const;
 
-/** Aug 14 2026 19:00 UK (BST) */
-export const HOOD_NFT_DROP_AT = new Date("2026-08-14T19:00:00+01:00");
-/** Aug 15 2026 19:00 UK (BST) */
-export const HOOD_HRPC_DROP_AT = new Date("2026-08-15T19:00:00+01:00");
-/** Aug 16 2026 19:00 UK (BST) */
-export const HOOD_PLATFORM_LIVE_AT = new Date("2026-08-16T19:00:00+01:00");
+/** Aug 14 2026, 19:00 UK (BST / Europe/London) */
+export const HOOD_NFT_DROP_AT = new Date("2026-08-14T18:00:00.000Z");
+/** Aug 16 2026, 19:00 UK (BST) */
+export const HOOD_PLATFORM_LIVE_AT = new Date("2026-08-16T18:00:00.000Z");
 
 export const HOOD_RPC_WL_TASKS = [
   {

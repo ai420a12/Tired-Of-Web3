@@ -16,7 +16,6 @@ import HoodArmSnipers from "./HoodArmSnipers";
 import WalletPickerModal, { FLEET } from "./WalletPickerModal";
 import ChainSwitcher from "./ChainSwitcher";
 import {
-  HOOD_HRPC_DROP_AT,
   HOOD_NFT_DROP_AT,
   HOOD_PLATFORM_LIVE_AT,
   HOOD_RPC_LINKS,
@@ -365,17 +364,6 @@ export default function HoodDashboard({
               {formatDropCountdown(HOOD_NFT_DROP_AT, now)}
             </span>
           </a>
-          <div className="hrpc-drop-card hrpc-drop-token">
-            <span className="hrpc-drop-meta">
-              <span className="hrpc-drop-label">
-                <span className="hrpc-hrpc-glow">{isEth ? "$ETH_RPC" : "$HRPC"}</span>{" "}
-                token
-              </span>
-            </span>
-            <span className="hrpc-drop-clock hrpc-mono" aria-live="polite">
-              {formatDropCountdown(HOOD_HRPC_DROP_AT, now)}
-            </span>
-          </div>
           <div className="hrpc-drop-card hrpc-drop-platform">
             <span className="hrpc-drop-meta">
               <span className="hrpc-drop-label">Platform live</span>
@@ -387,7 +375,7 @@ export default function HoodDashboard({
         </div>
         <div className="hrpc-demo-banner" role="status">
           Demo Version — Full version will have much faster NODES. Check the
-          timers above for when everything goes live!
+          countdowns above for when everything goes live!
         </div>
       </div>
 
