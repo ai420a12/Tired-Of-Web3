@@ -2052,8 +2052,49 @@
   --hrpc-rarity: #94a3b8;
 }
 
+table.hrpc-table.hrpc-nft-table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.hrpc-nft-table thead th {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.hrpc-nft-table tbody td {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  vertical-align: middle;
+}
+
+.hrpc-nft-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.hrpc-nft-table .hrpc-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
 .hrpc-nft-table tr.hrpc-os-row td:first-of-type {
-  box-shadow: inset 5px 0 0 0 var(--hrpc-rarity);
+  box-shadow: none;
+  overflow: visible;
+}
+
+.hrpc-nft-table tr.hrpc-os-row td:first-of-type::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: -1px;
+  width: 4px;
+  background: var(--hrpc-rarity, #94a3b8);
+  pointer-events: none;
+}
+
+.hrpc-nft-table tbody tr:last-child td:first-of-type::before {
+  bottom: 0;
 }
 
 .hrpc-nft-ring {
