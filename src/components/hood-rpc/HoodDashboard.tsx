@@ -15,11 +15,7 @@ import HoodArmSnipers from "./HoodArmSnipers";
 import WalletPickerModal, { FLEET } from "./WalletPickerModal";
 import ChainSwitcher from "./ChainSwitcher";
 import { HOOD_RPC_LINKS } from "./hood-wl";
-import {
-  DEMO_TOAST,
-  DEMO_WALLET,
-  HOOD_RPC_DEMO,
-} from "@/lib/hood-rpc-demo";
+import { HOOD_RPC_DEMO } from "@/lib/hood-rpc-demo";
 import {
   ACCESS_OPENSEA_URL,
 } from "@/lib/access-key-shared";
@@ -232,16 +228,8 @@ export default function HoodDashboard({
     };
   }, []);
 
+  /** Real wallet only — proves Access Key ownership. Tools stay in HOOD_RPC_DEMO. */
   async function connectWallet() {
-    if (HOOD_RPC_DEMO) {
-      setConnecting(true);
-      await new Promise((r) => setTimeout(r, 350));
-      setWallet(DEMO_WALLET);
-      setHasAccess(true);
-      setConnecting(false);
-      setToast(DEMO_TOAST);
-      return;
-    }
     const eth = (window as Window & { ethereum?: EthereumProvider }).ethereum;
     if (!eth) {
       setToast("> NO EVM WALLET FOUND · INSTALL METAMASK / RABBY");
@@ -294,7 +282,7 @@ export default function HoodDashboard({
       };
 
       if (!verifyRes.ok || !verifyData.ok) {
-        setWallet(address);
+        setWallet(null);
         setHasAccess(false);
         if (verifyData.code === "NO_ACCESS_KEY") {
           setToast("> NO ACCESS KEY IN THIS WALLET · MINT / BUY ON OPENSEA");
@@ -324,7 +312,7 @@ export default function HoodDashboard({
     setHasAccess(false);
     setUsername("");
     setProfileOpen(false);
-    setToast(HOOD_RPC_DEMO ? "> DEMO SESSION CLEARED" : "> WALLET DISCONNECTED");
+    setToast("> WALLET DISCONNECTED");
   }
 
   return (
@@ -389,11 +377,7 @@ export default function HoodDashboard({
               className="hrpc-btn hrpc-btn-ghost hrpc-profile-btn"
               onClick={() => {
                 if (!wallet) {
-                  setToast(
-                    HOOD_RPC_DEMO
-                      ? "> CONNECT WALLET TO EDIT PROFILE"
-                      : "> CONNECT WALLET TO EDIT PROFILE",
-                  );
+                  setToast("> CONNECT WALLET TO EDIT PROFILE");
                   return;
                 }
                 setProfileDraft(username);
@@ -731,6 +715,7 @@ export default function HoodDashboard({
             </h1>
             <p className="hrpc-access-cover-sub hrpc-muted">
               Hold a Tired Of Web3 Access Key to unlock Hood_RPC and ETH_RPC.
+              Snipers and tools stay in demo mode (no real txs).
             </p>
             <button
               type="button"
