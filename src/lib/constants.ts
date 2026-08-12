@@ -20,7 +20,6 @@ export const LINKS = {
   telegram: null as string | null,
   discord: "https://discord.gg/tiredofweb3" as string | null,
   opensea: "https://opensea.io/collection/tired-of-web3/overview",
-  wl: "/wl",
   nfc: "https://x.com/NFCSummit",
   johnKarp: "https://x.com/johnkarp",
   jorgeX: "https://x.com/Ai420a12",

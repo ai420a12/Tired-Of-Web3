@@ -32,10 +32,6 @@ export function middleware(request: NextRequest) {
     url.pathname = `/hood-rpc${pathname}`;
     return NextResponse.rewrite(url);
   }
-  if (pathname === "/wl" || pathname.startsWith("/wl/")) {
-    url.pathname = `/hood-rpc${pathname}`;
-    return NextResponse.rewrite(url);
-  }
 
   // Unknown paths on this host → sniper home
   url.pathname = "/hood-rpc";

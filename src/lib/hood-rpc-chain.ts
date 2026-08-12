@@ -13,7 +13,6 @@ export type HoodRpcChainConfig = {
   brand: string;
   switcherLabel: string;
   homePath: string;
-  wlPath: string;
   apiBase: string;
   chainLabel: string;
   geckoNetwork: string;
@@ -35,7 +34,6 @@ export const HOOD_CHAIN_CONFIG: HoodRpcChainConfig = {
   brand: "Tired Of Web3",
   switcherLabel: "Hood_RPC",
   homePath: "/hood-rpc",
-  wlPath: HOOD_RPC_LINKS.wl,
   apiBase: "/api/hood-rpc",
   chainLabel: "Robinhood",
   geckoNetwork: "robinhood",
@@ -57,7 +55,6 @@ export const ETH_CHAIN_CONFIG: HoodRpcChainConfig = {
   brand: "Tired Of Web3",
   switcherLabel: "ETH_RPC",
   homePath: "/hood-rpc/eth",
-  wlPath: "/hood-rpc/wl",
   apiBase: "/api/hood-rpc/eth",
   chainLabel: "Ethereum",
   geckoNetwork: "eth",

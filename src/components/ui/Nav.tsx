@@ -53,13 +53,15 @@ export default function Nav({ onVentClick }: NavProps) {
         </div>
 
         <div className="flex flex-wrap items-start justify-end gap-2">
-          <Link
-            href="/wl"
+          <a
+            href="https://opensea.io/collection/tired-of-web3/overview"
+            target="_blank"
+            rel="noopener noreferrer"
             onClick={() => playClick()}
             className="rounded-full border border-neon-green/50 bg-neon-green/10 px-3 py-1.5 font-mono text-xs font-bold text-neon-green transition-colors hover:bg-neon-green/20 sm:px-4"
           >
-            GET WL
-          </Link>
+            OpenSea
+          </a>
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}

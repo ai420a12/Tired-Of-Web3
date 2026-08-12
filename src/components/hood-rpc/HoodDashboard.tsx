@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   TICKER_ITEMS,
@@ -15,11 +14,7 @@ import HoodNftPanels from "./HoodNftPanels";
 import HoodArmSnipers from "./HoodArmSnipers";
 import WalletPickerModal, { FLEET } from "./WalletPickerModal";
 import ChainSwitcher from "./ChainSwitcher";
-import {
-  HOOD_NFT_DROP_AT,
-  HOOD_PLATFORM_LIVE_AT,
-  HOOD_RPC_LINKS,
-} from "./hood-wl";
+import { HOOD_RPC_LINKS } from "./hood-wl";
 import {
   DEMO_TOAST,
   DEMO_WALLET,
@@ -40,20 +35,6 @@ const NAV_LINKS = [
   { href: "#generate-wallets", label: "Wallet Generator" },
   { href: "#master-split", label: "Master Split" },
 ] as const;
-
-function formatDropCountdown(target: Date, now: number): string {
-  const ms = target.getTime() - now;
-  if (ms <= 0) return "LIVE";
-  const total = Math.floor(ms / 1000);
-  const d = Math.floor(total / 86400);
-  const h = Math.floor((total % 86400) / 3600);
-  const m = Math.floor((total % 3600) / 60);
-  const s = total % 60;
-  if (d > 0) {
-    return `${d}d ${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-  }
-  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-}
 
 const PNL_LEADERS = [
   { user: "limegod", pnl: "+184.2 ETH" },
@@ -110,12 +91,6 @@ export default function HoodDashboard({
   const [username, setUsername] = useState("");
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileDraft, setProfileDraft] = useState("");
-  const [now, setNow] = useState(() => Date.now());
-
-  useEffect(() => {
-    const id = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(id);
-  }, []);
 
   useEffect(() => {
     if (!wallet) {
@@ -398,9 +373,14 @@ export default function HoodDashboard({
               {link.label}
             </a>
           ))}
-          <Link className="hrpc-nav-link hrpc-nav-link-wl" href={cfg.wlPath}>
-            Get WL
-          </Link>
+          <a
+            className="hrpc-nav-link hrpc-nav-link-opensea"
+            href={cfg.openseaCollectionUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            OpenSea
+          </a>
         </div>
         <div className="hrpc-nav-right">
           <div className="hrpc-nav-account">
@@ -445,33 +425,6 @@ export default function HoodDashboard({
           </div>
         </div>
       </nav>
-
-      <div className="hrpc-drop-rail" aria-label="Launch schedule">
-        <div className="hrpc-drop-strip">
-          <a
-            className="hrpc-drop-card hrpc-drop-nft"
-            href={cfg.openseaCollectionUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <span className="hrpc-drop-meta">
-              <span className="hrpc-drop-label">NFT collection</span>
-            </span>
-            <span className="hrpc-btn hrpc-drop-opensea">OpenSea</span>
-            <span className="hrpc-drop-clock hrpc-mono" aria-live="polite">
-              {formatDropCountdown(HOOD_NFT_DROP_AT, now)}
-            </span>
-          </a>
-          <div className="hrpc-drop-card hrpc-drop-platform">
-            <span className="hrpc-drop-meta">
-              <span className="hrpc-drop-label">Platform live</span>
-            </span>
-            <span className="hrpc-drop-clock hrpc-mono" aria-live="polite">
-              {formatDropCountdown(HOOD_PLATFORM_LIVE_AT, now)}
-            </span>
-          </div>
-        </div>
-      </div>
       </>
       ) : null}
 

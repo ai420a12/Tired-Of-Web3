@@ -11,7 +11,6 @@ export const HOOD_RPC_LINKS = {
   /** Open profile — users quote the pinned post from here */
   pinnedPost: "https://x.com/TiredOfWeb3/status/2087589640257581411",
   home: "/hood-rpc",
-  wl: "/hood-rpc/wl",
   /** Live OpenSea collection drop */
   opensea: TIRED_OF_WEB3_OPENSEA_URL,
 } as const;
