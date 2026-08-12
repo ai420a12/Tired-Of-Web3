@@ -67,12 +67,14 @@ export default function Hero() {
           className="grid w-full max-w-md grid-cols-2 gap-3"
         >
           <motion.a
-            href={LINKS.wl}
+            href={LINKS.opensea}
+            target="_blank"
+            rel="noopener noreferrer"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             className={`${ctaClass} border-neon-pink/50 bg-neon-pink/10 text-neon-pink hover:bg-neon-pink/20`}
           >
-            GET WL
+            OpenSea
           </motion.a>
           <motion.a
             href={LINKS.sneakpeeks}
