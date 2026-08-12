@@ -6,6 +6,11 @@ import {
   type HoodRpcVariant,
 } from "@/lib/hood-rpc-chain";
 import { parseOpenSeaRarityRank } from "@/components/hood-rpc/hood-rarity";
+import {
+  fetchAlchemyEthSales,
+  fetchBlockscoutRobinhoodActivity,
+  type LiveSaleRow,
+} from "@/lib/nft-live-sources";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -537,18 +542,16 @@ function ingestEvents(
   }
 }
 
-/** Chain-wide live sales — fast path + cache. Never block mint traffic on OpenSea outages. */
+/** Chain-wide live sales — OpenSea first, then Alchemy (ETH) / Blockscout (RH), then cache. */
 async function fetchChainWideSales(
   scope: NftsScope,
   limit: number,
-): Promise<SaleRow[]> {
+): Promise<{ rows: SaleRow[]; source: string }> {
   const target = Math.min(limit, 40);
   const cacheKey = scope.openseaChain;
   const fresh = cachedSales(cacheKey, false);
-  // Serve warm cache immediately while still refreshing when empty/stale
   if (fresh && fresh.length >= Math.min(8, target)) {
-    // Fire-and-forget refresh would be ideal; serverless can't reliably do that — just return warm cache
-    return fresh.slice(0, target);
+    return { rows: fresh.slice(0, target), source: "cache" };
   }
 
   const after = Math.floor(Date.now() / 1000) - 6 * 60 * 60;
@@ -561,13 +564,11 @@ async function fetchChainWideSales(
   const seenIds = new Set<string>();
   const rows: SaleRow[] = [];
 
-  // One primary call — OpenSea /events is the only reliable chain-wide source
   const data = (await osFetch(`/events?${params.toString()}`)) as {
     asset_events?: OsEvent[];
   } | null;
   ingestEvents(data?.asset_events || [], scope, rows, seenIds, target);
 
-  // If empty, one unfiltered page (still single call budget)
   if (!rows.length) {
     const fallback = (await osFetch("/events?event_type=sale&limit=100")) as {
       asset_events?: OsEvent[];
@@ -575,32 +576,35 @@ async function fetchChainWideSales(
     ingestEvents(fallback?.asset_events || [], scope, rows, seenIds, target);
   }
 
-  // Curated collection fallback — max 3 collections, concurrency 1 (avoid 503 storms)
-  if (rows.length < Math.min(4, target) && scope.collections.length) {
-    for (const col of scope.collections.slice(0, 3)) {
-      if (rows.length >= target) break;
-      const colData = (await osFetch(
-        `/events/collection/${col.slug}?event_type=sale&limit=10`,
-      )) as { asset_events?: OsEvent[]; events?: OsEvent[] } | null;
-      const events = (colData?.asset_events || colData?.events || []).map(
-        (ev) => ({ ...ev, chain: ev.chain || scope.openseaChain }),
-      );
-      ingestEvents(events, scope, rows, seenIds, target);
-    }
+  if (rows.length) {
+    await enrichNftDetails(rows, scope.openseaChain, {
+      limit: 4,
+      concurrency: 1,
+    });
+    const sorted = rows.sort(sortNewest).slice(0, target);
+    liveSalesCache.set(cacheKey, { rows: sorted, at: Date.now() });
+    return { rows: sorted, source: "opensea" };
   }
 
-  if (!rows.length) {
-    return cachedSales(cacheKey, true) || [];
+  // --- OpenSea down / empty: alternate live sources ---
+  let alt: LiveSaleRow[] = [];
+  if (scope.openseaChain === "ethereum") {
+    alt = await fetchAlchemyEthSales(target);
+  } else if (scope.openseaChain === "robinhood") {
+    alt = await fetchBlockscoutRobinhoodActivity(target);
   }
 
-  // Light enrich only — images from events are usually enough for the board
-  await enrichNftDetails(rows, scope.openseaChain, {
-    limit: 4,
-    concurrency: 1,
-  });
-  const sorted = rows.sort(sortNewest).slice(0, target);
-  liveSalesCache.set(cacheKey, { rows: sorted, at: Date.now() });
-  return sorted;
+  if (alt.length) {
+    const mapped = alt as SaleRow[];
+    liveSalesCache.set(cacheKey, { rows: mapped, at: Date.now() });
+    return {
+      rows: mapped.slice(0, target),
+      source: scope.openseaChain === "ethereum" ? "alchemy" : "blockscout",
+    };
+  }
+
+  const stale = cachedSales(cacheKey, true) || [];
+  return { rows: stale.slice(0, target), source: stale.length ? "cache" : "empty" };
 }
 
 type OsListing = {
@@ -739,10 +743,27 @@ export async function GET(req: Request) {
   const nameParam = searchParams.get("name")?.trim() || null;
 
   if (!hasKey) {
+    // Still try Alchemy / Blockscout — feed must work on mint day even without OpenSea
+    try {
+      const salesResult = await fetchChainWideSales(scope, limit);
+      if (salesResult.rows.length) {
+        return NextResponse.json({
+          source: salesResult.source,
+          live: true,
+          note: "OpenSea key missing — using backup live source.",
+          collections,
+          sales: salesResult.rows,
+          projectSales: [],
+          listings: [],
+        });
+      }
+    } catch {
+      /* fall through */
+    }
     return NextResponse.json({
       source: "missing_key",
       live: false,
-      note: "Add OPENSEA_API_KEY for live OpenSea sales.",
+      note: "Add OPENSEA_API_KEY (and optionally ALCHEMY_API_KEY) for live sales.",
       collections,
       sales: [],
       projectSales: [],
@@ -777,14 +798,14 @@ export async function GET(req: Request) {
       });
     }
 
-    const sales = await fetchChainWideSales(scope, limit);
+    const salesResult = await fetchChainWideSales(scope, limit);
 
     return NextResponse.json(
       {
-        source: "opensea",
-        live: true,
+        source: salesResult.source,
+        live: salesResult.rows.length > 0,
         collections,
-        sales,
+        sales: salesResult.rows,
         projectSales: [],
         listings: [],
       },

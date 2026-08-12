@@ -376,22 +376,30 @@ export default function HoodNftPanels({
         if (cancelled) return;
 
         const source = typeof data.source === "string" ? data.source : "";
-        if (source !== "opensea") {
+        const liveOk = ["opensea", "alchemy", "blockscout", "cache"].includes(
+          source,
+        );
+
+        if (!liveOk) {
           liveSourceRef.current = source || null;
-          hadOpenSeaRef.current = false;
-          setLiveNote(
-            typeof data.note === "string"
-              ? data.note
-              : typeof data.error === "string"
-                ? data.error
-                : "Live feed unavailable — OpenSea API not connected.",
-          );
-          setLive([]);
+          // NEVER wipe a working board during mint — keep last good rows
+          if (!hadOpenSeaRef.current) {
+            setLiveNote(
+              typeof data.note === "string"
+                ? data.note
+                : typeof data.error === "string"
+                  ? data.error
+                  : "Live feed reconnecting…",
+            );
+            setLive([]);
+          } else {
+            setLiveNote("Live feed reconnecting…");
+          }
           setLiveLoading(false);
           return;
         }
 
-        liveSourceRef.current = "opensea";
+        liveSourceRef.current = source;
         setLiveNote(null);
         const incoming = Array.isArray(data.sales)
           ? (data.sales as HoodNftSale[])
