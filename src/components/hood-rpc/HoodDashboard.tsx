@@ -185,10 +185,14 @@ export default function HoodDashboard({
   // Tick upcoming countdowns locally between refreshes (keep mint date intact)
   useEffect(() => {
     const id = window.setInterval(() => {
+      const now = Date.now();
       setNfts((prev) =>
         prev
           .map((row) => {
-            const etaSeconds = Math.max(0, row.etaSeconds - 1);
+            const etaSeconds = Math.max(
+              0,
+              Math.floor((row.mintAtMs - now) / 1000),
+            );
             const h = Math.floor(etaSeconds / 3600);
             const m = Math.floor((etaSeconds % 3600) / 60);
             const s = etaSeconds % 60;
@@ -204,7 +208,14 @@ export default function HoodDashboard({
               countdown,
             };
           })
-          .sort((a, b) => a.etaSeconds - b.etaSeconds),
+          .sort((a, b) => {
+            const nowMs = Date.now();
+            const aLive = a.mintAtMs <= nowMs;
+            const bLive = b.mintAtMs <= nowMs;
+            if (aLive !== bLive) return aLive ? -1 : 1;
+            if (aLive && bLive) return b.mintAtMs - a.mintAtMs;
+            return a.mintAtMs - b.mintAtMs;
+          }),
       );
     }, 1000);
     return () => window.clearInterval(id);

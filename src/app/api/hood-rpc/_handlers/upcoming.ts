@@ -13,6 +13,9 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const MINTGO_HORIZON_MS = 7 * 24 * 60 * 60 * 1000;
+const UPCOMING_LIMIT = 80;
+
 type Upcoming = {
   id: string;
   name: string;
@@ -21,6 +24,7 @@ type Upcoming = {
   price: string;
   countdown: string;
   etaSeconds: number;
+  mintAtMs: number;
   logo: string;
   collectionSlug: string;
   openseaUrl: string;
@@ -72,6 +76,14 @@ function isJunkName(name: string): boolean {
   return false;
 }
 
+function mintAtFromItem(item: MintgoRadarItem): number {
+  const fromIso = Date.parse(item.startTime || "");
+  if (Number.isFinite(fromIso)) return fromIso;
+  const fromAt = Number(item.startAt);
+  if (Number.isFinite(fromAt) && fromAt > 0) return fromAt;
+  return NaN;
+}
+
 function mapMintgoItem(
   item: MintgoRadarItem,
   fallbackLogo: string,
@@ -83,10 +95,11 @@ function mapMintgoItem(
   const status = (item.status || "").toLowerCase();
   if (status && status !== "upcoming" && status !== "live") return null;
 
-  const startMs = Number(item.startAt) || Date.parse(item.startTime || "");
-  const etaSeconds = Number.isFinite(startMs)
-    ? Math.max(0, Math.floor((startMs - now) / 1000))
-    : 0;
+  const mintAtMs = mintAtFromItem(item);
+  if (!Number.isFinite(mintAtMs)) return null;
+  if (mintAtMs - now > MINTGO_HORIZON_MS) return null;
+
+  const etaSeconds = Math.max(0, Math.floor((mintAtMs - now) / 1000));
   const live = status === "live" || etaSeconds <= 0;
   const slug =
     (item.openSeaSlug || "").trim() ||
@@ -100,6 +113,7 @@ function mapMintgoItem(
     price: mintgoPrice(item),
     countdown: live ? "LIVE" : formatCountdown(etaSeconds),
     etaSeconds: live ? 0 : etaSeconds,
+    mintAtMs,
     logo: item.imageUrl || fallbackLogo,
     collectionSlug: slug,
     openseaUrl:
@@ -108,6 +122,16 @@ function mapMintgoItem(
         ? `https://opensea.io/collection/${item.openSeaSlug}`
         : `https://mintgo.fun/`),
   };
+}
+
+function sortUpcoming(rows: Upcoming[], now: number): Upcoming[] {
+  return [...rows].sort((a, b) => {
+    const aLive = a.mintAtMs <= now;
+    const bLive = b.mintAtMs <= now;
+    if (aLive !== bLive) return aLive ? -1 : 1;
+    if (aLive && bLive) return b.mintAtMs - a.mintAtMs;
+    return a.mintAtMs - b.mintAtMs;
+  });
 }
 
 export async function handleUpcoming(variant: HoodRpcVariant) {
@@ -134,9 +158,10 @@ export async function handleUpcoming(variant: HoodRpcVariant) {
 
   for (const drop of curated) {
     if (seen.has(drop.id) || seen.has(drop.collectionSlug)) continue;
-    const mintMs = new Date(drop.mintAt).getTime();
-    if (!Number.isFinite(mintMs)) continue;
-    const etaSeconds = Math.floor((mintMs - now) / 1000);
+    const mintAtMs = new Date(drop.mintAt).getTime();
+    if (!Number.isFinite(mintAtMs)) continue;
+    if (mintAtMs - now > MINTGO_HORIZON_MS) continue;
+    const etaSeconds = Math.floor((mintAtMs - now) / 1000);
     if (etaSeconds <= 0) continue;
 
     seen.add(drop.id);
@@ -148,23 +173,19 @@ export async function handleUpcoming(variant: HoodRpcVariant) {
       price: drop.price,
       countdown: formatCountdown(etaSeconds),
       etaSeconds,
+      mintAtMs,
       logo: drop.logo,
       collectionSlug: drop.collectionSlug,
       openseaUrl: drop.openseaUrl,
     });
   }
 
-  rows.sort((a, b) => {
-    const aLive = a.etaSeconds <= 0 ? 1 : 0;
-    const bLive = b.etaSeconds <= 0 ? 1 : 0;
-    if (aLive !== bLive) return aLive - bLive;
-    return a.etaSeconds - b.etaSeconds;
-  });
+  const sorted = sortUpcoming(rows, now);
 
   return NextResponse.json({
     source,
     chain,
     updatedAt: new Date().toISOString(),
-    nfts: rows.slice(0, 16),
+    nfts: sorted.slice(0, UPCOMING_LIMIT),
   });
 }

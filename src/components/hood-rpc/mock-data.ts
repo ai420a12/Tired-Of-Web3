@@ -19,6 +19,7 @@ export type UpcomingNft = {
   price: string;
   countdown: string;
   etaSeconds: number;
+  mintAtMs: number;
   logo: string;
   collectionSlug: string;
   openseaUrl: string;
@@ -318,6 +319,7 @@ export function makeNfts(count = 8, seed = 0): UpcomingNft[] {
     const secs = etaSeconds % 60;
     const mintLabel =
       hours > 0 ? `in ${hours}h` : mins > 0 ? `in ${mins}m` : "soon";
+    const mintAtMs = Date.now() + etaSeconds * 1000;
     return {
       id: `nft-${seed}-${i}`,
       name: col.name,
@@ -326,12 +328,13 @@ export function makeNfts(count = 8, seed = 0): UpcomingNft[] {
       price: n % 3 === 0 ? "FREE" : `${(0.02 + (n % 8) * 0.01).toFixed(2)} ETH`,
       countdown: `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`,
       etaSeconds,
+      mintAtMs,
       logo: col.image,
       collectionSlug: col.slug,
       openseaUrl: collectionUrl(col.slug),
     };
   });
-  return rows.sort((a, b) => a.etaSeconds - b.etaSeconds);
+  return rows.sort((a, b) => a.mintAtMs - b.mintAtMs);
 }
 
 const AGOS = ["just now", "12s ago", "28s ago", "1m ago", "2m ago", "3m ago", "5m ago"];
