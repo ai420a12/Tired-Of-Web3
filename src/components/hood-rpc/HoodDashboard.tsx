@@ -291,7 +291,7 @@ export default function HoodDashboard({
               {link.label}
             </a>
           ))}
-          <Link className="hrpc-nav-link hrpc-nav-link-wl" href={HOOD_RPC_LINKS.wl}>
+          <Link className="hrpc-nav-link hrpc-nav-link-wl" href={cfg.wlPath}>
             Get WL
           </Link>
         </div>

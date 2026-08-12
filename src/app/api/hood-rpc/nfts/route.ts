@@ -43,6 +43,7 @@ function makeScope(variant: HoodRpcVariant): NftsScope {
 type OsNft = {
   identifier?: string;
   name?: string;
+  collection?: string;
   image_url?: string;
   display_image_url?: string;
   image_original_url?: string;
@@ -63,7 +64,12 @@ type OsEvent = {
   event_type?: string;
   order_hash?: string;
   chain?: string;
-  payment?: { quantity?: string; token?: { symbol?: string; usd_price?: string; decimals?: number } };
+  payment?: {
+    quantity?: string;
+    decimals?: number;
+    symbol?: string;
+    token?: { symbol?: string; usd_price?: string; decimals?: number };
+  };
   nft?: OsNft;
   event_timestamp?: number | string;
 };
@@ -128,13 +134,13 @@ function demoRank(seed: number): number {
 
 function paymentToEth(payment?: OsEvent["payment"]): { eth: number; kind: "eth" | "weth"; usd: number } {
   const qty = Number(payment?.quantity || 0);
-  const decimals = Number(payment?.token?.decimals ?? 18);
+  const decimals = Number(payment?.token?.decimals ?? payment?.decimals ?? 18);
   let eth = qty;
   if (qty > 1e9) eth = qty / 10 ** decimals;
   if (!Number.isFinite(eth) || eth <= 0) eth = 0.05;
   const usdPrice = Number(payment?.token?.usd_price || 0);
   const usd = usdPrice > 0 ? eth * usdPrice : eth * 3200;
-  const symbol = (payment?.token?.symbol || "ETH").toUpperCase();
+  const symbol = (payment?.token?.symbol || payment?.symbol || "ETH").toUpperCase();
   const kind = symbol.includes("WETH") ? "weth" : "eth";
   return { eth: Number(eth.toFixed(4)), kind, usd: Number(usd.toFixed(2)) };
 }
@@ -342,6 +348,7 @@ function mapEvent(
   colSlug: string,
   colImage: string,
   chainLabel: string,
+  assetsChain = "ethereum",
 ): SaleRow | null {
   const nft = ev.nft;
   if (!nft) return null;
@@ -358,7 +365,10 @@ function mapEvent(
     collection: colName,
     collectionSlug: colSlug,
     openseaUrl:
-      nft.opensea_url || `https://opensea.io/collection/${colSlug}`,
+      nft.opensea_url ||
+      (nft.contract && nft.identifier
+        ? `https://opensea.io/assets/${assetsChain}/${nft.contract}/${nft.identifier}`
+        : `https://opensea.io/collection/${colSlug}`),
     eth,
     usd,
     ago: ago(eventTs),
@@ -443,7 +453,9 @@ async function fetchCollectionSales(
   )) as { asset_events?: OsEvent[]; events?: OsEvent[] } | null;
   const events = (data?.asset_events || data?.events || []) as OsEvent[];
   const mapped = events
-    .map((ev) => mapEvent(ev, col.name, col.slug, col.image, scope.chainLabel))
+    .map((ev) =>
+      mapEvent(ev, col.name, col.slug, col.image, scope.chainLabel, scope.openseaAssetsChain),
+    )
     .filter((r): r is SaleRow => Boolean(r))
     .sort(sortNewest);
   if (opts.enrich === false) return mapped;
@@ -453,6 +465,70 @@ async function fetchCollectionSales(
     limit: Math.min(12, mapped.length),
     concurrency: 2,
   });
+}
+
+/** Chain-wide live sales — pulls marketplace-wide feed and filters by chain. */
+async function fetchChainWideSales(
+  scope: NftsScope,
+  limit: number,
+): Promise<SaleRow[]> {
+  const target = Math.min(limit, 40);
+  const seenIds = new Set<string>();
+  const rows: SaleRow[] = [];
+  let nextCursor: string | undefined;
+  let pages = 0;
+
+  while (rows.length < target && pages < 6) {
+    const params = new URLSearchParams({
+      event_type: "sale",
+      limit: "200",
+    });
+    if (nextCursor) params.set("next", nextCursor);
+
+    const data = (await osFetch(`/events?${params.toString()}`)) as {
+      asset_events?: OsEvent[];
+      next?: string;
+    } | null;
+
+    const events = data?.asset_events || [];
+    if (!events.length) break;
+
+    for (const ev of events) {
+      if (ev.chain && ev.chain !== scope.openseaChain) continue;
+      const nft = ev.nft;
+      if (!nft?.collection) continue;
+
+      const slug = nft.collection;
+      const known = scope.collections.find((c) => c.slug === slug);
+      const colName =
+        known?.name ||
+        nft.name?.replace(/\s*#\d+$/, "").trim() ||
+        slug.replace(/-/g, " ");
+      const colImage =
+        known?.image && !known.image.startsWith("/images/hood-rpc/nfts/")
+          ? known.image
+          : pickNftImage(nft, NEUTRAL_NFT_IMAGE);
+
+      const row = mapEvent(
+        ev,
+        colName,
+        slug,
+        colImage,
+        scope.chainLabel,
+        scope.openseaAssetsChain,
+      );
+      if (!row || seenIds.has(row.id)) continue;
+      seenIds.add(row.id);
+      rows.push(row);
+      if (rows.length >= target) break;
+    }
+
+    nextCursor = data?.next || undefined;
+    pages += 1;
+    if (!nextCursor) break;
+  }
+
+  return rows.sort(sortNewest).slice(0, target);
 }
 
 type OsListing = {
@@ -668,39 +744,32 @@ export async function GET(req: Request) {
       /* keep curated */
     }
 
-    const batches = await Promise.all(
-      liveCols.map((col) =>
-        fetchCollectionSales(col, 8, scope, { enrich: false }),
-      ),
-    );
+    // Primary: marketplace-wide sales feed filtered to this chain
+    let sales = await fetchChainWideSales(scope, limit);
 
-    const nowSec = Math.floor(Date.now() / 1000);
-    const MAX_AGE_SEC = 48 * 3600;
-    const merged = batches
-      .flat()
-      .filter((r) => (r.eventTs || 0) > 0 && nowSec - (r.eventTs || 0) <= MAX_AGE_SEC)
-      .sort(sortNewest);
-
-    const seenIds = new Set<string>();
-    const sales: SaleRow[] = [];
-    for (const row of merged) {
-      if (seenIds.has(row.id)) continue;
-      seenIds.add(row.id);
-      sales.push(row);
-      if (sales.length >= limit) break;
-    }
-
+    // Fallback: per-collection polling if global feed is quiet / rate-limited
     if (sales.length < Math.min(8, limit)) {
-      const allTimed = batches
+      const batches = await Promise.all(
+        liveCols.map((col) =>
+          fetchCollectionSales(col, 8, scope, { enrich: false }),
+        ),
+      );
+
+      const nowSec = Math.floor(Date.now() / 1000);
+      const MAX_AGE_SEC = 48 * 3600;
+      const merged = batches
         .flat()
-        .filter((r) => (r.eventTs || 0) > 0)
+        .filter((r) => (r.eventTs || 0) > 0 && nowSec - (r.eventTs || 0) <= MAX_AGE_SEC)
         .sort(sortNewest);
-      for (const row of allTimed) {
+
+      const seenIds = new Set(sales.map((r) => r.id));
+      for (const row of merged) {
         if (seenIds.has(row.id)) continue;
         seenIds.add(row.id);
         sales.push(row);
         if (sales.length >= limit) break;
       }
+      sales.sort(sortNewest);
     }
 
     await enrichRarity(sales.slice(0, 10), scope.openseaChain);
