@@ -360,6 +360,7 @@ export default function HoodDashboard({
         }
         aria-hidden={!hasAccess}
       >
+      {hasAccess ? (
       <nav className="hrpc-nav">
         <div className="hrpc-nav-left">
           <ChainSwitcher />
@@ -469,10 +470,8 @@ export default function HoodDashboard({
             </span>
           </div>
         </div>
-        <div className="hrpc-demo-banner" role="status">
-          Access Key holders only — connect your wallet to unlock Hood_RPC + ETH_RPC.
-        </div>
       </div>
+      ) : null}
 
       {profileOpen && hasAccess ? (
         <div
