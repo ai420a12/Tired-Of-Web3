@@ -550,7 +550,14 @@ async function fetchChainWideSales(
   const target = Math.min(limit, 40);
   const cacheKey = scope.openseaChain;
   const fresh = cachedSales(cacheKey, false);
-  if (fresh && fresh.length >= Math.min(8, target)) {
+  // Short warm cache only (15s) so mint traffic stays fast without freezing the board
+  const cached = liveSalesCache.get(cacheKey);
+  if (
+    fresh &&
+    fresh.length >= Math.min(8, target) &&
+    cached &&
+    Date.now() - cached.at < 15_000
+  ) {
     return { rows: fresh.slice(0, target), source: "cache" };
   }
 

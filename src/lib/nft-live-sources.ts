@@ -60,6 +60,15 @@ function alchemyKey(): string | null {
   return m?.[1] || null;
 }
 
+function alchemyKeysToTry(): string[] {
+  const keys: string[] = [];
+  const primary = alchemyKey();
+  if (primary) keys.push(primary);
+  // Public demo fallback — better than an empty mint-day board
+  if (!keys.includes("demo")) keys.push("demo");
+  return keys;
+}
+
 async function fetchJson(
   url: string,
   init?: RequestInit,
@@ -119,101 +128,103 @@ function alchemyEthAmount(sale: AlchemySale): { eth: number; kind: "eth" | "weth
 export async function fetchAlchemyEthSales(
   limit: number,
 ): Promise<LiveSaleRow[]> {
-  const key = alchemyKey() || "demo";
-  const data = (await fetchJson(
-    `https://eth-mainnet.g.alchemy.com/nft/v3/${key}/getNFTSales?limit=${Math.min(limit, 50)}&order=desc`,
-  )) as { nftSales?: AlchemySale[] } | null;
+  for (const key of alchemyKeysToTry()) {
+    const data = (await fetchJson(
+      `https://eth-mainnet.g.alchemy.com/nft/v3/${key}/getNFTSales?limit=${Math.min(limit, 50)}&order=desc`,
+    )) as { nftSales?: AlchemySale[] } | null;
 
-  const sales = (data?.nftSales || []).slice(0, limit);
-  if (!sales.length) return [];
+    const sales = (data?.nftSales || []).slice(0, limit);
+    if (!sales.length) continue;
 
-  const tokens = sales
-    .filter((s) => s.contractAddress && s.tokenId != null)
-    .map((s) => ({
-      contractAddress: s.contractAddress!,
-      tokenId: String(s.tokenId),
-    }));
-
-  let metaByKey = new Map<string, AlchemyNft>();
-  if (tokens.length) {
-    const batch = (await fetchJson(
-      `https://eth-mainnet.g.alchemy.com/nft/v3/${key}/getNFTMetadataBatch`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tokens: tokens.slice(0, 40) }),
-      },
-      7_000,
-    )) as { nfts?: AlchemyNft[] } | null;
-    for (const nft of batch?.nfts || []) {
-      const c = (nft.contract?.address || "").toLowerCase();
-      const id = String(nft.tokenId || "");
-      if (c && id) metaByKey.set(`${c}:${id}`, nft);
-    }
-  }
-
-  const rows: LiveSaleRow[] = [];
-  for (const sale of sales) {
-    const contract = (sale.contractAddress || "").toLowerCase();
-    const tokenId = String(sale.tokenId || "");
-    if (!contract || !tokenId) continue;
-    const meta = metaByKey.get(`${contract}:${tokenId}`);
-    const { eth, kind } = alchemyEthAmount(sale);
-    const collection =
-      meta?.contract?.openSeaMetadata?.collectionName ||
-      meta?.contract?.name ||
-      "Ethereum NFT";
-    const tokenName =
-      meta?.name ||
-      meta?.raw?.metadata?.name ||
-      `${collection} #${tokenId}`;
-    const image =
-      meta?.image?.cachedUrl ||
-      meta?.image?.pngUrl ||
-      meta?.image?.originalUrl ||
-      meta?.raw?.metadata?.image ||
-      meta?.contract?.openSeaMetadata?.imageUrl ||
-      NEUTRAL;
-    const ts = sale.blockTimestamp
-      ? Math.floor(Date.parse(sale.blockTimestamp) / 1000)
-      : Math.floor(Date.now() / 1000);
-    const rank =
-      typeof meta?.rarity?.rank === "number"
-        ? meta.rarity.rank
-        : parseOpenSeaRarityRank(meta as Record<string, unknown>);
-    const traits = (meta?.raw?.metadata?.attributes || [])
-      .slice(0, 6)
-      .map((a) => ({
-        trait: String(a.trait_type || "Trait"),
-        value: String(a.value ?? ""),
+    const tokens = sales
+      .filter((s) => s.contractAddress && s.tokenId != null)
+      .map((s) => ({
+        contractAddress: s.contractAddress!,
+        tokenId: String(s.tokenId),
       }));
 
-    rows.push({
-      id: `alchemy-${contract}-${tokenId}-${ts}`,
-      tokenName,
-      collection,
-      collectionSlug: slugify(collection),
-      openseaUrl: `https://opensea.io/assets/ethereum/${contract}/${tokenId}`,
-      eth: Number(eth.toFixed(5)),
-      usd: Number((eth * ETH_USD).toFixed(2)),
-      ago: ago(ts),
-      kind,
-      image: typeof image === "string" && image ? image : NEUTRAL,
-      rarityRank: rank ?? 0,
-      rarityUnavailable: rank == null,
-      rarityLabel: "",
-      traits: traits.length
-        ? traits
-        : [
-            { trait: "Chain", value: "Ethereum" },
-            { trait: "Source", value: "Alchemy" },
-          ],
-      tokenId,
-      contract,
-      eventTs: ts,
-    });
+    let metaByKey = new Map<string, AlchemyNft>();
+    if (tokens.length) {
+      const batch = (await fetchJson(
+        `https://eth-mainnet.g.alchemy.com/nft/v3/${key}/getNFTMetadataBatch`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tokens: tokens.slice(0, 40) }),
+        },
+        7_000,
+      )) as { nfts?: AlchemyNft[] } | null;
+      for (const nft of batch?.nfts || []) {
+        const c = (nft.contract?.address || "").toLowerCase();
+        const id = String(nft.tokenId || "");
+        if (c && id) metaByKey.set(`${c}:${id}`, nft);
+      }
+    }
+
+    const rows: LiveSaleRow[] = [];
+    for (const sale of sales) {
+      const contract = (sale.contractAddress || "").toLowerCase();
+      const tokenId = String(sale.tokenId || "");
+      if (!contract || !tokenId) continue;
+      const meta = metaByKey.get(`${contract}:${tokenId}`);
+      const { eth, kind } = alchemyEthAmount(sale);
+      const collection =
+        meta?.contract?.openSeaMetadata?.collectionName ||
+        meta?.contract?.name ||
+        "Ethereum NFT";
+      const tokenName =
+        meta?.name ||
+        meta?.raw?.metadata?.name ||
+        `${collection} #${tokenId}`;
+      const image =
+        meta?.image?.cachedUrl ||
+        meta?.image?.pngUrl ||
+        meta?.image?.originalUrl ||
+        meta?.raw?.metadata?.image ||
+        meta?.contract?.openSeaMetadata?.imageUrl ||
+        NEUTRAL;
+      const ts = sale.blockTimestamp
+        ? Math.floor(Date.parse(sale.blockTimestamp) / 1000)
+        : Math.floor(Date.now() / 1000);
+      const rank =
+        typeof meta?.rarity?.rank === "number"
+          ? meta.rarity.rank
+          : parseOpenSeaRarityRank(meta as Record<string, unknown>);
+      const traits = (meta?.raw?.metadata?.attributes || [])
+        .slice(0, 6)
+        .map((a) => ({
+          trait: String(a.trait_type || "Trait"),
+          value: String(a.value ?? ""),
+        }));
+
+      rows.push({
+        id: `alchemy-${contract}-${tokenId}-${ts}`,
+        tokenName,
+        collection,
+        collectionSlug: slugify(collection),
+        openseaUrl: `https://opensea.io/assets/ethereum/${contract}/${tokenId}`,
+        eth: Number(eth.toFixed(5)),
+        usd: Number((eth * ETH_USD).toFixed(2)),
+        ago: ago(ts),
+        kind,
+        image: typeof image === "string" && image.startsWith("http") ? image : NEUTRAL,
+        rarityRank: rank ?? 0,
+        rarityUnavailable: rank == null,
+        rarityLabel: "",
+        traits: traits.length
+          ? traits
+          : [
+              { trait: "Chain", value: "Ethereum" },
+              { trait: "Source", value: "Alchemy" },
+            ],
+        tokenId,
+        contract,
+        eventTs: ts,
+      });
+    }
+    if (rows.length) return rows;
   }
-  return rows;
+  return [];
 }
 
 type BsTransfer = {
@@ -258,11 +269,17 @@ export async function fetchBlockscoutRobinhoodActivity(
 
     const md = ti?.metadata && typeof ti.metadata === "object" ? ti.metadata : {};
     const tokenName = md.name || `${name} #${tokenId}`;
-    const image =
+    const rawImage =
       ti?.image_url ||
       ti?.media_url ||
       md.image ||
-      NEUTRAL;
+      "";
+    // Skip giant base64 data-URIs — they blow up the API payload
+    const image =
+      typeof rawImage === "string" &&
+      (rawImage.startsWith("http://") || rawImage.startsWith("https://"))
+        ? rawImage
+        : NEUTRAL;
     const ts = t.timestamp
       ? Math.floor(Date.parse(t.timestamp) / 1000)
       : Math.floor(Date.now() / 1000);
@@ -282,11 +299,7 @@ export async function fetchBlockscoutRobinhoodActivity(
       usd: 0,
       ago: ago(ts),
       kind: "eth",
-      image: typeof image === "string" && image.startsWith("http")
-        ? image
-        : typeof image === "string" && image.startsWith("data:")
-          ? image
-          : NEUTRAL,
+      image,
       rarityRank: 0,
       rarityUnavailable: true,
       rarityLabel: "",
