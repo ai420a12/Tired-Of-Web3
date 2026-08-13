@@ -591,13 +591,12 @@ export default function HoodNftPanels({
         tokenName: row.tokenName,
         apiBase,
         gasMode,
+        contract: row.contract,
+        tokenId: row.tokenId,
       });
       onToast(
-        `> SNIPED · ${row.tokenName} · ${result.txHashes[0]?.slice(0, 10)}…`,
+        `> SNIPED · ${row.tokenName} · tx ${result.txHashes[0]?.slice(0, 12)}…`,
       );
-      if (result.explorerUrl) {
-        window.open(result.explorerUrl, "_blank", "noopener,noreferrer");
-      }
     } catch (err) {
       onToast(buyErrorToast(err));
     } finally {
