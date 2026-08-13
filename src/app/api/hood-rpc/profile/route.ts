@@ -4,6 +4,7 @@ import {
   requireAccessKey,
 } from "@/lib/require-access";
 import {
+  ensureProfile,
   getProfile,
   upsertUsername,
 } from "@/lib/rpc-profile-store";
@@ -15,6 +16,7 @@ export async function GET(req: Request) {
   const access = await requireAccessKey(req);
   if (isAccessDenied(access)) return access;
 
+  await ensureProfile(access.address);
   const profile = await getProfile(access.address);
   return NextResponse.json({
     ok: true,

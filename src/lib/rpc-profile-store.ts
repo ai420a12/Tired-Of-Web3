@@ -242,4 +242,17 @@ export async function listProfilesByWallets(
   return out;
 }
 
+export async function listAllProfiles(
+  limit = 200,
+): Promise<RpcProfile[]> {
+  const supabase = getSupabase();
+  if (!supabase) return [];
+  const { data } = await supabase
+    .from("rpc_profiles")
+    .select("wallet, username, avatar_url, updated_at")
+    .order("updated_at", { ascending: false })
+    .limit(limit);
+  return ((data || []) as ProfileRow[]).map(rowToProfile);
+}
+
 export { hasSupabase as hasRpcProfileStore };

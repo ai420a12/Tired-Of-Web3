@@ -161,7 +161,7 @@ export default function HoodDashboard({
     let cancelled = false;
     async function loadPnl() {
       try {
-        const res = await fetch(`${cfg.apiBase}/pnl/leaderboard?limit=20`, {
+        const res = await fetch(`${cfg.apiBase}/pnl/leaderboard?limit=50`, {
           cache: "no-store",
         });
         if (!res.ok || cancelled) return;
@@ -737,7 +737,7 @@ export default function HoodDashboard({
         <aside className="hrpc-pnl-board" aria-label="Top PnL leaderboard">
           <div className="hrpc-pnl-head">
             <h2 className="hrpc-section-title hrpc-section-title-sm">Top PnL</h2>
-            <span className="hrpc-nft-chip">Live · site snipes</span>
+            <span className="hrpc-nft-chip">Registered</span>
           </div>
           {pnlLeaders.length === 0 ? (
             <p className="hrpc-pnl-empty hrpc-muted">

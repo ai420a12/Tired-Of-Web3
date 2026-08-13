@@ -1,5 +1,8 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { listProfilesByWallets } from "@/lib/rpc-profile-store";
+import {
+  listAllProfiles,
+  listProfilesByWallets,
+} from "@/lib/rpc-profile-store";
 
 export type SnipeFill = {
   id: string;
@@ -358,14 +361,6 @@ export async function getLeaderboard(
   }
 
   const fills = ((data || []) as FillRow[]).map(rowToFill);
-  if (!fills.length) {
-    leaderboardCache = { at: Date.now(), rows: [] };
-    return {
-      rows: [],
-      source: "empty",
-      note: "No snipes yet — PnL appears after real ETH_RPC buys.",
-    };
-  }
 
   // Refresh open fills: ownership + exit detection + MTM
   const open = fills.filter((f) => f.status === "open").slice(0, 40);
@@ -406,19 +401,43 @@ export async function getLeaderboard(
       cur.closedCount += 1;
     } else {
       const mark = marks.get(fill.id);
-      // Unrealized: mark-to-market when available, else 0 delta until listed
       if (mark != null) cur.pnl += mark - fill.costEth;
       cur.openCount += 1;
     }
     byWallet.set(fill.wallet, cur);
   }
 
-  const wallets = [...byWallet.keys()];
-  const profiles = await listProfilesByWallets(wallets);
+  const registered = await listAllProfiles(Math.max(limit, 200));
+  const extra = await listProfilesByWallets(
+    [...byWallet.keys()].filter(
+      (w) => !registered.some((p) => p.wallet === w),
+    ),
+  );
+  const profiles = new Map<string, (typeof registered)[number]>();
+  for (const p of registered) profiles.set(p.wallet, p);
+  for (const [w, p] of extra) profiles.set(w, p);
 
-  const rows: LeaderboardRow[] = wallets
+  const wallets = new Set<string>([
+    ...profiles.keys(),
+    ...byWallet.keys(),
+  ]);
+
+  if (!wallets.size) {
+    leaderboardCache = { at: Date.now(), rows: [] };
+    return {
+      rows: [],
+      source: "empty",
+      note: "No registered wallets yet.",
+    };
+  }
+
+  const rows: LeaderboardRow[] = [...wallets]
     .map((wallet) => {
-      const stats = byWallet.get(wallet)!;
+      const stats = byWallet.get(wallet) || {
+        pnl: 0,
+        openCount: 0,
+        closedCount: 0,
+      };
       const profile = profiles.get(wallet);
       const user = profile?.username || shortAddr(wallet);
       return {
@@ -431,7 +450,10 @@ export async function getLeaderboard(
         closedCount: stats.closedCount,
       };
     })
-    .sort((a, b) => b.pnlEth - a.pnlEth)
+    .sort((a, b) => {
+      if (b.pnlEth !== a.pnlEth) return b.pnlEth - a.pnlEth;
+      return a.user.localeCompare(b.user);
+    })
     .slice(0, limit);
 
   leaderboardCache = { at: Date.now(), rows };

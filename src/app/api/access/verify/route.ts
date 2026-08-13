@@ -89,6 +89,13 @@ export async function POST(request: Request) {
     );
   }
 
+  try {
+    const { ensureProfile } = await import("@/lib/rpc-profile-store");
+    await ensureProfile(address);
+  } catch {
+    /* board registration is best-effort */
+  }
+
   const token = createAccessToken(address);
   const res = NextResponse.json({
     ok: true,

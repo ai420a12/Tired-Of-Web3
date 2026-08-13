@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 /** Public leaderboard — no access key required (usernames/avatars only). */
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const limit = Math.min(20, Math.max(5, Number(searchParams.get("limit") || 20)));
+  const limit = Math.min(100, Math.max(5, Number(searchParams.get("limit") || 50)));
   const result = await getLeaderboard(limit);
   return NextResponse.json(
     {
