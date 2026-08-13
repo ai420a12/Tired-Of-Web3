@@ -3706,6 +3706,32 @@ html[data-eth-rpc="1"] .hrpc.hrpc-eth {
   gap: 0.35rem;
 }
 
+.hrpc-mint-ext {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+}
+
+.hrpc-mint-ext a {
+  display: inline-flex;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  overflow: hidden;
+  line-height: 0;
+}
+
+.hrpc-mint-ext a:hover {
+  filter: brightness(1.15);
+}
+
+.hrpc-mint-ext img {
+  width: 20px;
+  height: 20px;
+  display: block;
+}
+
 .hrpc-mint-actions {
   display: flex;
   flex-direction: column;

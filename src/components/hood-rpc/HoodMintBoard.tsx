@@ -70,6 +70,56 @@ function rowKey(row: MintFeedRow) {
   return `${row.chain}:${row.contract}`;
 }
 
+function openSeaHref(row: MintFeedRow, detail: DetailPayload | null) {
+  if (detail?.openseaUrl) return detail.openseaUrl;
+  if (row.slug) return `https://opensea.io/collection/${row.slug}`;
+  const chain = row.chain === "ethereum" ? "ethereum" : "robinhood";
+  return `https://opensea.io/assets/${chain}/${row.contract}`;
+}
+
+function explorerHref(row: MintFeedRow) {
+  return row.chain === "ethereum"
+    ? `https://etherscan.io/token/${row.contract}`
+    : `https://robinhoodchain.blockscout.com/token/${row.contract}`;
+}
+
+function ProjectLinks({
+  row,
+  detail,
+}: {
+  row: MintFeedRow;
+  detail: DetailPayload | null;
+}) {
+  const explorer =
+    row.chain === "ethereum"
+      ? { href: explorerHref(row), label: "Etherscan", icon: "/images/hood-rpc/blockscout.svg" }
+      : { href: explorerHref(row), label: "Blockscout", icon: "/images/hood-rpc/blockscout.svg" };
+  return (
+    <span className="hrpc-mint-ext">
+      <a
+        href={openSeaHref(row, detail)}
+        target="_blank"
+        rel="noopener noreferrer"
+        title="OpenSea"
+        aria-label="OpenSea"
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/images/hood-rpc/opensea.svg" alt="" width={20} height={20} />
+      </a>
+      <a
+        href={explorer.href}
+        target="_blank"
+        rel="noopener noreferrer"
+        title={explorer.label}
+        aria-label={explorer.label}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={explorer.icon} alt="" width={20} height={20} />
+      </a>
+    </span>
+  );
+}
+
 function ChainBadge({ chain }: { chain: MintFeedChain }) {
   return (
     <span className={`hrpc-mint-net hrpc-mint-net-${chain === "ethereum" ? "eth" : "rh"}`}>
@@ -382,7 +432,8 @@ export default function HoodMintBoard({
               />
               <div className="hrpc-mint-pick-meta">
                 <strong>
-                  {detail?.name || selected.name}{" "}
+                  {detail?.name || selected.name}
+                  <ProjectLinks row={selected} detail={detail} />
                   <ChainBadge chain={selected.chain} />
                   {proxy ? <span className="hrpc-mint-tag hrpc-mint-tag-proxy">Proxy Mint</span> : null}
                 </strong>
