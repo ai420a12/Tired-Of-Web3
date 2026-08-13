@@ -5,6 +5,7 @@ import {
   createPublicClient,
   createWalletClient,
   defineChain,
+  encodeFunctionData,
   formatEther,
   http,
   parseGwei,
@@ -291,4 +292,287 @@ export async function consolidateEth(opts: {
 export function formatEth(wei: bigint): string {
   const n = Number(formatEther(wei));
   return Number.isFinite(n) ? n.toFixed(4) : formatEther(wei);
+}
+
+type OwnedNft = {
+  owner: string;
+  contract: string;
+  tokenId: string;
+  tokenType: "ERC721" | "ERC1155";
+  balance: string;
+};
+
+const ERC721_ABI = [
+  {
+    type: "function",
+    name: "safeTransferFrom",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "from", type: "address" },
+      { name: "to", type: "address" },
+      { name: "tokenId", type: "uint256" },
+    ],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "transferFrom",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "from", type: "address" },
+      { name: "to", type: "address" },
+      { name: "tokenId", type: "uint256" },
+    ],
+    outputs: [],
+  },
+] as const;
+
+const ERC1155_ABI = [
+  {
+    type: "function",
+    name: "safeTransferFrom",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "from", type: "address" },
+      { name: "to", type: "address" },
+      { name: "id", type: "uint256" },
+      { name: "amount", type: "uint256" },
+      { name: "data", type: "bytes" },
+    ],
+    outputs: [],
+  },
+] as const;
+
+function nftCalldata(
+  nft: OwnedNft,
+  from: Address,
+  to: Address,
+  useSafe: boolean,
+): Hex {
+  const tokenId = BigInt(nft.tokenId);
+  if (nft.tokenType === "ERC1155") {
+    let amount = BigInt(1);
+    try {
+      amount = BigInt(nft.balance || "1");
+      if (amount <= BigInt(0)) amount = BigInt(1);
+    } catch {
+      amount = BigInt(1);
+    }
+    return encodeFunctionData({
+      abi: ERC1155_ABI,
+      functionName: "safeTransferFrom",
+      args: [from, to, tokenId, amount, "0x"],
+    });
+  }
+  return encodeFunctionData({
+    abi: ERC721_ABI,
+    functionName: useSafe ? "safeTransferFrom" : "transferFrom",
+    args: [from, to, tokenId],
+  });
+}
+
+/** MetaMask-low: live base fee + 12.5% + tiny tip. Re-quoted each retry. */
+async function quoteLowGas(
+  publicClient: ReturnType<typeof createPublicClient>,
+  variant: HoodRpcVariant,
+): Promise<{ maxFeePerGas: bigint; maxPriorityFeePerGas: bigint }> {
+  const block = await publicClient.getBlock({ blockTag: "latest" });
+  const fees = await publicClient.estimateFeesPerGas().catch(() => null);
+  const baseFee =
+    block.baseFeePerGas ??
+    fees?.maxFeePerGas ??
+    parseGwei(variant === "eth" ? "0.2" : "0.01");
+  let tip = fees?.maxPriorityFeePerGas ?? parseGwei("0.01");
+  const tipFloor = parseGwei(variant === "eth" ? "0.01" : "0.001");
+  const tipCap = parseGwei(variant === "eth" ? "0.15" : "0.02");
+  if (tip < tipFloor) tip = tipFloor;
+  if (tip > tipCap) tip = tipCap;
+  return {
+    maxPriorityFeePerGas: tip,
+    maxFeePerGas: baseFee + (baseFee * BigInt(125)) / BigInt(1000) + tip,
+  };
+}
+
+async function fetchOwnedNfts(
+  apiBase: string,
+  addresses: string[],
+): Promise<OwnedNft[]> {
+  const res = await fetch(`${apiBase}/owned-nfts`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ addresses }),
+  });
+  const data = (await res.json()) as {
+    ok?: boolean;
+    error?: string;
+    nfts?: OwnedNft[];
+  };
+  if (!res.ok || !data.ok) {
+    throw new Error(data.error || "NFT_LOOKUP_FAILED");
+  }
+  return data.nfts || [];
+}
+
+export type NftSweepResult = {
+  hashes: Hex[];
+  sent: number;
+  skipped: number;
+  errors: string[];
+};
+
+export async function consolidateNfts(opts: {
+  variant: HoodRpcVariant;
+  apiBase: string;
+  keys: Hex[];
+  to: Address;
+}): Promise<NftSweepResult> {
+  const dest = opts.to.toLowerCase() as Address;
+  const byOwner = new Map<string, Hex>();
+  const addrs: Address[] = [];
+  for (const pk of opts.keys) {
+    const account = privateKeyToAccount(pk);
+    const addr = account.address.toLowerCase() as Address;
+    if (addr === dest) continue;
+    byOwner.set(addr, pk);
+    addrs.push(addr);
+  }
+  if (!addrs.length) throw new Error("NO_SQUAD_KEYS");
+
+  const owned = await fetchOwnedNfts(opts.apiBase, addrs);
+  if (!owned.length) throw new Error("NO_NFTS");
+
+  const chain = chainFor(opts.variant);
+  const publicClient = createPublicClient({
+    chain,
+    transport: http(rpcFor(opts.variant)),
+  });
+
+  const hashes: Hex[] = [];
+  const errors: string[] = [];
+  let skipped = 0;
+
+  for (const nft of owned.slice(0, 40)) {
+    const pk = byOwner.get(nft.owner.toLowerCase());
+    if (!pk) {
+      skipped += 1;
+      continue;
+    }
+    try {
+      const hash = await transferOneNft({
+        variant: opts.variant,
+        apiBase: opts.apiBase,
+        publicClient,
+        privateKey: pk,
+        nft,
+        to: dest,
+      });
+      hashes.push(hash);
+    } catch (err) {
+      skipped += 1;
+      errors.push(err instanceof Error ? err.message : "NFT_SEND_FAILED");
+    }
+  }
+
+  if (!hashes.length) {
+    throw new Error(errors[0] || "NO_NFTS_SENT");
+  }
+  return { hashes, sent: hashes.length, skipped, errors };
+}
+
+async function transferOneNft(opts: {
+  variant: HoodRpcVariant;
+  apiBase: string;
+  publicClient: ReturnType<typeof createPublicClient>;
+  privateKey: Hex;
+  nft: OwnedNft;
+  to: Address;
+}): Promise<Hex> {
+  const account = privateKeyToAccount(opts.privateKey);
+  const walletClient = createWalletClient({
+    account,
+    chain: chainFor(opts.variant),
+    transport: http(rpcFor(opts.variant)),
+  });
+  const from = account.address;
+  let useSafe = true;
+  let nonce = await opts.publicClient.getTransactionCount({
+    address: from,
+    blockTag: "pending",
+  });
+
+  let lastErr = "NFT_SEND_FAILED";
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const data = nftCalldata(opts.nft, from, opts.to, useSafe);
+    const to = opts.nft.contract as Address;
+    const fees = await quoteLowGas(opts.publicClient, opts.variant);
+    let gas = opts.nft.tokenType === "ERC1155" ? BigInt(120000) : BigInt(85000);
+    try {
+      gas = await opts.publicClient.estimateGas({
+        account: from,
+        to,
+        data,
+      });
+      gas = (gas * BigInt(110)) / BigInt(100);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "";
+      if (useSafe && opts.nft.tokenType === "ERC721") {
+        useSafe = false;
+        continue;
+      }
+      lastErr = msg || "GAS_ESTIMATE_FAILED";
+    }
+
+    let { maxFeePerGas, maxPriorityFeePerGas } = fees;
+    if (attempt > 0) {
+      maxFeePerGas +=
+        (maxFeePerGas * BigInt(attempt) * BigInt(125)) / BigInt(1000);
+    }
+    const bal = await opts.publicClient.getBalance({ address: from });
+    const need = gas * maxFeePerGas;
+    if (bal < need) {
+      throw new Error(
+        `wallet needs ~${formatEth(need)} ETH gas to send NFT (has ${formatEth(bal)})`,
+      );
+    }
+
+    try {
+      const signedTx = await walletClient.signTransaction({
+        to,
+        data,
+        value: BigInt(0),
+        nonce,
+        gas,
+        maxFeePerGas,
+        maxPriorityFeePerGas,
+        chainId: chainFor(opts.variant).id,
+      });
+      return await broadcastSigned(opts.apiBase, signedTx, opts.variant);
+    } catch (err) {
+      lastErr = err instanceof Error ? err.message : String(err);
+      if (/insufficient funds/i.test(lastErr)) {
+        throw new Error(
+          `wallet needs ETH for NFT gas (has ${formatEth(bal)})`,
+        );
+      }
+      if (/nonce too low/i.test(lastErr)) {
+        nonce = await opts.publicClient.getTransactionCount({
+          address: from,
+          blockTag: "pending",
+        });
+        continue;
+      }
+      if (
+        /max fee per gas less than|underpriced|fee too low|replacement/i.test(
+          lastErr,
+        )
+      ) {
+        continue;
+      }
+      if (useSafe && opts.nft.tokenType === "ERC721") {
+        useSafe = false;
+        continue;
+      }
+    }
+  }
+  throw new Error(lastErr);
 }

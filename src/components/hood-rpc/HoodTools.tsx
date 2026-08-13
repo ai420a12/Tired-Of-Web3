@@ -15,6 +15,7 @@ import {
 } from "@/lib/operator-wallets";
 import {
   consolidateEth,
+  consolidateNfts,
   formatEth,
   getNativeBalance,
   splitFromMaster,
@@ -299,6 +300,49 @@ export default function HoodTools({
     pushOutcome(`Generated ${n} wallets (session)`);
   }
 
+  async function sendNftConsolidate() {
+    if (!requireWallet()) return;
+    if (!isAddress(nftTo)) {
+      onToast("> PASTE NFT RECIPIENT");
+      pushOutcome("NFT sweep failed · paste master wallet", "err");
+      return;
+    }
+    const keys = [...pkById.current.values()];
+    if (!keys.length) {
+      onToast("> SQUAD NEEDS SESSION KEYS (GENERATE / PASTE PKS)");
+      pushOutcome("NFT sweep failed · generate or load wallets first", "err");
+      return;
+    }
+    setBusy(true);
+    pushOutcome(`NFT sweep → ${shortAddr(nftTo)} · scanning squad…`);
+    try {
+      const result = await consolidateNfts({
+        variant,
+        apiBase,
+        keys,
+        to: nftTo as Address,
+      });
+      onToast(`> NFT SWEPT · ${result.sent} SENT`);
+      pushOutcome(
+        `NFT sweep → ${shortAddr(nftTo)} · ${result.sent} sent${
+          result.skipped ? ` · ${result.skipped} skipped` : ""
+        } · ${result.hashes[0]?.slice(0, 10)}…`,
+        "ok",
+      );
+      setSquad(await applyBalances(squad));
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "SEND_FAILED";
+      onToast(
+        msg === "NO_NFTS"
+          ? "> NO NFTS IN SQUAD WALLETS"
+          : `> NFT SEND FAILED · ${msg}`,
+      );
+      pushOutcome(`NFT sweep failed · ${msg}`, "err");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function sendEthConsolidate() {
     if (!requireWallet()) return;
     if (!isAddress(ethTo)) {
@@ -577,14 +621,8 @@ export default function HoodTools({
           <button
             type="button"
             className="hrpc-btn"
-            onClick={() => {
-              if (!isAddress(nftTo)) {
-                onToast("> PASTE NFT RECIPIENT");
-                return;
-              }
-              onToast("> NFT CONSOLIDATE COMING SOON");
-              pushOutcome("NFT consolidate · coming soon", "info");
-            }}
+            onClick={() => void sendNftConsolidate()}
+            disabled={busy}
           >
             Send now
           </button>
