@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { type HoodNftSale } from "./mock-data";
 import HoodRarityLegend from "./HoodRarityLegend";
 import { rarityTierFromRank } from "./hood-rarity";
-import { DEMO_TOAST, LIVE_ETH_LISTING_BUY } from "@/lib/hood-rpc-demo";
+import { LIVE_ETH_LISTING_BUY } from "@/lib/hood-rpc-demo";
 import {
   buyErrorToast,
   buyEthListingWithConnectedWallet,
@@ -704,9 +704,7 @@ export default function HoodNftPanels({
                     void handleListingSnipe(row);
                     return;
                   }
-                  onToast(
-                    `${DEMO_TOAST} · live listing buys on ETH_RPC`,
-                  );
+                  onToast("> SWITCH TO ETH_RPC TO SNIPE");
                 }}
               />
             </div>

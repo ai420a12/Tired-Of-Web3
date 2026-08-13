@@ -1124,6 +1124,33 @@
   box-shadow: 0 0 40px rgba(var(--accent-rgb), 0.04);
 }
 
+.hrpc-soon-wrap {
+  position: relative;
+}
+
+.hrpc-soon-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.62);
+  pointer-events: auto;
+}
+
+.hrpc-soon-banner {
+  color: #ffffff;
+  font-size: clamp(1.05rem, 2.6vw, 1.85rem);
+  font-weight: 900;
+  font-style: italic;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  border: 2px solid #ffffff;
+  padding: 0.55rem 1.35rem;
+  background: rgba(0, 0, 0, 0.35);
+}
+
 .hrpc-grid-2 {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

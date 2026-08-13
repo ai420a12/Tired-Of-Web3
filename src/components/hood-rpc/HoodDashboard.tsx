@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   TICKER_ITEMS,
   type MemecoinLaunch,
@@ -12,13 +12,14 @@ import {
 import HoodTools from "./HoodTools";
 import HoodNftPanels from "./HoodNftPanels";
 import HoodArmSnipers from "./HoodArmSnipers";
-import WalletPickerModal, { FLEET } from "./WalletPickerModal";
+import WalletPickerModal from "./WalletPickerModal";
 import ChainSwitcher from "./ChainSwitcher";
 import { HOOD_RPC_LINKS } from "./hood-wl";
-import { HOOD_RPC_DEMO } from "@/lib/hood-rpc-demo";
 import {
   ACCESS_OPENSEA_URL,
 } from "@/lib/access-key-shared";
+import type { Hex } from "viem";
+import type { SquadWallet } from "@/lib/operator-wallets";
 import {
   safeLocalGet,
   safeLocalSet,
@@ -68,9 +69,25 @@ export default function HoodDashboard({
   const [connecting, setConnecting] = useState(false);
   const [hasAccess, setHasAccess] = useState(false);
   const [accessChecking, setAccessChecking] = useState(true);
-  const [launchWalletIds, setLaunchWalletIds] = useState<number[]>(() =>
-    FLEET.slice(0, 5).map((w) => w.id),
-  );
+  const [launchWalletIds, setLaunchWalletIds] = useState<number[]>([]);
+  const [squad, setSquad] = useState<SquadWallet[]>([]);
+  const pkById = useRef<Map<number, Hex>>(new Map());
+  const [outcomes, setOutcomes] = useState<
+    { id: string; text: string; kind: "ok" | "err" | "info" }[]
+  >([{ id: "1", text: "Bot idle — waiting for arm", kind: "info" }]);
+  const [tickerOutcomes, setTickerOutcomes] = useState<
+    { id: string; text: string; kind: "ok" | "err" | "info" }[]
+  >([{ id: "t1", text: "Ticker sniper idle — waiting for deploy", kind: "info" }]);
+
+  function pushOutcome(text: string, kind: "ok" | "err" | "info" = "info") {
+    setOutcomes((o) => [{ id: String(Date.now()), text, kind }, ...o.slice(0, 40)]);
+  }
+  function pushTicker(text: string, kind: "ok" | "err" | "info" = "info") {
+    setTickerOutcomes((o) => [
+      { id: String(Date.now()), text, kind },
+      ...o.slice(0, 40),
+    ]);
+  }
   const [launchEth, setLaunchEth] = useState("0.25");
   const [launchSlip, setLaunchSlip] = useState("12");
   const [launchPickerOpen, setLaunchPickerOpen] = useState(false);
@@ -197,7 +214,9 @@ export default function HoodDashboard({
           setAvatarDraft(null);
           setAvatarFile(null);
           setProfileOpen(false);
-          setLaunchWalletIds(FLEET.slice(0, 5).map((w) => w.id));
+          setLaunchWalletIds([]);
+          setSquad([]);
+          pkById.current.clear();
           setLaunchEth("0.25");
           setLaunchSlip("12");
           setToast("> WALLET CHANGED · RECONNECT TO VERIFY");
@@ -493,7 +512,9 @@ export default function HoodDashboard({
     setAvatarDraft(null);
     setAvatarFile(null);
     setProfileOpen(false);
-    setLaunchWalletIds(FLEET.slice(0, 5).map((w) => w.id));
+    setLaunchWalletIds([]);
+    setSquad([]);
+    pkById.current.clear();
     setLaunchEth("0.25");
     setLaunchSlip("12");
     setToast("> WALLET DISCONNECTED");
@@ -772,7 +793,10 @@ export default function HoodDashboard({
         />
 
         <div className="hrpc-grid-2" id="launches">
-          <section className="hrpc-panel" aria-label="Upcoming NFT collections" id="upcoming-nfts">
+          <section className="hrpc-panel hrpc-soon-wrap" aria-label="Upcoming NFT collections" id="upcoming-nfts">
+            <div className="hrpc-soon-overlay" aria-hidden="true">
+              <span className="hrpc-soon-banner">Coming soon</span>
+            </div>
             <div className="hrpc-section-head">
               <div>
                 <h2 className="hrpc-section-title">Upcoming NFTs</h2>
@@ -817,19 +841,7 @@ export default function HoodDashboard({
                           type="button"
                           className="hrpc-btn"
                           onClick={() => {
-                            setToast(
-                              HOOD_RPC_DEMO
-                                ? `> DEMO SNIPE · ${row.name} · no real mint`
-                                : `> MINT TARGET · ${row.name}`,
-                            );
-                            window.open(
-                              row.openseaUrl,
-                              "_blank",
-                              "noopener,noreferrer",
-                            );
-                            document
-                              .getElementById("arm-nft")
-                              ?.scrollIntoView({ behavior: "smooth" });
+                            setToast("> MINT SNIPER COMING SOON");
                           }}
                         >
                           Snipe
@@ -930,9 +942,11 @@ export default function HoodDashboard({
                           disabled={row.status === "ENDED"}
                           onClick={() => {
                             setToast(
-                              HOOD_RPC_DEMO
-                                ? `> DEMO SNIPE · ${row.ticker} · no real buy`
-                                : `> TARGET LOCKED · ${row.ticker} · ${launchEth} ETH · ${launchWalletIds.length} wallets · ${launchSlip}% slip`,
+                              `> TARGET LOCKED · ${row.ticker} · ${launchEth} ETH · ${launchWalletIds.length || squad.length} wallets · ${launchSlip}% slip`,
+                            );
+                            pushTicker(
+                              `Target locked · ${row.ticker} · ${launchEth} ETH`,
+                              "ok",
                             );
                             document
                               .getElementById("arm-meme")
@@ -953,6 +967,7 @@ export default function HoodDashboard({
         <WalletPickerModal
           open={launchPickerOpen}
           selected={launchWalletIds}
+          wallets={squad}
           onClose={() => setLaunchPickerOpen(false)}
           onConfirm={(ids) => {
             setLaunchWalletIds(ids);
@@ -964,12 +979,23 @@ export default function HoodDashboard({
           key={`arm-${wallet?.toLowerCase() || "none"}`}
           onToast={setToast}
           connectedWallet={wallet}
+          squad={squad}
+          pushOutcome={pushOutcome}
+          pushTicker={pushTicker}
         />
 
         <HoodTools
           key={`tools-${wallet?.toLowerCase() || "none"}`}
           onToast={setToast}
           connectedWallet={wallet}
+          apiBase={cfg.apiBase}
+          variant={variant}
+          squad={squad}
+          setSquad={setSquad}
+          pkById={pkById}
+          pushOutcome={pushOutcome}
+          outcomes={outcomes}
+          tickerOutcomes={tickerOutcomes}
         />
       </main>
       </div>

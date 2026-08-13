@@ -25,9 +25,9 @@ export async function POST(req: Request) {
   const access = await requireAccessKey(req);
   if (isAccessDenied(access)) return access;
 
-  let body: { signedTx?: string };
+  let body: { signedTx?: string; chain?: string };
   try {
-    body = (await req.json()) as { signedTx?: string };
+    body = (await req.json()) as { signedTx?: string; chain?: string };
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
@@ -37,7 +37,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid signedTx" }, { status: 400 });
   }
 
-  const endpoints = [alchemyRpc(), ...PUBLIC].filter(Boolean) as string[];
+  const hood =
+    body.chain === "hood" || body.chain === "robinhood";
+  const hoodRpc =
+    process.env.ROBINHOOD_RPC_URL?.trim() ||
+    "https://rpc.mainnet.chain.robinhood.com";
+  const endpoints = hood
+    ? [hoodRpc]
+    : ([alchemyRpc(), ...PUBLIC].filter(Boolean) as string[]);
   let lastErr = "broadcast failed";
 
   for (const url of endpoints) {

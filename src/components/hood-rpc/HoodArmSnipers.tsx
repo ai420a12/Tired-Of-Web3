@@ -1,26 +1,33 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import WalletPickerModal, { FLEET } from "./WalletPickerModal";
-import { HOOD_RPC_DEMO } from "@/lib/hood-rpc-demo";
+import WalletPickerModal from "./WalletPickerModal";
+import type { SquadWallet } from "@/lib/operator-wallets";
 
 type Props = {
   onToast: (msg: string) => void;
   connectedWallet: string | null;
+  squad: SquadWallet[];
+  pushOutcome: (text: string, kind?: "ok" | "err" | "info") => void;
+  pushTicker: (text: string, kind?: "ok" | "err" | "info") => void;
 };
 
 type NftTarget = { label: string; ca: string; qty: string };
 
-export default function HoodArmSnipers({ onToast, connectedWallet }: Props) {
+export default function HoodArmSnipers({
+  onToast,
+  connectedWallet,
+  squad,
+  pushOutcome,
+  pushTicker,
+}: Props) {
   const [contractCa, setContractCa] = useState("");
   const [osUrl, setOsUrl] = useState("");
   const [spectrumUrl, setSpectrumUrl] = useState("");
   const [targets, setTargets] = useState<NftTarget[]>([
     { label: "", ca: "", qty: "1" },
   ]);
-  const [nftWalletIds, setNftWalletIds] = useState<number[]>(() =>
-    FLEET.slice(0, 10).map((w) => w.id),
-  );
+  const [nftWalletIds, setNftWalletIds] = useState<number[]>([]);
   const [pickerFor, setPickerFor] = useState<"nft" | "meme" | null>(null);
   const [gasMode, setGasMode] = useState<"normal" | "fast" | "hyper" | "manual">(
     "fast",
@@ -43,9 +50,7 @@ export default function HoodArmSnipers({ onToast, connectedWallet }: Props) {
 
   const [ticker, setTicker] = useState("");
   const [buyEth, setBuyEth] = useState("0.25");
-  const [memeWalletIds, setMemeWalletIds] = useState<number[]>(() =>
-    FLEET.slice(0, 5).map((w) => w.id),
-  );
+  const [memeWalletIds, setMemeWalletIds] = useState<number[]>([]);
   const [slippage, setSlippage] = useState("12");
   const [watching, setWatching] = useState(false);
 
@@ -54,70 +59,66 @@ export default function HoodArmSnipers({ onToast, connectedWallet }: Props) {
     [pickerFor, memeWalletIds, nftWalletIds],
   );
 
-  function requireWallet() {
-    if (HOOD_RPC_DEMO) {
-      if (!connectedWallet) {
-        onToast("> CONNECT WALLET FIRST (top right)");
-        return false;
-      }
-      return true;
-    }
+  function requireReady(needWallets = true) {
     if (!connectedWallet) {
-      onToast("> CONNECT EVM WALLET FIRST");
+      onToast("> CONNECT WALLET FIRST (top right)");
+      return false;
+    }
+    if (needWallets && !squad.length) {
+      onToast("> GENERATE OR PASTE SQUAD KEYS FIRST");
       return false;
     }
     return true;
   }
 
-  function demoArm(msg: string) {
-    if (HOOD_RPC_DEMO) {
-      onToast(`${msg} · DEMO · no real tx`);
-      return true;
-    }
-    return false;
-  }
-
   function armNftFromCa() {
-    if (!requireWallet()) return;
+    if (!requireReady()) return;
     if (!contractCa.trim()) {
       onToast("> PASTE CONTRACT ADDRESS");
       return;
     }
-    const msg = `> NFT SNIPER ARMED · ${contractCa.trim().slice(0, 14)}… · ${nftWalletIds.length} wallets`;
-    if (demoArm(msg)) return;
+    const n = nftWalletIds.length || squad.length;
+    const msg = `> NFT SNIPER ARMED · ${contractCa.trim().slice(0, 14)}… · ${n} wallets · ${currentGwei()} gwei`;
     onToast(msg);
+    pushOutcome(
+      `NFT armed · ${contractCa.trim().slice(0, 10)}… · ${n} wallets · ${currentGwei()} gwei`,
+      "ok",
+    );
   }
 
   function armOpensea() {
-    if (!requireWallet()) return;
+    if (!requireReady()) return;
     if (!osUrl.trim()) {
       onToast("> PASTE OPENSEA URL / SLUG");
       return;
     }
-    const msg = `> OPENSEA MINT ARMED · ${nftWalletIds.length} wallets · ${osUrl.trim().slice(0, 24)}…`;
-    if (demoArm(msg)) return;
+    const n = nftWalletIds.length || squad.length;
+    const msg = `> OPENSEA TARGET ARMED · ${n} wallets · ${osUrl.trim().slice(0, 24)}…`;
     onToast(msg);
+    pushOutcome(`OpenSea target armed · ${n} wallets`, "ok");
   }
 
   function armSpectrum() {
-    if (!requireWallet()) return;
+    if (!requireReady()) return;
     if (!spectrumUrl.trim()) {
       onToast("> PASTE SPECTRUM / MINT URL");
       return;
     }
-    const msg = `> SPECTRUM MINT ARMED · ${nftWalletIds.length} wallets`;
-    if (demoArm(msg)) return;
+    const n = nftWalletIds.length || squad.length;
+    const msg = `> SPECTRUM TARGET ARMED · ${n} wallets`;
     onToast(msg);
+    pushOutcome(`Spectrum target armed · ${n} wallets`, "ok");
   }
 
   function saveTargetsAndArm() {
-    if (!requireWallet()) return;
+    if (!requireReady()) return;
     const t = targets[0];
     if (!t.label.trim() && !t.ca.trim()) {
       onToast("> SET TARGET NAME OR CONTRACT");
       return;
     }
-    if (!nftWalletIds.length) {
+    const ids = nftWalletIds.length ? nftWalletIds : squad.map((w) => w.id);
+    if (!ids.length) {
       onToast("> SELECT WALLETS FIRST");
       return;
     }
@@ -126,32 +127,40 @@ export default function HoodArmSnipers({ onToast, connectedWallet }: Props) {
       onToast("> ENTER MANUAL GWEI");
       return;
     }
-    const msg = `> TARGET SAVED + MINT ARMED · ${t.label || t.ca.slice(0, 12)} · ${nftWalletIds.length} wallets · ${gwei} gwei`;
-    if (demoArm(msg)) return;
+    const msg = `> TARGET SAVED + ARMED · ${t.label || t.ca.slice(0, 12)} · ${ids.length} wallets · ${gwei} gwei`;
     onToast(msg);
+    pushOutcome(
+      `Target armed · ${t.label || t.ca.slice(0, 10)} · ${ids.length} wallets · ${gwei} gwei`,
+      "ok",
+    );
   }
 
   function armMemecoin() {
-    if (!requireWallet()) return;
+    if (!requireReady()) return;
     const t = ticker.trim().replace(/^\$/, "").toUpperCase();
     if (!t) {
       onToast("> ENTER TICKER TO WATCH");
       return;
     }
-    if (!memeWalletIds.length) {
+    const ids = memeWalletIds.length ? memeWalletIds : squad.map((w) => w.id);
+    if (!ids.length) {
       onToast("> SELECT WALLETS FIRST");
       return;
     }
     setWatching(true);
-    const msg = `> MEME SNIPER ARMED · $${t} · ${buyEth} ETH · ${memeWalletIds.length} wallets · ${slippage}% slip`;
-    if (demoArm(msg)) return;
+    const msg = `> MEME SNIPER ARMED · $${t} · ${buyEth} ETH · ${ids.length} wallets · ${slippage}% slip`;
     onToast(msg);
+    pushTicker(
+      `Armed $${t} · ${buyEth} ETH · ${ids.length} wallets · ${slippage}% slip`,
+      "ok",
+    );
   }
 
   function clearMeme() {
     setWatching(false);
     setTicker("");
-    onToast(HOOD_RPC_DEMO ? "> MEME SNIPER CLEARED · DEMO" : "> MEME SNIPER CLEARED");
+    onToast("> MEME SNIPER CLEARED");
+    pushTicker("Meme sniper cleared", "info");
   }
 
   return (
@@ -289,7 +298,7 @@ export default function HoodArmSnipers({ onToast, connectedWallet }: Props) {
                 className="hrpc-btn hrpc-btn-ghost"
                 onClick={() => setPickerFor("nft")}
               >
-                Select wallets ({nftWalletIds.length})
+                Select wallets ({nftWalletIds.length || squad.length})
               </button>
               <button type="button" className="hrpc-btn" onClick={saveTargetsAndArm}>
                 Save targets + arm mint
@@ -342,7 +351,7 @@ export default function HoodArmSnipers({ onToast, connectedWallet }: Props) {
                   className="hrpc-input hrpc-wallet-select-btn"
                   onClick={() => setPickerFor("meme")}
                 >
-                  Select wallets ({memeWalletIds.length})
+                  Select wallets ({memeWalletIds.length || squad.length})
                 </button>
               </div>
               <div className="hrpc-field">
@@ -368,7 +377,7 @@ export default function HoodArmSnipers({ onToast, connectedWallet }: Props) {
                     <strong>
                       ${ticker.trim().replace(/^\$/, "").toUpperCase()}
                     </strong>{" "}
-                    · {buyEth} ETH · {memeWalletIds.length} wallets · {slippage}%
+                    · {buyEth} ETH · {memeWalletIds.length || squad.length} wallets · {slippage}%
                     slip
                   </p>
                   <p>Listening for on-chain deploy…</p>
@@ -395,6 +404,7 @@ export default function HoodArmSnipers({ onToast, connectedWallet }: Props) {
       <WalletPickerModal
         open={pickerFor !== null}
         selected={pickerSelected}
+        wallets={squad}
         onClose={() => setPickerFor(null)}
         onConfirm={(ids) => {
           if (pickerFor === "meme") {

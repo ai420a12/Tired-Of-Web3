@@ -1,24 +1,24 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { HOOD_RPC_DEMO } from "@/lib/hood-rpc-demo";
+import { useEffect, useRef, useState, type MutableRefObject } from "react";
+import { isAddress, type Address, type Hex } from "viem";
 import { SENSITIVE_INPUT_PROPS } from "@/lib/session-isolation";
-
-function looksLikePrivateKey(line: string) {
-  const v = line.trim();
-  return /^(0x)?[0-9a-fA-F]{64}$/.test(v);
-}
-
-type SquadRow = {
-  id: number;
-  time: string;
-  logBal: string;
-  activity: string;
-  wallet: string;
-  live: string;
-  usd: string;
-  nfts: number;
-};
+import type { HoodRpcVariant } from "@/lib/hood-rpc-chain";
+import {
+  addressFromPk,
+  emptyRow,
+  generateSquadWallet,
+  normalizePk,
+  parseAddress,
+  shortAddr,
+  type SquadWallet,
+} from "@/lib/operator-wallets";
+import {
+  consolidateEth,
+  formatEth,
+  getNativeBalance,
+  splitFromMaster,
+} from "@/lib/operator-tx";
 
 type MintOutcome = {
   id: string;
@@ -29,78 +29,46 @@ type MintOutcome = {
 type Props = {
   onToast: (msg: string) => void;
   connectedWallet: string | null;
+  apiBase: string;
+  variant: HoodRpcVariant;
+  squad: SquadWallet[];
+  setSquad: (next: SquadWallet[] | ((prev: SquadWallet[]) => SquadWallet[])) => void;
+  pkById: MutableRefObject<Map<number, Hex>>;
+  pushOutcome: (text: string, kind?: MintOutcome["kind"]) => void;
+  outcomes: MintOutcome[];
+  tickerOutcomes: MintOutcome[];
 };
 
 const SPLIT_NS = [5, 10, 15, 20, 40, 60, 80, 100] as const;
 
-function randHex(bytes: number) {
-  const a = new Uint8Array(bytes);
-  crypto.getRandomValues(a);
-  return [...a].map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-async function demoAddressFromPk(pk: string) {
-  const buf = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(pk),
-  );
-  const hex = [...new Uint8Array(buf)]
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-  return `0x${hex.slice(0, 40)}`;
-}
-
-function makeSquad(n: number, seed = 0): SquadRow[] {
-  const acts = [
-    "Initialized State: Active | Waiting…",
-    "RPC synced — monitoring",
-    "Insufficient Balance — top up",
-    "Snipe armed · gas: fast",
-    "Balance refresh OK",
-    "Listening via WSS · worker alive",
-  ];
-  return Array.from({ length: n }, (_, i) => {
-    const bal = (0.08 + i * 0.041 + (seed % 7) * 0.002).toFixed(4);
-    return {
-      id: i + 1,
-      time: `${i + 1}m ago`,
-      logBal: `${bal} ETH`,
-      activity: acts[i % acts.length],
-      wallet: `0x${(0xa1 + i).toString(16)}${"420a12ff".repeat(4).slice(0, 36)}${i.toString(16).padStart(2, "0")}`,
-      live: `${bal} ETH`,
-      usd: `$${(parseFloat(bal) * 3240).toFixed(2)}`,
-      nfts: (i * 2 + 1) % 14,
-    };
-  });
-}
-
-export default function HoodTools({ onToast, connectedWallet }: Props) {
-  const [squad, setSquad] = useState(() => makeSquad(8));
+export default function HoodTools({
+  onToast,
+  connectedWallet,
+  apiBase,
+  variant,
+  squad,
+  setSquad,
+  pkById,
+  pushOutcome,
+  outcomes,
+  tickerOutcomes,
+}: Props) {
   const [pasteOpen, setPasteOpen] = useState(false);
   const [pasteKeys, setPasteKeys] = useState("");
   const [wlKeys, setWlKeys] = useState("");
   const [wlStatus, setWlStatus] = useState("No WL temp keys loaded");
-  const [outcomes, setOutcomes] = useState<MintOutcome[]>([
-    {
-      id: "1",
-      text: HOOD_RPC_DEMO
-        ? "Demo idle — no real txs (Connect Wallet to play)"
-        : "Bot idle — waiting for arm",
-      kind: "info",
-    },
-  ]);
-  const [tickerOutcomes, setTickerOutcomes] = useState<MintOutcome[]>([
-    {
-      id: "t1",
-      text: HOOD_RPC_DEMO
-        ? "Demo ticker sniper — UI only"
-        : "Ticker sniper idle — waiting for deploy",
-      kind: "info",
-    },
-  ]);
+  const [workers, setWorkers] = useState(0);
+  const [masterAddr, setMasterAddr] = useState("Not set — paste master key");
+  const [masterPkInput, setMasterPkInput] = useState("");
+  const [masterBal, setMasterBal] = useState("—");
+  const masterPkRef = useRef<Hex | null>(null);
+  const [nftTo, setNftTo] = useState("");
+  const [ethTo, setEthTo] = useState("");
+  const [genCount, setGenCount] = useState("5");
+  const [genOut, setGenOut] = useState("");
+  const [busy, setBusy] = useState(false);
 
-  function requireDemo() {
-    if (!HOOD_RPC_DEMO) return true;
+  function requireWallet() {
     if (!connectedWallet) {
       onToast("> CONNECT WALLET FIRST (top right)");
       return false;
@@ -108,43 +76,28 @@ export default function HoodTools({ onToast, connectedWallet }: Props) {
     return true;
   }
 
-  function demoToast(msg: string) {
-    onToast(HOOD_RPC_DEMO ? `${msg} · DEMO · no real tx` : msg);
-  }
-  const [workers, setWorkers] = useState(10);
-  const [masterAddr, setMasterAddr] = useState("Not set — paste master key");
-  const [masterPk, setMasterPk] = useState("");
-  const [masterBal, setMasterBal] = useState("—");
-  const [nftTo, setNftTo] = useState("");
-  const [ethTo, setEthTo] = useState("");
-  const [genCount, setGenCount] = useState("5");
-  const [genOut, setGenOut] = useState("");
-
   useEffect(() => {
     if (connectedWallet) {
-      setMasterAddr(connectedWallet);
+      setMasterAddr((prev) =>
+        prev.startsWith("0x") ? prev : connectedWallet,
+      );
     }
   }, [connectedWallet]);
 
-  /** Wipe secrets if this tab hides / unloads (defense in depth). */
   useEffect(() => {
     function wipeSecrets() {
       setPasteKeys("");
       setWlKeys("");
-      setMasterPk("");
+      setMasterPkInput("");
       setGenOut("");
+      masterPkRef.current = null;
+      pkById.current.clear();
     }
-    const onVis = () => {
-      if (document.visibilityState === "hidden") wipeSecrets();
-    };
     window.addEventListener("pagehide", wipeSecrets);
-    document.addEventListener("visibilitychange", onVis);
     return () => {
-      wipeSecrets();
       window.removeEventListener("pagehide", wipeSecrets);
-      document.removeEventListener("visibilitychange", onVis);
     };
-  }, []);
+  }, [pkById]);
 
   useEffect(() => {
     if (!genOut) return;
@@ -152,90 +105,109 @@ export default function HoodTools({ onToast, connectedWallet }: Props) {
     return () => window.clearTimeout(id);
   }, [genOut]);
 
-  useEffect(() => {
-    const tickers = ["$HOODAI", "$SNIPE", "$LIME", "$RPCX", "$FEATHER"];
-    const id = window.setInterval(() => {
-      if (Math.random() > 0.55) return;
-      const ticker = tickers[Math.floor(Math.random() * tickers.length)];
-      const ok = Math.random() > 0.28;
-      setTickerOutcomes((o) => [
-        {
-          id: String(Date.now()),
-          text: ok
-            ? `${ticker} sniped · fill ${(0.05 + Math.random() * 0.4).toFixed(3)} ETH`
-            : `${ticker} miss · too late / slippage`,
-          kind: ok ? "ok" : "err",
-        },
-        ...o.slice(0, 40),
-      ]);
-    }, 4500);
-    return () => window.clearInterval(id);
-  }, []);
+  const totalEth = squad.reduce((s, r) => s + (parseFloat(r.logBal) || 0), 0);
 
-  const totalEth = squad.reduce((s, r) => s + parseFloat(r.logBal), 0);
-
-  function refreshBalances() {
-    if (!requireDemo()) return;
-    setSquad((prev) =>
-      prev.map((r, i) => {
-        const bal = (parseFloat(r.logBal) + (Math.random() - 0.4) * 0.01).toFixed(
-          4,
-        );
-        return {
-          ...r,
-          time: "just now",
-          logBal: `${Math.max(0, parseFloat(bal)).toFixed(4)} ETH`,
-          live: `${Math.max(0, parseFloat(bal)).toFixed(4)} ETH`,
-          usd: `$${(Math.max(0, parseFloat(bal)) * 3240).toFixed(2)}`,
-          activity: "Balance refresh OK",
-          nfts: r.nfts + (i % 3 === 0 ? 1 : 0),
-        };
-      }),
+  async function applyBalances(rows: SquadWallet[]) {
+    if (!rows.length) return rows;
+    const res = await fetch(`${apiBase}/balances`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ addresses: rows.map((r) => r.address) }),
+    });
+    const data = (await res.json()) as {
+      ok?: boolean;
+      balances?: { address: string; eth: number; usd: number; nfts: number }[];
+    };
+    if (!res.ok || !data.ok) return rows;
+    const map = new Map(
+      (data.balances || []).map((b) => [b.address.toLowerCase(), b]),
     );
-    demoToast("> BALANCES REFRESHED");
+    return rows.map((r) => {
+      const hit = map.get(r.address.toLowerCase());
+      if (!hit) return r;
+      const eth = `${hit.eth.toFixed(4)} ETH`;
+      return {
+        ...r,
+        time: "just now",
+        logBal: eth,
+        live: eth,
+        usd: `$${hit.usd.toFixed(2)}`,
+        nfts: hit.nfts,
+        activity: "Balance refresh OK",
+      };
+    });
+  }
+
+  async function refreshBalances() {
+    if (!requireWallet()) return;
+    if (!squad.length) {
+      onToast("> LOAD OR GENERATE SQUAD FIRST");
+      return;
+    }
+    setBusy(true);
+    try {
+      const next = await applyBalances(squad);
+      setSquad(next);
+      onToast(`> BALANCES REFRESHED · ${next.length} WALLETS`);
+      pushOutcome(`Balances refreshed · ${next.length} wallets`);
+    } catch {
+      onToast("> BALANCE REFRESH FAILED");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function loadPasteKeys() {
-    if (!requireDemo()) return;
+    if (!requireWallet()) return;
     const lines = pasteKeys
       .split(/[\n,]+/)
       .map((l) => l.trim())
-      .filter((l) => l.startsWith("0x") && l.length >= 10)
-      .slice(0, 60);
+      .filter(Boolean)
+      .slice(0, 80);
     setPasteKeys("");
     if (!lines.length) {
-      onToast("> NO VALID 0x KEYS FOUND");
+      onToast("> NO KEYS / ADDRESSES FOUND");
       return;
     }
-    const rows: SquadRow[] = [];
+    pkById.current.clear();
+    const rows: SquadWallet[] = [];
     for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      const isPk = looksLikePrivateKey(line);
-      const wallet = isPk
-        ? await demoAddressFromPk(line)
-        : line.length > 42
-          ? line.slice(0, 42)
-          : line;
-      rows.push({
-        id: i + 1,
-        time: "just now",
-        logBal: "0.0000 ETH",
-        activity: isPk
-          ? "Session key loaded (demo · pk discarded)"
-          : "Session address loaded (demo)",
-        wallet,
-        live: "0.0000 ETH",
-        usd: "$0.00",
-        nfts: 0,
-      });
+      const id = i + 1;
+      const pk = normalizePk(lines[i]);
+      if (pk) {
+        const address = addressFromPk(pk);
+        pkById.current.set(id, pk);
+        rows.push(
+          emptyRow(id, address, `Wallet ${id}`, true, "Session key loaded"),
+        );
+        continue;
+      }
+      const addr = parseAddress(lines[i]);
+      if (addr) {
+        rows.push(
+          emptyRow(id, addr, `Wallet ${id}`, false, "Address loaded"),
+        );
+      }
     }
-    setSquad(rows);
-    setPasteOpen(false);
-    demoToast(`> LOADED ${rows.length} SESSION WALLETS · KEYS NOT STORED`);
+    if (!rows.length) {
+      onToast("> NO VALID KEYS OR ADDRESSES");
+      return;
+    }
+    setBusy(true);
+    try {
+      const withBal = await applyBalances(rows);
+      setSquad(withBal);
+      setWorkers(withBal.length);
+      setPasteOpen(false);
+      onToast(`> LOADED ${withBal.length} SESSION WALLETS`);
+      pushOutcome(`Loaded ${withBal.length} session wallets`);
+    } finally {
+      setBusy(false);
+    }
   }
 
   function saveWl() {
-    if (!requireDemo()) return;
+    if (!requireWallet()) return;
     const lines = wlKeys
       .split(/[\n,]+/)
       .map((l) => l.trim())
@@ -246,56 +218,133 @@ export default function HoodTools({ onToast, connectedWallet }: Props) {
       onToast("> PASTE 1–2 WL KEYS");
       return;
     }
-    setWlStatus(
-      `${lines.length} WL temp key(s) acknowledged (demo · not persisted)`,
-    );
-    demoToast(`> WL WALLETS ACK · ${lines.length} · NOT SAVED TO DISK`);
+    setWlStatus(`${lines.length} WL temp key(s) in this session only`);
+    onToast(`> WL WALLETS LOADED · ${lines.length}`);
+    pushOutcome(`WL temp keys loaded · ${lines.length}`);
   }
 
   async function saveMaster() {
-    if (!requireDemo()) return;
-    const pk = masterPk.trim();
-    setMasterPk("");
-    if (!pk.startsWith("0x") || pk.length < 10) {
+    if (!requireWallet()) return;
+    const pk = normalizePk(masterPkInput);
+    setMasterPkInput("");
+    if (!pk) {
       onToast("> PASTE MASTER PRIVATE KEY");
       return;
     }
-    const addr = await demoAddressFromPk(pk);
+    const addr = addressFromPk(pk);
+    masterPkRef.current = pk;
     setMasterAddr(addr);
-    setMasterBal("0.0000 ETH");
-    demoToast(`> MASTER BOUND · ${addr.slice(0, 10)}… · PK DISCARDED`);
+    try {
+      const wei = await getNativeBalance(variant, addr);
+      setMasterBal(`${formatEth(wei)} ETH`);
+    } catch {
+      setMasterBal("—");
+    }
+    onToast(`> MASTER BOUND · ${shortAddr(addr)}`);
+    pushOutcome(`Master bound · ${shortAddr(addr)}`);
   }
 
-  function splitTo(n: number) {
-    if (!requireDemo()) return;
-    if (!masterAddr.startsWith("0x")) {
-      onToast("> SET MASTER WALLET FIRST");
+  async function splitTo(n: number) {
+    if (!requireWallet()) return;
+    const pk = masterPkRef.current;
+    if (!pk) {
+      onToast("> SET MASTER PRIVATE KEY FIRST");
       return;
     }
-    setSquad(makeSquad(Math.min(n, 60), n));
-    setWorkers(n);
-    demoToast(`> SPLIT QUEUED · ${n} WALLETS`);
-    setOutcomes((o) => [
-      {
-        id: String(Date.now()),
-        text: `Demo master split → ${n} equal shares (no chain)`,
-        kind: "ok",
-      },
-      ...o.slice(0, 40),
-    ]);
+    if (squad.length < n) {
+      onToast(`> NEED ${n} SQUAD WALLETS · GENERATE OR PASTE FIRST`);
+      return;
+    }
+    const targets = squad.slice(0, n);
+    const missing = targets.filter((w) => !w.address);
+    if (missing.length) {
+      onToast("> SQUAD WALLETS INVALID");
+      return;
+    }
+    setBusy(true);
+    try {
+      const { hashes, perWei } = await splitFromMaster({
+        variant,
+        apiBase,
+        masterPk: pk,
+        recipients: targets.map((w) => w.address),
+      });
+      setWorkers(n);
+      onToast(`> SPLIT SENT · ${n} WALLETS · ${formatEth(perWei)} ETH EACH`);
+      pushOutcome(
+        `Master split → ${n} wallets · ${formatEth(perWei)} ETH · ${hashes[0]?.slice(0, 10)}…`,
+        "ok",
+      );
+      const next = await applyBalances(squad);
+      setSquad(next);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "SPLIT_FAILED";
+      onToast(
+        msg === "INSUFFICIENT_MASTER"
+          ? "> MASTER NEEDS MORE ETH FOR GAS + SPLIT"
+          : `> SPLIT FAILED · ${msg}`,
+      );
+      pushOutcome(`Split failed · ${msg}`, "err");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function generateWallets() {
-    if (!requireDemo()) return;
+    if (!requireWallet()) return;
     const n = Math.min(100, Math.max(1, parseInt(genCount, 10) || 1));
+    pkById.current.clear();
+    const rows: SquadWallet[] = [];
     const lines: string[] = [];
     for (let i = 0; i < n; i++) {
-      const pk = `0x${randHex(32)}`;
-      const addr = await demoAddressFromPk(pk);
-      lines.push(`#${i + 1}  ${addr}  ${pk}`);
+      const { wallet, pk } = generateSquadWallet(i + 1);
+      pkById.current.set(wallet.id, pk);
+      rows.push(wallet);
+      lines.push(`#${wallet.id}  ${wallet.address}  ${pk}`);
     }
+    setSquad(rows);
+    setWorkers(n);
     setGenOut(lines.join("\n"));
-    demoToast(`> GENERATED ${n} DEMO WALLETS · AUTO-CLEARS IN 60s`);
+    onToast(`> GENERATED ${n} WALLETS · COPY NOW · KEYS STAY IN THIS TAB`);
+    pushOutcome(`Generated ${n} wallets (session)`);
+  }
+
+  async function sendEthConsolidate() {
+    if (!requireWallet()) return;
+    if (!isAddress(ethTo)) {
+      onToast("> PASTE ETH RECIPIENT");
+      return;
+    }
+    const keys = [...pkById.current.values()];
+    if (!keys.length) {
+      onToast("> SQUAD NEEDS SESSION KEYS (GENERATE / PASTE PKS)");
+      return;
+    }
+    setBusy(true);
+    try {
+      const hashes = await consolidateEth({
+        variant,
+        apiBase,
+        keys,
+        to: ethTo as Address,
+      });
+      onToast(`> ETH SENT · ${hashes.length} TXS`);
+      pushOutcome(
+        `ETH consolidate · ${hashes.length} txs · ${shortAddr(ethTo)}`,
+        "ok",
+      );
+      setSquad(await applyBalances(squad));
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "SEND_FAILED";
+      onToast(
+        msg === "NOTHING_TO_SEND"
+          ? "> NO SPENDABLE ETH IN SQUAD"
+          : `> ETH SEND FAILED · ${msg}`,
+      );
+      pushOutcome(`ETH consolidate failed · ${msg}`, "err");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -306,7 +355,6 @@ export default function HoodTools({ onToast, connectedWallet }: Props) {
         </div>
       </div>
 
-      {/* Squad */}
       <section className="hrpc-panel" aria-label="Squad and balances" id="squad">
         <div className="hrpc-section-head">
           <div>
@@ -322,7 +370,12 @@ export default function HoodTools({ onToast, connectedWallet }: Props) {
             >
               Paste squad keys (session)
             </button>
-            <button type="button" className="hrpc-btn" onClick={refreshBalances}>
+            <button
+              type="button"
+              className="hrpc-btn"
+              onClick={() => void refreshBalances()}
+              disabled={busy}
+            >
               Refresh balances
             </button>
           </div>
@@ -335,7 +388,7 @@ export default function HoodTools({ onToast, connectedWallet }: Props) {
               rows={6}
               value={pasteKeys}
               onChange={(e) => setPasteKeys(e.target.value)}
-              placeholder={"0x…\n0x…"}
+              placeholder={"0x… private key or address\n0x…"}
               {...SENSITIVE_INPUT_PROPS}
             />
             <div className="hrpc-row-actions" style={{ marginTop: "0.5rem" }}>
@@ -343,6 +396,7 @@ export default function HoodTools({ onToast, connectedWallet }: Props) {
                 type="button"
                 className="hrpc-btn"
                 onClick={() => void loadPasteKeys()}
+                disabled={busy}
               >
                 Load keys into bot
               </button>
@@ -350,12 +404,13 @@ export default function HoodTools({ onToast, connectedWallet }: Props) {
                 type="button"
                 className="hrpc-btn hrpc-btn-ghost"
                 onClick={() => {
-                  setSquad(makeSquad(8));
+                  setSquad([]);
+                  pkById.current.clear();
                   setPasteKeys("");
-                  onToast("> USING DEFAULT FLEET");
+                  onToast("> SQUAD CLEARED");
                 }}
               >
-                Use default fleet
+                Clear squad
               </button>
               <button
                 type="button"
@@ -382,7 +437,7 @@ export default function HoodTools({ onToast, connectedWallet }: Props) {
           </div>
           <div className="hrpc-stat">
             <div className="hrpc-stat-label">Workers</div>
-            <div className="hrpc-stat-value">{workers}</div>
+            <div className="hrpc-stat-value">{workers || squad.length}</div>
           </div>
           <div className="hrpc-stat">
             <div className="hrpc-stat-label">Gas</div>
@@ -391,40 +446,45 @@ export default function HoodTools({ onToast, connectedWallet }: Props) {
         </div>
 
         <div className="hrpc-table-wrap hrpc-table-wrap-tall">
-          <table className="hrpc-table">
-            <thead>
-              <tr>
-                <th style={{ width: 36 }}>ID</th>
-                <th>Time</th>
-                <th>Log bal</th>
-                <th>Activity</th>
-                <th>Wallet</th>
-                <th>Live</th>
-                <th>~USD</th>
-                <th>NFTs</th>
-              </tr>
-            </thead>
-            <tbody>
-              {squad.map((r) => (
-                <tr key={r.id} className="hrpc-row">
-                  <td>{r.id}</td>
-                  <td className="hrpc-mono">{r.time}</td>
-                  <td className="hrpc-mono hrpc-lime">{r.logBal}</td>
-                  <td className="hrpc-activity">{r.activity}</td>
-                  <td className="hrpc-mono hrpc-addr" title={r.wallet}>
-                    {r.wallet}
-                  </td>
-                  <td className="hrpc-mono hrpc-lime">{r.live}</td>
-                  <td className="hrpc-mono">{r.usd}</td>
-                  <td>{r.nfts}</td>
+          {squad.length === 0 ? (
+            <p className="hrpc-nft-empty">
+              No squad yet — generate wallets or paste keys. Session only.
+            </p>
+          ) : (
+            <table className="hrpc-table">
+              <thead>
+                <tr>
+                  <th style={{ width: 36 }}>ID</th>
+                  <th>Time</th>
+                  <th>Log bal</th>
+                  <th>Activity</th>
+                  <th>Wallet</th>
+                  <th>Live</th>
+                  <th>~USD</th>
+                  <th>NFTs</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {squad.map((r) => (
+                  <tr key={r.id} className="hrpc-row">
+                    <td>{r.id}</td>
+                    <td className="hrpc-mono">{r.time}</td>
+                    <td className="hrpc-mono hrpc-lime">{r.logBal}</td>
+                    <td className="hrpc-activity">{r.activity}</td>
+                    <td className="hrpc-mono hrpc-addr" title={r.address}>
+                      {r.address}
+                    </td>
+                    <td className="hrpc-mono hrpc-lime">{r.live}</td>
+                    <td className="hrpc-mono">{r.usd}</td>
+                    <td>{r.nfts}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </section>
 
-      {/* WL */}
       <details className="hrpc-panel hrpc-details" open id="wl-setup">
         <summary className="hrpc-section-title hrpc-section-title-sm">
           WL setup — paste / clear temp key
@@ -456,7 +516,6 @@ export default function HoodTools({ onToast, connectedWallet }: Props) {
         </div>
       </details>
 
-      {/* Generate wallets — between WL setup and Master split */}
       <details className="hrpc-panel hrpc-details" open id="generate-wallets">
         <summary className="hrpc-section-title hrpc-section-title-sm">
           Generate Wallets
@@ -472,6 +531,7 @@ export default function HoodTools({ onToast, connectedWallet }: Props) {
             type="button"
             className="hrpc-btn"
             onClick={() => void generateWallets()}
+            disabled={busy}
           >
             Generate
           </button>
@@ -491,7 +551,6 @@ export default function HoodTools({ onToast, connectedWallet }: Props) {
         ) : null}
       </details>
 
-      {/* Master split */}
       <section className="hrpc-panel" id="master-split">
         <h3 className="hrpc-section-title hrpc-section-title-sm">Master split</h3>
         <label className="hrpc-label">Master wallet</label>
@@ -516,11 +575,16 @@ export default function HoodTools({ onToast, connectedWallet }: Props) {
             type="password"
             className="hrpc-input hrpc-mono"
             placeholder="Paste master private key (session only)"
-            value={masterPk}
-            onChange={(e) => setMasterPk(e.target.value)}
+            value={masterPkInput}
+            onChange={(e) => setMasterPkInput(e.target.value)}
             {...SENSITIVE_INPUT_PROPS}
           />
-          <button type="button" className="hrpc-btn" onClick={() => void saveMaster()}>
+          <button
+            type="button"
+            className="hrpc-btn"
+            onClick={() => void saveMaster()}
+            disabled={busy}
+          >
             Save
           </button>
         </div>
@@ -534,7 +598,8 @@ export default function HoodTools({ onToast, connectedWallet }: Props) {
               key={n}
               type="button"
               className="hrpc-btn hrpc-btn-ghost"
-              onClick={() => splitTo(n)}
+              onClick={() => void splitTo(n)}
+              disabled={busy}
             >
               {n} Wallets
             </button>
@@ -552,12 +617,12 @@ export default function HoodTools({ onToast, connectedWallet }: Props) {
             type="button"
             className="hrpc-btn"
             onClick={() => {
-              if (!requireDemo()) return;
-              if (!nftTo.startsWith("0x")) {
+              if (!isAddress(nftTo)) {
                 onToast("> PASTE NFT RECIPIENT");
                 return;
               }
-              demoToast("> NFT CONSOLIDATE QUEUED");
+              onToast("> NFT CONSOLIDATE COMING SOON");
+              pushOutcome("NFT consolidate · coming soon", "info");
             }}
           >
             Send now
@@ -573,21 +638,14 @@ export default function HoodTools({ onToast, connectedWallet }: Props) {
           <button
             type="button"
             className="hrpc-btn"
-            onClick={() => {
-              if (!requireDemo()) return;
-              if (!ethTo.startsWith("0x")) {
-                onToast("> PASTE ETH RECIPIENT");
-                return;
-              }
-              demoToast("> ETH CONSOLIDATE QUEUED");
-            }}
+            onClick={() => void sendEthConsolidate()}
+            disabled={busy}
           >
             Send now
           </button>
         </div>
       </section>
 
-      {/* Logs — both at the bottom */}
       <div className="hrpc-logs-grid">
         <details className="hrpc-panel hrpc-details" open id="mint-outcomes">
           <summary className="hrpc-section-title hrpc-section-title-sm">
