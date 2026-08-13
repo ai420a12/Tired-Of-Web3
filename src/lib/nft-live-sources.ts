@@ -61,12 +61,8 @@ function alchemyKey(): string | null {
 }
 
 function alchemyKeysToTry(): string[] {
-  const keys: string[] = [];
   const primary = alchemyKey();
-  if (primary) keys.push(primary);
-  // Public demo fallback — better than an empty mint-day board
-  if (!keys.includes("demo")) keys.push("demo");
-  return keys;
+  return primary ? [primary] : [];
 }
 
 async function fetchJson(
@@ -168,6 +164,8 @@ export async function fetchAlchemyEthSales(
       if (!contract || !tokenId) continue;
       const meta = metaByKey.get(`${contract}:${tokenId}`);
       const { eth, kind } = alchemyEthAmount(sale);
+      // Skip rows with no real sale price (never invent ETH)
+      if (!(eth > 0)) continue;
       const collection =
         meta?.contract?.openSeaMetadata?.collectionName ||
         meta?.contract?.name ||
@@ -185,7 +183,8 @@ export async function fetchAlchemyEthSales(
         NEUTRAL;
       const ts = sale.blockTimestamp
         ? Math.floor(Date.parse(sale.blockTimestamp) / 1000)
-        : Math.floor(Date.now() / 1000);
+        : 0;
+      if (!ts) continue;
       const rank =
         typeof meta?.rarity?.rank === "number"
           ? meta.rarity.rank

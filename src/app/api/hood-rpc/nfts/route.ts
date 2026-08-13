@@ -8,8 +8,6 @@ import {
 import { parseOpenSeaRarityRank } from "@/components/hood-rpc/hood-rarity";
 import {
   fetchAlchemyEthSales,
-  fetchBlockscoutActivity,
-  type LiveSaleRow,
 } from "@/lib/nft-live-sources";
 
 export const runtime = "nodejs";
@@ -138,12 +136,15 @@ function sortNewest(a: SaleRow, b: SaleRow): number {
   return (b.eventTs || 0) - (a.eventTs || 0);
 }
 
-function paymentToEth(payment?: OsEvent["payment"]): { eth: number; kind: "eth" | "weth"; usd: number } {
+function paymentToEth(
+  payment?: OsEvent["payment"],
+): { eth: number; kind: "eth" | "weth"; usd: number } | null {
   const qty = Number(payment?.quantity || 0);
   const decimals = Number(payment?.token?.decimals ?? payment?.decimals ?? 18);
   let eth = qty;
   if (qty > 1e9) eth = qty / 10 ** decimals;
-  if (!Number.isFinite(eth) || eth <= 0) eth = 0.05;
+  // Never invent a price — skip events without a real payment
+  if (!Number.isFinite(eth) || eth <= 0) return null;
   const usdPrice = Number(payment?.token?.usd_price || 0);
   const usd = usdPrice > 0 ? eth * usdPrice : eth * 3200;
   const symbol = (payment?.token?.symbol || payment?.symbol || "ETH").toUpperCase();
@@ -365,15 +366,18 @@ function mapEvent(
 ): SaleRow | null {
   const nft = ev.nft;
   if (!nft) return null;
-  const { eth, kind, usd } = paymentToEth(ev.payment);
+  const paid = paymentToEth(ev.payment);
+  if (!paid) return null;
+  const { eth, kind, usd } = paid;
   const osRank = parseOpenSeaRarityRank(nft as Record<string, unknown>);
   const traits = (nft.traits || []).slice(0, 6).map((t) => ({
     trait: String(t.trait_type || "Trait"),
     value: String(t.value ?? ""),
   }));
   const eventTs = parseEventTs(ev.event_timestamp);
+  if (!eventTs) return null;
   return {
-    id: `${colSlug}-${nft.identifier || ev.order_hash || Math.random()}`,
+    id: `${colSlug}-${nft.identifier || ev.order_hash || `${nft.contract}-${eventTs}`}`,
     tokenName: nft.name || `${colName} #${nft.identifier || "?"}`,
     collection: colName,
     collectionSlug: colSlug,
@@ -610,37 +614,30 @@ async function fetchChainWideSales(
     return { rows: sorted, source: "opensea" };
   }
 
-  // --- OpenSea down / empty: alternate live sources ---
-  let alt: LiveSaleRow[] = [];
-  let altSource = "empty";
+  // --- OpenSea down / empty: real marketplace sales via Alchemy only (ETH) ---
+  // Do NOT use Blockscout transfers — those are not sales and look like a fake feed.
   if (scope.openseaChain === "ethereum") {
-    alt = await fetchAlchemyEthSales(target);
-    if (alt.length) altSource = "alchemy";
-    if (!alt.length) {
-      alt = await fetchBlockscoutActivity("ethereum", target);
-      if (alt.length) altSource = "blockscout";
+    const alt = await fetchAlchemyEthSales(target);
+    if (alt.length) {
+      const mapped = alt as SaleRow[];
+      await enrichNftDetails(mapped, scope.openseaChain, {
+        limit: Math.min(16, mapped.length),
+        concurrency: 2,
+      });
+      liveSalesCache.set(cacheKey, { rows: mapped, at: Date.now() });
+      return {
+        rows: mapped.slice(0, target),
+        source: "alchemy",
+      };
     }
-  } else if (scope.openseaChain === "robinhood") {
-    alt = await fetchBlockscoutActivity("robinhood", target);
-    if (alt.length) altSource = "blockscout";
-  }
-
-  if (alt.length) {
-    const mapped = alt as SaleRow[];
-    // Pull OpenSea rarity ranks even when sales came from Alchemy/Blockscout
-    await enrichNftDetails(mapped, scope.openseaChain, {
-      limit: Math.min(16, mapped.length),
-      concurrency: 2,
-    });
-    liveSalesCache.set(cacheKey, { rows: mapped, at: Date.now() });
-    return {
-      rows: mapped.slice(0, target),
-      source: altSource,
-    };
   }
 
   const stale = cachedSales(cacheKey, true) || [];
-  return { rows: stale.slice(0, target), source: stale.length ? "cache" : "empty" };
+  // Only serve cache if it came from a real sale source (never blockscout leftovers)
+  return {
+    rows: stale.slice(0, target),
+    source: stale.length ? "cache" : "empty",
+  };
 }
 
 type OsListing = {
@@ -705,7 +702,7 @@ async function fetchCollectionListings(
     const decimals = Number(L.price?.current?.decimals ?? 18);
     let eth = value;
     if (value > 1e9) eth = value / 10 ** decimals;
-    if (!Number.isFinite(eth) || eth <= 0) eth = 0.05;
+    if (!Number.isFinite(eth) || eth <= 0) continue;
     const currency = (L.price?.current?.currency || "ETH").toUpperCase();
     const kind: "eth" | "weth" = currency.includes("WETH") ? "weth" : "eth";
 
@@ -714,9 +711,7 @@ async function fetchCollectionListings(
       createdSec = Number(L.protocol_data?.parameters?.startTime);
     }
     if (createdSec > 1e12) createdSec = Math.floor(createdSec / 1000);
-    if (!Number.isFinite(createdSec) || createdSec <= 0) {
-      createdSec = Math.floor(Date.now() / 1000) - i * 45;
-    }
+    if (!Number.isFinite(createdSec) || createdSec <= 0) continue;
 
     rows.push({
       id: `list-${col.slug}-${tokenId}-${L.order_hash || i}`,
@@ -812,7 +807,7 @@ export async function GET(req: Request) {
     return NextResponse.json({
       source: "missing_key",
       live: false,
-      note: "Add OPENSEA_API_KEY (and optionally ALCHEMY_API_KEY) for live sales.",
+      note: "Add OPENSEA_API_KEY (and ALCHEMY_API_KEY backup) for live sales.",
       collections,
       sales: [],
       projectSales: [],

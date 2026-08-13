@@ -398,20 +398,18 @@ export default function HoodNftPanels({
         if (cancelled) return;
 
         const source = typeof data.source === "string" ? data.source : "";
-        const liveOk = ["opensea", "alchemy", "blockscout", "cache"].includes(
-          source,
-        );
+        // Real marketplace sales only — never Blockscout transfers / mock seed
+        const liveOk = ["opensea", "alchemy", "cache"].includes(source);
 
         if (!liveOk) {
           liveSourceRef.current = source || null;
-          // NEVER wipe a working board during mint — keep last good rows
           if (!hadOpenSeaRef.current) {
             setLiveNote(
               typeof data.note === "string"
                 ? data.note
                 : typeof data.error === "string"
                   ? data.error
-                  : "Live feed reconnecting…",
+                  : "Waiting for live OpenSea sales…",
             );
             setLive([]);
           } else {
@@ -422,17 +420,24 @@ export default function HoodNftPanels({
         }
 
         liveSourceRef.current = source;
-        setLiveNote(null);
         const incoming = Array.isArray(data.sales)
-          ? (data.sales as HoodNftSale[])
+          ? (data.sales as HoodNftSale[]).filter(
+              (row) =>
+                typeof row.eth === "number" &&
+                row.eth > 0 &&
+                typeof row.eventTs === "number" &&
+                row.eventTs > 0,
+            )
           : [];
         if (incoming.length) {
+          setLiveNote(null);
           setLive((prev) =>
             mergeLiveSales(hadOpenSeaRef.current ? prev : [], incoming),
           );
           hadOpenSeaRef.current = true;
         } else if (!hadOpenSeaRef.current) {
           setLive([]);
+          setLiveNote("Waiting for live OpenSea sales…");
         }
         setLiveLoading(false);
       } catch {
