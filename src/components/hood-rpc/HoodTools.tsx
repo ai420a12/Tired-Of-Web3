@@ -331,7 +331,7 @@ export default function HoodTools({
           ? "> NO SPENDABLE ETH IN SQUAD"
           : `> ETH SEND FAILED · ${msg}`,
       );
-      pushOutcome(`ETH consolidate failed · ${msg}`, "err");
+      pushOutcome(`ETH sweep failed · ${msg}`, "err");
     } finally {
       setBusy(false);
     }

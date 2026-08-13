@@ -171,7 +171,7 @@ export async function splitFromMaster(opts: {
   return { hashes, perWei };
 }
 
-/** Empty a wallet: send balance minus exact tx fee. No fat gas pad. */
+/** Empty a wallet: send balance minus current base-fee, not a fat RPC quote. */
 async function sweepAllEthFromKey(opts: {
   variant: HoodRpcVariant;
   apiBase: string;
@@ -193,34 +193,72 @@ async function sweepAllEthFromKey(opts: {
   });
 
   const bal = await publicClient.getBalance({ address: account.address });
+  const gas = BigInt(21000);
+  if (bal <= gas) return null;
+
   const nonce = await publicClient.getTransactionCount({
     address: account.address,
     blockTag: "pending",
   });
-  const gas = BigInt(21000);
 
-  const fees = await publicClient.estimateFeesPerGas().catch(() => null);
-  const tip =
-    fees?.maxPriorityFeePerGas ??
-    parseGwei(opts.variant === "eth" ? "0.05" : "0.01");
-  const quotedMax =
-    fees?.maxFeePerGas ?? parseGwei(opts.variant === "eth" ? "2" : "0.05");
-  // One-block base-fee bump (12.5%) so it still lands — leftover is dust, not $2.
-  let maxFeePerGas = quotedMax > tip ? quotedMax : tip + parseGwei("0.1");
-  maxFeePerGas = (maxFeePerGas * 1125n) / 1000n;
-  const feeCap = gas * maxFeePerGas;
-  if (bal <= feeCap) return null;
+  const block = await publicClient.getBlock({ blockTag: "latest" });
+  const gasPrice = await publicClient.getGasPrice().catch(() => parseGwei("1"));
+  const baseFee = block.baseFeePerGas ?? gasPrice;
+  const tip = parseGwei(opts.variant === "eth" ? "0.2" : "0.01");
+  let maxFeePerGas = baseFee + (baseFee * BigInt(125)) / BigInt(1000) + tip;
+  if (maxFeePerGas < tip + BigInt(1)) maxFeePerGas = tip + BigInt(1);
 
-  const signedTx = await walletClient.signTransaction({
-    to: opts.to,
-    value: bal - feeCap,
-    nonce,
-    gas,
-    maxFeePerGas,
-    maxPriorityFeePerGas: tip,
-    chainId: chain.id,
-  });
-  return broadcastSigned(opts.apiBase, signedTx, opts.variant);
+  const affordable = bal / gas;
+  if (affordable < baseFee) {
+    throw new Error(
+      `leftover ${formatEth(bal)} ETH is below gas (${formatEth(gas * baseFee)} ETH)`,
+    );
+  }
+  if (maxFeePerGas > affordable) maxFeePerGas = affordable;
+  let priority = tip < maxFeePerGas ? tip : maxFeePerGas / BigInt(2);
+  let value = bal - gas * maxFeePerGas;
+  if (value <= BigInt(0)) return null;
+
+  let lastErr = "SWEEP_FAILED";
+  for (let attempt = 0; attempt < 4; attempt++) {
+    try {
+      const signedTx = await walletClient.signTransaction({
+        to: opts.to,
+        value,
+        nonce,
+        gas,
+        maxFeePerGas,
+        maxPriorityFeePerGas: priority,
+        chainId: chain.id,
+      });
+      return await broadcastSigned(opts.apiBase, signedTx, opts.variant);
+    } catch (err) {
+      lastErr = err instanceof Error ? err.message : String(err);
+      if (/insufficient funds/i.test(lastErr)) {
+        const cut = gas * parseGwei(opts.variant === "eth" ? "1" : "0.05");
+        if (value <= cut) break;
+        value -= cut;
+        maxFeePerGas = (bal - value) / gas;
+        if (priority >= maxFeePerGas) {
+          priority = maxFeePerGas / BigInt(2);
+        }
+        continue;
+      }
+      if (/max fee per gas less than|underpriced|fee too low/i.test(lastErr)) {
+        const bump = (maxFeePerGas * BigInt(20)) / BigInt(100) + parseGwei("0.5");
+        maxFeePerGas += bump;
+        if (maxFeePerGas > affordable) maxFeePerGas = affordable;
+        value = bal - gas * maxFeePerGas;
+        if (value <= BigInt(0)) break;
+        if (priority >= maxFeePerGas) {
+          priority = maxFeePerGas / BigInt(2);
+        }
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw new Error(lastErr);
 }
 
 export async function consolidateEth(opts: {
@@ -230,16 +268,23 @@ export async function consolidateEth(opts: {
   to: Address;
 }): Promise<Hex[]> {
   const hashes: Hex[] = [];
+  const errors: string[] = [];
   for (const pk of opts.keys) {
-    const hash = await sweepAllEthFromKey({
-      variant: opts.variant,
-      apiBase: opts.apiBase,
-      privateKey: pk,
-      to: opts.to,
-    });
-    if (hash) hashes.push(hash);
+    try {
+      const hash = await sweepAllEthFromKey({
+        variant: opts.variant,
+        apiBase: opts.apiBase,
+        privateKey: pk,
+        to: opts.to,
+      });
+      if (hash) hashes.push(hash);
+    } catch (err) {
+      errors.push(err instanceof Error ? err.message : "SEND_FAILED");
+    }
   }
-  if (!hashes.length) throw new Error("NOTHING_TO_SEND");
+  if (!hashes.length) {
+    throw new Error(errors[0] || "NOTHING_TO_SEND");
+  }
   return hashes;
 }
 
