@@ -552,7 +552,12 @@ export default function HoodDashboard({
       ) : null}
 
       <main className="hrpc-main">
-        <HoodNftPanels onToast={setToast} apiBase={cfg.apiBase} />
+        <HoodNftPanels
+          onToast={setToast}
+          apiBase={cfg.apiBase}
+          connectedWallet={wallet}
+          liveListingBuys={variant === "eth"}
+        />
 
         <div className="hrpc-grid-2" id="launches">
           <section className="hrpc-panel" aria-label="Upcoming NFT collections" id="upcoming-nfts">

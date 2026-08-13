@@ -101,6 +101,8 @@ type SaleRow = {
   tokenId?: string;
   contract?: string;
   eventTs?: number;
+  orderHash?: string;
+  protocolAddress?: string;
 };
 
 /** Normalize OpenSea timestamps (unix sec/ms or ISO string) → unix seconds */
@@ -643,6 +645,8 @@ async function fetchChainWideSales(
 
 type OsListing = {
   order_hash?: string;
+  protocol_address?: string;
+  chain?: string;
   status?: string;
   remaining_quantity?: number | string;
   order_created_at?: number | string;
@@ -655,6 +659,9 @@ type OsListing = {
     };
   };
 };
+
+/** Seaport 1.6 — default when OpenSea omits protocol_address */
+const SEAPORT_1_6 = "0x0000000000000068f116a894984e2db1123eb395";
 
 function listingToken(L: OsListing): { tokenId: string; contract?: string } {
   const assetId = L.asset?.identifier;
@@ -732,6 +739,8 @@ async function fetchCollectionListings(
       tokenId,
       contract,
       eventTs: createdSec,
+      orderHash: L.order_hash || undefined,
+      protocolAddress: L.protocol_address || SEAPORT_1_6,
     });
   }
 

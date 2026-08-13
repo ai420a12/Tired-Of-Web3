@@ -5,11 +5,19 @@ import { createPortal } from "react-dom";
 import { type HoodNftSale } from "./mock-data";
 import HoodRarityLegend from "./HoodRarityLegend";
 import { rarityTierFromRank } from "./hood-rarity";
-import { DEMO_TOAST, HOOD_RPC_DEMO } from "@/lib/hood-rpc-demo";
+import { DEMO_TOAST, HOOD_RPC_DEMO, LIVE_ETH_LISTING_BUY } from "@/lib/hood-rpc-demo";
+import {
+  buyErrorToast,
+  buyEthListingWithMetaMask,
+} from "@/lib/eth-listing-buy";
 
 type Props = {
   onToast: (msg: string) => void;
   apiBase?: string;
+  /** Verified Access Key wallet — required for live ETH listing buys */
+  connectedWallet?: string | null;
+  /** ETH_RPC dashboard enables MetaMask listing buys */
+  liveListingBuys?: boolean;
 };
 
 const LIVE_LIMIT = 28;
@@ -199,6 +207,8 @@ function SaleTable({
   focusSlug,
   showCollection,
   showSnipe,
+  snipeLabel = "Snipe",
+  snipingId,
   onSelect,
   onThumbOver,
   onThumbOut,
@@ -208,6 +218,8 @@ function SaleTable({
   focusSlug?: string | null;
   showCollection?: boolean;
   showSnipe?: boolean;
+  snipeLabel?: string;
+  snipingId?: string | null;
   onSelect?: (item: HoodNftSale) => void;
   onThumbOver: (item: HoodNftSale, el: HTMLElement) => void;
   onThumbOut: (e: React.MouseEvent) => void;
@@ -271,12 +283,13 @@ function SaleTable({
                   <button
                     type="button"
                     className="hrpc-btn"
+                    disabled={snipingId === row.id}
                     onClick={(e) => {
                       e.stopPropagation();
                       onSnipe?.(row);
                     }}
                   >
-                    Snipe
+                    {snipingId === row.id ? "Buying…" : snipeLabel}
                   </button>
                 </div>
               ) : null}
@@ -291,6 +304,8 @@ function SaleTable({
 export default function HoodNftPanels({
   onToast,
   apiBase = "/api/hood-rpc",
+  connectedWallet = null,
+  liveListingBuys = false,
 }: Props) {
   const [live, setLive] = useState<HoodNftSale[]>([]);
   const [liveLoading, setLiveLoading] = useState(true);
@@ -300,10 +315,13 @@ export default function HoodNftPanels({
   const [listings, setListings] = useState<HoodNftSale[]>([]);
   const [fly, setFly] = useState<FlyState | null>(null);
   const [flyVisible, setFlyVisible] = useState(false);
+  const [snipingId, setSnipingId] = useState<string | null>(null);
   const flyRef = useRef<HTMLDivElement | null>(null);
   const hideTimer = useRef<number | null>(null);
   const liveSourceRef = useRef<string | null>(null);
   const hadOpenSeaRef = useRef(false);
+
+  const ethLiveBuys = liveListingBuys && LIVE_ETH_LISTING_BUY;
 
   const cancelHide = useCallback(() => {
     if (hideTimer.current != null) {
@@ -485,6 +503,64 @@ export default function HoodNftPanels({
     onToast(`> PROJECT · ${item.collection}`);
   }
 
+  async function handleListingSnipe(row: HoodNftSale) {
+    if (!ethLiveBuys) {
+      onToast(
+        liveListingBuys
+          ? "> LIVE BUYS DISABLED"
+          : "> LIVE BUYS ON ETH_RPC ONLY · SWITCH CHAIN",
+      );
+      return;
+    }
+    if (!connectedWallet) {
+      onToast("> CONNECT WALLET FIRST (top right)");
+      return;
+    }
+    if (!row.orderHash) {
+      onToast("> NO ORDER HASH · PICK ANOTHER LISTING");
+      return;
+    }
+    if (row.kind === "weth") {
+      onToast("> WETH LISTINGS NOT SUPPORTED YET · PICK ETH PRICE");
+      return;
+    }
+
+    const ok = window.confirm(
+      `Buy ${row.tokenName} for ~${row.eth} ETH?\n\n` +
+        `You will sign in MetaMask / Rabby.\n` +
+        `Private keys never leave your wallet.`,
+    );
+    if (!ok) {
+      onToast("> BUY CANCELLED");
+      return;
+    }
+
+    setSnipingId(row.id);
+    onToast(`> BUILDING BUY · ${row.tokenName}`);
+    try {
+      const result = await buyEthListingWithMetaMask({
+        orderHash: row.orderHash,
+        protocolAddress:
+          row.protocolAddress ||
+          "0x0000000000000068f116a894984e2db1123eb395",
+        buyer: connectedWallet,
+        priceEth: row.eth,
+        tokenName: row.tokenName,
+        openseaUrl: row.openseaUrl,
+      });
+      onToast(
+        `> BOUGHT · ${row.tokenName} · ${result.txHashes[0]?.slice(0, 10)}…`,
+      );
+      if (result.explorerUrl) {
+        window.open(result.explorerUrl, "_blank", "noopener,noreferrer");
+      }
+    } catch (err) {
+      onToast(buyErrorToast(err));
+    } finally {
+      setSnipingId(null);
+    }
+  }
+
   return (
     <section
       className="hrpc-nft-boards"
@@ -566,12 +642,18 @@ export default function HoodNftPanels({
               <SaleTable
                 rows={listings}
                 showSnipe
+                snipeLabel={ethLiveBuys ? "Buy (MetaMask)" : "Snipe"}
+                snipingId={snipingId}
                 onThumbOver={showFlyout}
                 onThumbOut={handleThumbOut}
                 onSnipe={(row) => {
+                  if (ethLiveBuys) {
+                    void handleListingSnipe(row);
+                    return;
+                  }
                   onToast(
                     HOOD_RPC_DEMO
-                      ? DEMO_TOAST
+                      ? `${DEMO_TOAST} · live listing buys on ETH_RPC`
                       : `> SNIPE LISTING · ${row.tokenName}`,
                   );
                 }}

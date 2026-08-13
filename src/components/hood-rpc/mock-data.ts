@@ -44,6 +44,11 @@ export type HoodNftSale = {
   traits: { trait: string; value: string }[];
   /** Unix seconds — used to keep NFT Live newest-first across polls */
   eventTs?: number;
+  tokenId?: string;
+  contract?: string;
+  /** OpenSea Seaport listing — required for live MetaMask buy */
+  orderHash?: string;
+  protocolAddress?: string;
 };
 
 export const FEATURES = [
