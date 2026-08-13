@@ -1,110 +1,110 @@
 /**
- * Browser-only ETH OpenSea listing purchase via MetaMask/Rabby.
- * Private keys never leave the wallet extension.
+ * Silent ETH OpenSea listing buys using an in-browser session private key.
+ * Key never uploads to our servers. No MetaMask popups on snipe.
  */
+import {
+  createPublicClient,
+  createWalletClient,
+  http,
+  parseGwei,
+  type Hex,
+  type Address,
+} from "viem";
+import { privateKeyToAccount } from "viem/accounts";
+import { mainnet } from "viem/chains";
 
-export type ListingBuyInput = {
+export type GasMode = "normal" | "fast" | "hyper";
+
+export type SessionBuyInput = {
   orderHash: string;
   protocolAddress: string;
-  buyer: string;
-  /** Expected max price in ETH — shown in confirm; not enforced on-chain here */
+  /** Session / hot wallet that pays + receives (from private key) */
+  sessionPrivateKey: string;
   priceEth: number;
   tokenName: string;
-  openseaUrl?: string;
   apiBase?: string;
+  gasMode?: GasMode;
 };
 
 export type ListingBuyResult = {
   txHashes: string[];
   explorerUrl: string;
+  from: Address;
 };
 
-type EthereumProvider = {
-  request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
-};
+const RPCS = [
+  "https://ethereum.publicnode.com",
+  "https://1rpc.io/eth",
+  "https://rpc.ankr.com/eth",
+] as const;
 
-const ETH_CHAIN_ID_HEX = "0x1";
-
-function getEthereum(): EthereumProvider {
-  const eth = (window as Window & { ethereum?: EthereumProvider }).ethereum;
-  if (!eth) {
-    throw new Error("NO_WALLET");
+function normalizePk(raw: string): Hex {
+  const v = raw.trim();
+  if (!/^(0x)?[0-9a-fA-F]{64}$/.test(v)) {
+    throw new Error("BAD_SESSION_KEY");
   }
-  return eth;
+  return (v.startsWith("0x") ? v : `0x${v}`) as Hex;
 }
 
-async function ensureEthereumMainnet(eth: EthereumProvider) {
-  const chainId = (await eth.request({ method: "eth_chainId" })) as string;
-  if (chainId?.toLowerCase() === ETH_CHAIN_ID_HEX) return;
-  try {
-    await eth.request({
-      method: "wallet_switchEthereumChain",
-      params: [{ chainId: ETH_CHAIN_ID_HEX }],
-    });
-  } catch (err) {
-    const code = (err as { code?: number })?.code;
-    if (code === 4902) {
-      await eth.request({
-        method: "wallet_addEthereumChain",
-        params: [
-          {
-            chainId: ETH_CHAIN_ID_HEX,
-            chainName: "Ethereum Mainnet",
-            nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
-            rpcUrls: ["https://ethereum.publicnode.com"],
-            blockExplorerUrls: ["https://etherscan.io"],
-          },
-        ],
-      });
-      return;
+export function addressFromSessionKey(raw: string): Address {
+  return privateKeyToAccount(normalizePk(raw)).address;
+}
+
+function gasMultipliers(mode: GasMode): {
+  priorityX: bigint;
+  maxX: bigint;
+  floorPriority: bigint;
+} {
+  switch (mode) {
+    case "hyper":
+      return {
+        priorityX: BigInt(12),
+        maxX: BigInt(3),
+        floorPriority: parseGwei("40"),
+      };
+    case "fast":
+      return {
+        priorityX: BigInt(6),
+        maxX: BigInt(2),
+        floorPriority: parseGwei("15"),
+      };
+    default:
+      return {
+        priorityX: BigInt(3),
+        maxX: BigInt(2),
+        floorPriority: parseGwei("3"),
+      };
+  }
+}
+
+async function withRpc<T>(
+  fn: (url: string) => Promise<T>,
+): Promise<T> {
+  let last: unknown;
+  for (const url of RPCS) {
+    try {
+      return await fn(url);
+    } catch (err) {
+      last = err;
     }
-    throw err;
   }
+  throw last instanceof Error ? last : new Error("RPC_FAILED");
 }
 
-async function waitReceipt(
-  eth: EthereumProvider,
-  hash: string,
-  timeoutMs = 120_000,
-): Promise<boolean> {
-  const start = Date.now();
-  while (Date.now() - start < timeoutMs) {
-    const receipt = (await eth.request({
-      method: "eth_getTransactionReceipt",
-      params: [hash],
-    })) as { status?: string } | null;
-    if (receipt?.status) {
-      return receipt.status === "0x1" || receipt.status === "1";
-    }
-    await new Promise((r) => setTimeout(r, 2000));
-  }
-  return true; // submitted; receipt may still be pending
-}
-
-export async function buyEthListingWithMetaMask(
-  input: ListingBuyInput,
-): Promise<ListingBuyResult> {
-  const eth = getEthereum();
-  await ensureEthereumMainnet(eth);
-
-  const accounts = (await eth.request({
-    method: "eth_requestAccounts",
-  })) as string[];
-  const active = accounts?.[0]?.toLowerCase();
-  if (!active) throw new Error("NO_ACCOUNT");
-  if (active !== input.buyer.toLowerCase()) {
-    throw new Error("WALLET_MISMATCH");
-  }
-
-  const apiBase = input.apiBase || "/api/hood-rpc";
+async function fetchFulfillment(
+  apiBase: string,
+  buyer: Address,
+  orderHash: string,
+  protocolAddress: string,
+) {
   const res = await fetch(`${apiBase}/buy-listing`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
-      orderHash: input.orderHash,
-      protocolAddress: input.protocolAddress,
+      orderHash,
+      protocolAddress,
       chain: "ethereum",
-      buyer: input.buyer,
+      buyer,
     }),
   });
   const data = (await res.json()) as {
@@ -116,27 +116,70 @@ export async function buyEthListingWithMetaMask(
   if (!res.ok || !data.ok || !data.transactions?.length) {
     throw new Error(data.error || data.code || "FULFILL_FAILED");
   }
+  return data.transactions;
+}
+
+/** Instant snipe — signs + broadcasts with elevated gas, no wallet UI. */
+export async function buyEthListingWithSessionKey(
+  input: SessionBuyInput,
+): Promise<ListingBuyResult> {
+  const pk = normalizePk(input.sessionPrivateKey);
+  const account = privateKeyToAccount(pk);
+  const apiBase = input.apiBase || "/api/hood-rpc/eth";
+  const mode = input.gasMode || "hyper";
+  const { priorityX, maxX, floorPriority } = gasMultipliers(mode);
+
+  const txs = await fetchFulfillment(
+    apiBase,
+    account.address,
+    input.orderHash,
+    input.protocolAddress,
+  );
 
   const txHashes: string[] = [];
-  for (const tx of data.transactions) {
-    const hash = (await eth.request({
-      method: "eth_sendTransaction",
-      params: [
-        {
-          from: input.buyer,
-          to: tx.to,
-          data: tx.data,
-          value: tx.value || "0x0",
-        },
-      ],
-    })) as string;
-    if (!hash) throw new Error("TX_REJECTED");
-    txHashes.push(hash);
-    await waitReceipt(eth, hash);
-  }
+
+  await withRpc(async (rpcUrl) => {
+    const publicClient = createPublicClient({
+      chain: mainnet,
+      transport: http(rpcUrl),
+    });
+    const walletClient = createWalletClient({
+      account,
+      chain: mainnet,
+      transport: http(rpcUrl),
+    });
+
+    const fees = await publicClient.estimateFeesPerGas().catch(() => null);
+    let maxPriorityFeePerGas =
+      (fees?.maxPriorityFeePerGas ?? parseGwei("2")) * priorityX;
+    if (maxPriorityFeePerGas < floorPriority) {
+      maxPriorityFeePerGas = floorPriority;
+    }
+    const base = fees?.maxFeePerGas ?? parseGwei("30");
+    const maxFeePerGas =
+      base * maxX + maxPriorityFeePerGas > maxPriorityFeePerGas
+        ? base * maxX + maxPriorityFeePerGas
+        : maxPriorityFeePerGas * BigInt(2);
+
+    for (const tx of txs) {
+      const hash = await walletClient.sendTransaction({
+        to: tx.to as Address,
+        data: tx.data as Hex,
+        value: BigInt(tx.value || "0x0"),
+        maxFeePerGas,
+        maxPriorityFeePerGas,
+      });
+      txHashes.push(hash);
+      // Don't wait full receipt — fire next tx / return fast for snipes
+      await publicClient
+        .waitForTransactionReceipt({ hash, timeout: 90_000 })
+        .catch(() => null);
+    }
+  });
 
   return {
     txHashes,
+    from: account.address,
     explorerUrl: `https://etherscan.io/tx/${txHashes[txHashes.length - 1]}`,
   };
 }
@@ -148,21 +191,20 @@ export function buyErrorToast(err: unknown): string {
       : typeof err === "string"
         ? err
         : "BUY_FAILED";
-  const code = (err as { code?: number })?.code;
-  if (code === 4001 || /user rejected|denied/i.test(msg)) {
-    return "> BUY CANCELLED IN WALLET";
+  if (/user rejected|denied/i.test(msg)) {
+    return "> BUY CANCELLED";
   }
   switch (msg) {
-    case "NO_WALLET":
-      return "> NO EVM WALLET · INSTALL METAMASK / RABBY";
-    case "NO_ACCOUNT":
-      return "> CONNECT WALLET FIRST";
-    case "WALLET_MISMATCH":
-      return "> SWITCH METAMASK TO YOUR ACCESS KEY WALLET";
+    case "BAD_SESSION_KEY":
+      return "> ARM A VALID SESSION PRIVATE KEY FIRST";
+    case "NO_SESSION_KEY":
+      return "> ARM SNIPER KEY · PASTE HOT WALLET PK";
     case "FULFILL_FAILED":
       return "> LISTING UNAVAILABLE · MAY BE SOLD";
+    case "RPC_FAILED":
+      return "> RPC FAILED · RETRY SNIPE";
     default:
-      if (msg.length < 80) return `> ${msg.toUpperCase()}`;
-      return "> BUY FAILED · TRY AGAIN OR OPENSEA";
+      if (msg.length < 90) return `> ${msg.toUpperCase()}`;
+      return "> SNIPE FAILED · RETRY";
   }
 }

@@ -8,16 +8,19 @@ import { rarityTierFromRank } from "./hood-rarity";
 import { DEMO_TOAST, LIVE_ETH_LISTING_BUY } from "@/lib/hood-rpc-demo";
 import {
   buyErrorToast,
-  buyEthListingWithMetaMask,
+  buyEthListingWithSessionKey,
 } from "@/lib/eth-listing-buy";
 
 type Props = {
   onToast: (msg: string) => void;
   apiBase?: string;
-  /** Verified Access Key wallet — required for live ETH listing buys */
+  /** Verified Access Key wallet — unlocks the board */
   connectedWallet?: string | null;
-  /** ETH_RPC dashboard enables MetaMask listing buys */
+  /** ETH_RPC dashboard enables silent listing snipes */
   liveListingBuys?: boolean;
+  /** In-memory hot wallet private key (never persisted) */
+  sessionPrivateKey?: string | null;
+  gasMode?: "normal" | "fast" | "hyper";
 };
 
 const LIVE_LIMIT = 28;
@@ -312,6 +315,8 @@ export default function HoodNftPanels({
   apiBase = "/api/hood-rpc",
   connectedWallet = null,
   liveListingBuys = false,
+  sessionPrivateKey = null,
+  gasMode = "hyper",
 }: Props) {
   const [live, setLive] = useState<HoodNftSale[]>([]);
   const [liveLoading, setLiveLoading] = useState(true);
@@ -519,7 +524,11 @@ export default function HoodNftPanels({
       return;
     }
     if (!connectedWallet) {
-      onToast("> CONNECT WALLET FIRST (top right)");
+      onToast("> CONNECT ACCESS KEY WALLET FIRST");
+      return;
+    }
+    if (!sessionPrivateKey) {
+      onToast("> ARM SNIPER KEY FIRST (paste hot wallet PK)");
       return;
     }
 
@@ -531,13 +540,12 @@ export default function HoodNftPanels({
         "0x0000000000000068f116a894984e2db1123eb395";
       let priceEth = row.eth;
 
-      // NFT Live / sales rows are real sales — resolve an active listing to buy
       if (!orderHash) {
         if (!row.tokenId || (!row.contract && !row.collectionSlug)) {
           onToast("> MISSING NFT IDS · CANNOT RESOLVE LISTING");
           return;
         }
-        onToast(`> FINDING LIVE LISTING · ${row.tokenName}`);
+        onToast(`> RESOLVING LISTING · ${row.tokenName}`);
         const q = new URLSearchParams({ tokenId: row.tokenId });
         if (row.contract) q.set("contract", row.contract);
         if (row.collectionSlug) q.set("slug", row.collectionSlug);
@@ -561,8 +569,7 @@ export default function HoodNftPanels({
           return;
         }
         orderHash = found.orderHash;
-        protocolAddress =
-          found.protocolAddress || protocolAddress;
+        protocolAddress = found.protocolAddress || protocolAddress;
         if (typeof found.eth === "number" && found.eth > 0) {
           priceEth = found.eth;
         }
@@ -573,28 +580,20 @@ export default function HoodNftPanels({
         return;
       }
 
-      const ok = window.confirm(
-        `Buy ${row.tokenName} for ~${priceEth} ETH?\n\n` +
-          `You will sign in MetaMask / Rabby.\n` +
-          `Private keys never leave your wallet.`,
+      onToast(
+        `> SNIPING · ${row.tokenName} · ~${priceEth} ETH · gas ${gasMode.toUpperCase()}`,
       );
-      if (!ok) {
-        onToast("> BUY CANCELLED");
-        return;
-      }
-
-      onToast(`> BUILDING BUY · ${row.tokenName}`);
-      const result = await buyEthListingWithMetaMask({
+      const result = await buyEthListingWithSessionKey({
         orderHash,
         protocolAddress,
-        buyer: connectedWallet,
+        sessionPrivateKey,
         priceEth,
         tokenName: row.tokenName,
-        openseaUrl: row.openseaUrl,
         apiBase,
+        gasMode,
       });
       onToast(
-        `> BOUGHT · ${row.tokenName} · ${result.txHashes[0]?.slice(0, 10)}…`,
+        `> SNIPED · ${row.tokenName} · ${result.txHashes[0]?.slice(0, 10)}…`,
       );
       if (result.explorerUrl) {
         window.open(result.explorerUrl, "_blank", "noopener,noreferrer");
@@ -630,7 +629,7 @@ export default function HoodNftPanels({
               focusSlug={focus?.collectionSlug}
               showCollection
               showSnipe={ethLiveBuys}
-              snipeLabel="Buy (MetaMask)"
+              snipeLabel="Snipe"
               snipingId={snipingId}
               onSelect={selectSale}
               onThumbOver={showFlyout}
@@ -693,7 +692,7 @@ export default function HoodNftPanels({
               <SaleTable
                 rows={listings}
                 showSnipe
-                snipeLabel={ethLiveBuys ? "Buy (MetaMask)" : "Snipe"}
+                snipeLabel={ethLiveBuys ? "Snipe" : "Snipe"}
                 snipingId={snipingId}
                 onThumbOver={showFlyout}
                 onThumbOut={handleThumbOut}

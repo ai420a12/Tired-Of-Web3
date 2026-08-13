@@ -86,15 +86,23 @@
   min-width: 0;
 }
 
-.hrpc-session-safe {
-  margin: 0.35rem 1rem 0;
-  padding: 0.45rem 0.75rem;
-  border: 1px solid rgba(var(--accent-rgb), 0.35);
-  background: rgba(0, 0, 0, 0.55);
-  color: var(--muted);
-  font-size: 0.68rem;
-  letter-spacing: 0.04em;
-  line-height: 1.35;
+.hrpc-gas-arm {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.hrpc-gas-select {
+  min-width: 5.5rem;
+  padding: 0.35rem 0.45rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.hrpc-arm-btn.hrpc-arm-on {
+  border-color: var(--lime);
+  color: #000;
+  background: var(--lime);
 }
 
 .hrpc-tools-safe {
