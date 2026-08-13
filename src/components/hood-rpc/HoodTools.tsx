@@ -53,10 +53,7 @@ export default function HoodTools({
   outcomes,
   tickerOutcomes,
 }: Props) {
-  const [pasteOpen, setPasteOpen] = useState(false);
   const [pasteKeys, setPasteKeys] = useState("");
-  const [wlKeys, setWlKeys] = useState("");
-  const [wlStatus, setWlStatus] = useState("No WL temp keys loaded");
   const [workers, setWorkers] = useState(0);
   const [masterAddr, setMasterAddr] = useState("Not set — paste master key");
   const [masterPkInput, setMasterPkInput] = useState("");
@@ -87,7 +84,6 @@ export default function HoodTools({
   useEffect(() => {
     function wipeSecrets() {
       setPasteKeys("");
-      setWlKeys("");
       setMasterPkInput("");
       setGenOut("");
       masterPkRef.current = null;
@@ -198,29 +194,11 @@ export default function HoodTools({
       const withBal = await applyBalances(rows);
       setSquad(withBal);
       setWorkers(withBal.length);
-      setPasteOpen(false);
-      onToast(`> LOADED ${withBal.length} SESSION WALLETS`);
-      pushOutcome(`Loaded ${withBal.length} session wallets`);
+      onToast(`> LOADED ${withBal.length} WALLETS INTO BOT`);
+      pushOutcome(`Loaded ${withBal.length} wallets into bot`);
     } finally {
       setBusy(false);
     }
-  }
-
-  function saveWl() {
-    if (!requireWallet()) return;
-    const lines = wlKeys
-      .split(/[\n,]+/)
-      .map((l) => l.trim())
-      .filter(Boolean)
-      .slice(0, 2);
-    setWlKeys("");
-    if (!lines.length) {
-      onToast("> PASTE 1–2 WL KEYS");
-      return;
-    }
-    setWlStatus(`${lines.length} WL temp key(s) in this session only`);
-    onToast(`> WL WALLETS LOADED · ${lines.length}`);
-    pushOutcome(`WL temp keys loaded · ${lines.length}`);
   }
 
   async function saveMaster() {
@@ -365,13 +343,6 @@ export default function HoodTools({
           <div className="hrpc-row-actions">
             <button
               type="button"
-              className="hrpc-btn hrpc-btn-ghost"
-              onClick={() => setPasteOpen((v) => !v)}
-            >
-              Paste squad keys (session)
-            </button>
-            <button
-              type="button"
               className="hrpc-btn"
               onClick={() => void refreshBalances()}
               disabled={busy}
@@ -380,51 +351,6 @@ export default function HoodTools({
             </button>
           </div>
         </div>
-
-        {pasteOpen ? (
-          <div className="hrpc-inset">
-            <textarea
-              className="hrpc-textarea hrpc-mono"
-              rows={6}
-              value={pasteKeys}
-              onChange={(e) => setPasteKeys(e.target.value)}
-              placeholder={"0x… private key or address\n0x…"}
-              {...SENSITIVE_INPUT_PROPS}
-            />
-            <div className="hrpc-row-actions" style={{ marginTop: "0.5rem" }}>
-              <button
-                type="button"
-                className="hrpc-btn"
-                onClick={() => void loadPasteKeys()}
-                disabled={busy}
-              >
-                Load keys into bot
-              </button>
-              <button
-                type="button"
-                className="hrpc-btn hrpc-btn-ghost"
-                onClick={() => {
-                  setSquad([]);
-                  pkById.current.clear();
-                  setPasteKeys("");
-                  onToast("> SQUAD CLEARED");
-                }}
-              >
-                Clear squad
-              </button>
-              <button
-                type="button"
-                className="hrpc-btn hrpc-btn-ghost"
-                onClick={() => {
-                  setPasteKeys("");
-                  setPasteOpen(false);
-                }}
-              >
-                Hide
-              </button>
-            </div>
-          </div>
-        ) : null}
 
         <div className="hrpc-pulse">
           <div className="hrpc-stat">
@@ -485,33 +411,38 @@ export default function HoodTools({
         </div>
       </section>
 
-      <details className="hrpc-panel hrpc-details" open id="wl-setup">
+      <details className="hrpc-panel hrpc-details" open id="load-wallets">
         <summary className="hrpc-section-title hrpc-section-title-sm">
-          WL setup — paste / clear temp key
+          Load your wallets
         </summary>
-        <p className="hrpc-mono hrpc-muted">{wlStatus}</p>
         <textarea
           className="hrpc-textarea hrpc-mono"
-          rows={4}
-          value={wlKeys}
-          onChange={(e) => setWlKeys(e.target.value)}
-          placeholder={"0x… first key\n0x… second key"}
+          rows={6}
+          value={pasteKeys}
+          onChange={(e) => setPasteKeys(e.target.value)}
+          placeholder={"0x… private key or address\n0x…"}
           {...SENSITIVE_INPUT_PROPS}
         />
         <div className="hrpc-row-actions" style={{ marginTop: "0.5rem" }}>
-          <button type="button" className="hrpc-btn" onClick={saveWl}>
-            Save WL wallets
+          <button
+            type="button"
+            className="hrpc-btn"
+            onClick={() => void loadPasteKeys()}
+            disabled={busy}
+          >
+            Load into bot
           </button>
           <button
             type="button"
             className="hrpc-btn hrpc-btn-ghost"
             onClick={() => {
-              setWlKeys("");
-              setWlStatus("No WL temp keys loaded");
-              onToast("> WL TEMP CLEARED");
+              setSquad([]);
+              pkById.current.clear();
+              setPasteKeys("");
+              onToast("> WALLETS CLEARED");
             }}
           >
-            Clear WL temp
+            Clear
           </button>
         </div>
       </details>
@@ -520,6 +451,10 @@ export default function HoodTools({
         <summary className="hrpc-section-title hrpc-section-title-sm">
           Generate Wallets
         </summary>
+        <p className="hrpc-key-warn">
+          Save those keys to your pc we dont store any private information on
+          the website.
+        </p>
         <div className="hrpc-inline">
           <input
             className="hrpc-input hrpc-mono"
