@@ -3384,3 +3384,240 @@ html[data-eth-rpc="1"] .hrpc.hrpc-eth {
   color: #7dd3fc;
   box-shadow: 0 0 24px rgba(56, 189, 248, 0.25);
 }
+
+/* Live Mint board under NFT Live */
+.hrpc-mint-board {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  width: 100%;
+}
+
+.hrpc-mint-board-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.65rem 1rem;
+}
+
+.hrpc-mint-sub {
+  margin: 0.2rem 0 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+}
+
+.hrpc-mint-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.hrpc-mint-search {
+  appearance: none;
+  background: #0a0a0a;
+  border: 1px solid var(--line);
+  color: var(--white);
+  font-size: 0.72rem;
+  padding: 0.38rem 0.55rem;
+  min-width: 180px;
+}
+
+.hrpc-mint-windows {
+  display: flex;
+  gap: 0.2rem;
+}
+
+.hrpc-mint-win {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.28rem 0.45rem;
+  cursor: pointer;
+}
+
+.hrpc-mint-win.is-on,
+.hrpc-mint-chip.is-on {
+  background: var(--lime);
+  color: #000;
+  border-color: var(--lime);
+}
+
+.hrpc-mint-cols {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+  min-height: min(42vh, 380px);
+  height: min(42vh, 380px);
+}
+
+.hrpc-mint-col {
+  min-height: 0;
+}
+
+.hrpc-mint-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.hrpc-mint-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  column-gap: 0.45rem;
+  row-gap: 0.05rem;
+  align-items: center;
+  text-align: left;
+  appearance: none;
+  background: transparent;
+  border: 1px solid transparent;
+  color: inherit;
+  padding: 0.28rem 0.3rem;
+  cursor: pointer;
+}
+
+.hrpc-mint-row:hover,
+.hrpc-mint-row.is-on {
+  border-color: var(--line);
+  background: rgba(var(--accent-rgb), 0.08);
+}
+
+.hrpc-mint-row-img {
+  grid-row: 1 / span 2;
+  width: 28px;
+  height: 28px;
+  object-fit: cover;
+  background: #111;
+}
+
+.hrpc-mint-row-name {
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hrpc-mint-row-stat {
+  font-size: 0.6rem;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hrpc-mint-box {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.hrpc-mint-pick {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.hrpc-mint-pick-img {
+  width: 52px;
+  height: 52px;
+  object-fit: cover;
+  background: #111;
+  flex-shrink: 0;
+}
+
+.hrpc-mint-pick-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.08rem;
+  min-width: 0;
+  flex: 1;
+  font-size: 0.68rem;
+  color: var(--muted);
+}
+
+.hrpc-mint-pick-meta strong {
+  color: var(--white);
+  font-size: 0.92rem;
+}
+
+.hrpc-mint-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.hrpc-mint-qty-row,
+.hrpc-mint-bulk {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.hrpc-mint-chip {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--white);
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 0.32rem 0.5rem;
+  cursor: pointer;
+}
+
+.hrpc-mint-qty {
+  width: 4.2rem;
+  appearance: none;
+  background: #0a0a0a;
+  border: 1px solid var(--line);
+  color: var(--white);
+  font-size: 0.78rem;
+  padding: 0.32rem 0.4rem;
+}
+
+.hrpc-mint-bulk-btn {
+  min-width: 6.4rem;
+  font-size: 0.78rem;
+  padding: 0.55rem 0.8rem;
+}
+
+.hrpc-mint-paid,
+.hrpc-mint-hint {
+  margin: 0;
+  font-size: 0.68rem;
+  color: var(--muted);
+}
+
+.hrpc-mint-paid {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+@media (max-width: 900px) {
+  .hrpc-mint-cols {
+    grid-template-columns: 1fr;
+    height: auto;
+    min-height: 0;
+  }
+
+  .hrpc-mint-col .hrpc-nft-scroll {
+    max-height: 240px;
+  }
+}

@@ -8,6 +8,9 @@ import { rarityTierFromRank } from "./hood-rarity";
 import { LIVE_ETH_LISTING_BUY } from "@/lib/hood-rpc-demo";
 import { buyErrorLine, buyEthListingSilent } from "@/lib/eth-listing-buy";
 import type { Hex } from "viem";
+import type { HoodRpcVariant } from "@/lib/hood-rpc-chain";
+import HoodMintBoard from "./HoodMintBoard";
+import type { SquadMintWallet } from "@/lib/seadrop-mint";
 
 type SnipeWallet = {
   pk: Hex;
@@ -20,7 +23,9 @@ type Props = {
   apiBase?: string;
   connectedWallet?: string | null;
   liveListingBuys?: boolean;
+  variant?: HoodRpcVariant;
   getSnipeWallet?: () => SnipeWallet | null;
+  getSquadWallets?: () => SquadMintWallet[];
   onOutcome?: (text: string, kind?: "ok" | "err" | "info") => void;
 };
 
@@ -329,7 +334,9 @@ export default function HoodNftPanels({
   apiBase = "/api/hood-rpc",
   connectedWallet = null,
   liveListingBuys = false,
+  variant = "hood",
   getSnipeWallet,
+  getSquadWallets,
   onOutcome,
 }: Props) {
   const [live, setLive] = useState<HoodNftSale[]>([]);
@@ -637,6 +644,7 @@ export default function HoodNftPanels({
   }
 
   return (
+    <>
     <section
       className="hrpc-nft-boards"
       aria-label="Robinhood NFT tracker"
@@ -737,5 +745,13 @@ export default function HoodNftPanels({
         onLeave={scheduleHide}
       />
     </section>
+    <HoodMintBoard
+      apiBase={apiBase}
+      variant={variant}
+      getSquadWallets={getSquadWallets}
+      onToast={onToast}
+      onOutcome={onOutcome}
+    />
+    </>
   );
 }

@@ -79,11 +79,9 @@ async function mintgoSession(force = false): Promise<string> {
   return sessionInflight;
 }
 
-export async function fetchMintgoUpcoming(
-  chain: MintgoChain,
-): Promise<MintgoRadarItem[]> {
+async function mintgoFetch(path: string): Promise<Response> {
   const load = async (cookie: string) =>
-    fetch(`${MINTGO_ORIGIN}/api/seadrop-radar?chain=${chain}`, {
+    fetch(`${MINTGO_ORIGIN}${path}`, {
       headers: {
         accept: "application/json",
         origin: MINTGO_ORIGIN,
@@ -100,9 +98,99 @@ export async function fetchMintgoUpcoming(
     cookie = await mintgoSession(true);
     res = await load(cookie);
   }
-  if (!res.ok) {
-    throw new Error(`MintGo radar ${chain} ${res.status}`);
-  }
-  const data = (await res.json()) as RadarResponse;
+  return res;
+}
+
+async function mintgoJson<T>(path: string, label: string): Promise<T> {
+  const res = await mintgoFetch(path);
+  if (!res.ok) throw new Error(`${label} ${res.status}`);
+  return (await res.json()) as T;
+}
+
+export async function fetchMintgoUpcoming(
+  chain: MintgoChain,
+): Promise<MintgoRadarItem[]> {
+  const data = await mintgoJson<RadarResponse>(
+    `/api/seadrop-radar?chain=${chain}`,
+    `MintGo radar ${chain}`,
+  );
   return Array.isArray(data.items) ? data.items : [];
+}
+
+export type MintgoWindow = "1m" | "5m" | "15m" | "1h" | "1d";
+
+export type MintgoMintAnalysis = {
+  status?: string;
+  ready?: boolean;
+  reason?: string;
+  mode?: string;
+  maxPerWallet?: number;
+  maxBatch?: number;
+  unitPriceWei?: string;
+  unitPriceEth?: number;
+  functionLabel?: string;
+  mintTarget?: string;
+  requiresHelper?: boolean;
+  helperConfigured?: boolean;
+  nativeSymbol?: string;
+  serviceFeePerMintWei?: string;
+};
+
+export type MintgoPreparedTx = {
+  from?: string;
+  to?: string;
+  value?: string;
+  data?: string;
+  gas?: string;
+  unifiedQuantityPerChild?: number;
+  serviceFeeTotalWei?: string;
+  serviceFeeTotalEth?: number;
+  serviceFeePerMintWei?: string;
+};
+
+type MintgoBootstrap = {
+  mints?: Record<string, unknown>[];
+  trending?: Record<string, unknown>[];
+  runners?: Record<string, unknown>[];
+};
+
+export async function fetchMintgoBootstrap(
+  chain: MintgoChain,
+  window: MintgoWindow,
+): Promise<MintgoBootstrap> {
+  return mintgoJson<MintgoBootstrap>(
+    `/api/bootstrap?window=${window}&chain=${chain}`,
+    `MintGo bootstrap ${chain}`,
+  );
+}
+
+export async function fetchMintgoCollection(
+  chain: MintgoChain,
+  contract: string,
+): Promise<Record<string, unknown>> {
+  return mintgoJson<Record<string, unknown>>(
+    `/api/collection/${contract}?chain=${chain}`,
+    `MintGo collection ${chain}`,
+  );
+}
+
+export async function fetchMintgoMintTx(opts: {
+  chain: MintgoChain;
+  contract: string;
+  quantity: number;
+  from: string;
+  allowPaid: boolean;
+}): Promise<{
+  ok?: boolean;
+  error?: string;
+  reason?: string;
+  analysis?: MintgoMintAnalysis;
+  tx?: MintgoPreparedTx;
+  gasValidated?: boolean;
+}> {
+  const allow = opts.allowPaid ? "1" : "0";
+  return mintgoJson(
+    `/api/mint-tx/${opts.contract}?quantity=${opts.quantity}&from=${opts.from}&allowPaid=${allow}&chain=${opts.chain}`,
+    `MintGo mint-tx ${opts.chain}`,
+  );
 }

@@ -33,6 +33,7 @@ import "./hood-rpc.css";
 
 const NAV_LINKS = [
   { href: "#nft-live", label: "Snipe NFTs" },
+  { href: "#mint-now", label: "Live Mint" },
   { href: "#launches", label: "Snipe Memecoins" },
   { href: "#generate-wallets", label: "Wallet Generator" },
   { href: "#master-split", label: "Master Split" },
@@ -789,6 +790,7 @@ export default function HoodDashboard({
           onToast={setToast}
           apiBase={cfg.apiBase}
           connectedWallet={wallet}
+          variant={variant}
           liveListingBuys={variant === "eth"}
           getSnipeWallet={() => {
             for (const w of squad) {
@@ -796,6 +798,14 @@ export default function HoodDashboard({
               if (pk) return { pk, id: w.id, address: w.address };
             }
             return null;
+          }}
+          getSquadWallets={() => {
+            const out: { pk: Hex; id: number; address: string }[] = [];
+            for (const w of squad) {
+              const pk = pkById.current.get(w.id);
+              if (pk) out.push({ pk, id: w.id, address: w.address });
+            }
+            return out;
           }}
           onOutcome={pushOutcome}
         />
