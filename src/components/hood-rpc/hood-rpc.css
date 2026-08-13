@@ -1785,6 +1785,28 @@
   white-space: nowrap;
 }
 
+.hrpc-addr-btn {
+  appearance: none;
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hrpc-addr-btn:hover {
+  text-decoration: underline;
+  color: #fff;
+}
+
 .hrpc-activity {
   font-size: 0.72rem;
   color: rgba(255, 255, 255, 0.78);

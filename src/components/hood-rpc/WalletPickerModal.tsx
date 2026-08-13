@@ -115,9 +115,18 @@ export default function WalletPickerModal({
                 <span className="hrpc-mono hrpc-pnl-rank">#{w.id}</span>
                 <span className="hrpc-wallet-option-meta">
                   <span className="hrpc-pnl-user">{w.label}</span>
-                  <span className="hrpc-mono hrpc-muted">
+                  <button
+                    type="button"
+                    className="hrpc-addr-btn hrpc-mono hrpc-muted"
+                    title="Click to copy"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      void navigator.clipboard.writeText(w.address);
+                    }}
+                  >
                     {shortAddr(w.address)}
-                  </span>
+                  </button>
                 </span>
                 <span className="hrpc-mono hrpc-lime">{w.live}</span>
               </label>

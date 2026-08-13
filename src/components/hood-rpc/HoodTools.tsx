@@ -73,6 +73,14 @@ export default function HoodTools({
     return true;
   }
 
+  function copyWallet(addr: string) {
+    if (!addr.startsWith("0x")) return;
+    void navigator.clipboard.writeText(addr).then(
+      () => onToast(`> COPIED · ${shortAddr(addr)}`),
+      () => onToast("> COPY FAILED"),
+    );
+  }
+
   useEffect(() => {
     if (connectedWallet) {
       setMasterAddr((prev) =>
@@ -397,8 +405,15 @@ export default function HoodTools({
                     <td className="hrpc-mono">{r.time}</td>
                     <td className="hrpc-mono hrpc-lime">{r.logBal}</td>
                     <td className="hrpc-activity">{r.activity}</td>
-                    <td className="hrpc-mono hrpc-addr" title={r.address}>
-                      {r.address}
+                    <td className="hrpc-mono hrpc-addr">
+                      <button
+                        type="button"
+                        className="hrpc-addr-btn"
+                        title="Click to copy"
+                        onClick={() => copyWallet(r.address)}
+                      >
+                        {r.address}
+                      </button>
                     </td>
                     <td className="hrpc-mono hrpc-lime">{r.live}</td>
                     <td className="hrpc-mono">{r.usd}</td>
@@ -490,7 +505,14 @@ export default function HoodTools({
         <h3 className="hrpc-section-title hrpc-section-title-sm">Master split</h3>
         <label className="hrpc-label">Master wallet</label>
         <div className="hrpc-inline">
-          <div className="hrpc-master-addr hrpc-mono">{masterAddr}</div>
+          <button
+            type="button"
+            className="hrpc-master-addr hrpc-mono hrpc-addr-btn"
+            title="Click to copy"
+            onClick={() => copyWallet(masterAddr)}
+          >
+            {masterAddr}
+          </button>
           <button
             type="button"
             className="hrpc-btn hrpc-btn-ghost"
