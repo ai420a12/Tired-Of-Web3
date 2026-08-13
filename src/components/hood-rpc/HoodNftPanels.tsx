@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { type HoodNftSale } from "./mock-data";
 import HoodRarityLegend from "./HoodRarityLegend";
 import { rarityTierFromRank } from "./hood-rarity";
-import { DEMO_TOAST, HOOD_RPC_DEMO, LIVE_ETH_LISTING_BUY } from "@/lib/hood-rpc-demo";
+import { DEMO_TOAST, LIVE_ETH_LISTING_BUY } from "@/lib/hood-rpc-demo";
 import {
   buyErrorToast,
   buyEthListingWithMetaMask,
@@ -225,7 +225,13 @@ function SaleTable({
   onThumbOut: (e: React.MouseEvent) => void;
   onSnipe?: (item: HoodNftSale) => void;
 }) {
-  const layout = showSnipe ? "snipe" : showCollection ? "live" : "project";
+  const layout = showSnipe
+    ? showCollection
+      ? "live-snipe"
+      : "snipe"
+    : showCollection
+      ? "live"
+      : "project";
   return (
     <div className={`hrpc-nft-list hrpc-nft-list--${layout}`}>
       <div className="hrpc-nft-list-head">
@@ -516,37 +522,76 @@ export default function HoodNftPanels({
       onToast("> CONNECT WALLET FIRST (top right)");
       return;
     }
-    if (!row.orderHash) {
-      onToast("> NO ORDER HASH · PICK ANOTHER LISTING");
-      return;
-    }
-    if (row.kind === "weth") {
-      onToast("> WETH LISTINGS NOT SUPPORTED YET · PICK ETH PRICE");
-      return;
-    }
-
-    const ok = window.confirm(
-      `Buy ${row.tokenName} for ~${row.eth} ETH?\n\n` +
-        `You will sign in MetaMask / Rabby.\n` +
-        `Private keys never leave your wallet.`,
-    );
-    if (!ok) {
-      onToast("> BUY CANCELLED");
-      return;
-    }
 
     setSnipingId(row.id);
-    onToast(`> BUILDING BUY · ${row.tokenName}`);
     try {
+      let orderHash = row.orderHash;
+      let protocolAddress =
+        row.protocolAddress ||
+        "0x0000000000000068f116a894984e2db1123eb395";
+      let priceEth = row.eth;
+
+      // NFT Live / sales rows are real sales — resolve an active listing to buy
+      if (!orderHash) {
+        if (!row.tokenId || (!row.contract && !row.collectionSlug)) {
+          onToast("> MISSING NFT IDS · CANNOT RESOLVE LISTING");
+          return;
+        }
+        onToast(`> FINDING LIVE LISTING · ${row.tokenName}`);
+        const q = new URLSearchParams({ tokenId: row.tokenId });
+        if (row.contract) q.set("contract", row.contract);
+        if (row.collectionSlug) q.set("slug", row.collectionSlug);
+        const look = await fetch(`${apiBase}/best-listing?${q.toString()}`, {
+          cache: "no-store",
+        });
+        const found = (await look.json()) as {
+          ok?: boolean;
+          orderHash?: string;
+          protocolAddress?: string;
+          eth?: number;
+          error?: string;
+          code?: string;
+        };
+        if (!look.ok || !found.ok || !found.orderHash) {
+          onToast(
+            found.code === "NO_LISTING"
+              ? `> NO ACTIVE ETH LISTING · ${row.tokenName}`
+              : `> ${found.error || "LISTING LOOKUP FAILED"}`,
+          );
+          return;
+        }
+        orderHash = found.orderHash;
+        protocolAddress =
+          found.protocolAddress || protocolAddress;
+        if (typeof found.eth === "number" && found.eth > 0) {
+          priceEth = found.eth;
+        }
+      }
+
+      if (row.kind === "weth" && row.orderHash) {
+        onToast("> WETH LISTINGS NOT SUPPORTED YET · PICK ETH PRICE");
+        return;
+      }
+
+      const ok = window.confirm(
+        `Buy ${row.tokenName} for ~${priceEth} ETH?\n\n` +
+          `You will sign in MetaMask / Rabby.\n` +
+          `Private keys never leave your wallet.`,
+      );
+      if (!ok) {
+        onToast("> BUY CANCELLED");
+        return;
+      }
+
+      onToast(`> BUILDING BUY · ${row.tokenName}`);
       const result = await buyEthListingWithMetaMask({
-        orderHash: row.orderHash,
-        protocolAddress:
-          row.protocolAddress ||
-          "0x0000000000000068f116a894984e2db1123eb395",
+        orderHash,
+        protocolAddress,
         buyer: connectedWallet,
-        priceEth: row.eth,
+        priceEth,
         tokenName: row.tokenName,
         openseaUrl: row.openseaUrl,
+        apiBase,
       });
       onToast(
         `> BOUGHT · ${row.tokenName} · ${result.txHashes[0]?.slice(0, 10)}…`,
@@ -584,9 +629,15 @@ export default function HoodNftPanels({
               rows={live}
               focusSlug={focus?.collectionSlug}
               showCollection
+              showSnipe={ethLiveBuys}
+              snipeLabel="Buy (MetaMask)"
+              snipingId={snipingId}
               onSelect={selectSale}
               onThumbOver={showFlyout}
               onThumbOut={handleThumbOut}
+              onSnipe={(row) => {
+                void handleListingSnipe(row);
+              }}
             />
           )}
         </div>
@@ -652,9 +703,7 @@ export default function HoodNftPanels({
                     return;
                   }
                   onToast(
-                    HOOD_RPC_DEMO
-                      ? `${DEMO_TOAST} · live listing buys on ETH_RPC`
-                      : `> SNIPE LISTING · ${row.tokenName}`,
+                    `${DEMO_TOAST} · live listing buys on ETH_RPC`,
                   );
                 }}
               />

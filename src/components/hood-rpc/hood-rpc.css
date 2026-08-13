@@ -2190,6 +2190,11 @@
   grid-template-columns: 4px 40px minmax(0, 1.25fr) minmax(0, 1fr) 4.6rem 3.4rem;
 }
 
+.hrpc-nft-list--live-snipe .hrpc-nft-list-head,
+.hrpc-nft-list--live-snipe .hrpc-nft-list-row {
+  grid-template-columns: 4px 40px minmax(0, 1.1fr) minmax(0, 0.85fr) 4.4rem 3.2rem 5.5rem;
+}
+
 .hrpc-nft-list--project .hrpc-nft-list-head,
 .hrpc-nft-list--project .hrpc-nft-list-row {
   grid-template-columns: 4px 40px minmax(0, 1.4fr) 4.6rem 3.4rem;
@@ -2197,7 +2202,7 @@
 
 .hrpc-nft-list--snipe .hrpc-nft-list-head,
 .hrpc-nft-list--snipe .hrpc-nft-list-row {
-  grid-template-columns: 4px 40px minmax(0, 1.2fr) 4.6rem 3.4rem 4.25rem;
+  grid-template-columns: 4px 40px minmax(0, 1.2fr) 4.6rem 3.4rem 5.5rem;
 }
 
 .hrpc-nft-list-head {

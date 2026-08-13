@@ -11,6 +11,7 @@ export type ListingBuyInput = {
   priceEth: number;
   tokenName: string;
   openseaUrl?: string;
+  apiBase?: string;
 };
 
 export type ListingBuyResult = {
@@ -95,7 +96,8 @@ export async function buyEthListingWithMetaMask(
     throw new Error("WALLET_MISMATCH");
   }
 
-  const res = await fetch("/api/hood-rpc/buy-listing", {
+  const apiBase = input.apiBase || "/api/hood-rpc";
+  const res = await fetch(`${apiBase}/buy-listing`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
