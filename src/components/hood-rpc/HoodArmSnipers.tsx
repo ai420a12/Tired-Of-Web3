@@ -308,10 +308,13 @@ export default function HoodArmSnipers({
         </section>
 
         <section
-          className="hrpc-panel hrpc-arm-panel"
+          className="hrpc-panel hrpc-arm-panel hrpc-soon-wrap"
           id="arm-meme"
           aria-label="Arm sniper memecoins"
         >
+          <div className="hrpc-soon-overlay" aria-hidden="true">
+            <span className="hrpc-soon-banner">Coming soon</span>
+          </div>
           <div className="hrpc-section-head">
             <div>
               <h2 className="hrpc-section-title">Arm Sniper — Memecoins</h2>
