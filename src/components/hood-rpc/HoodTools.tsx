@@ -610,7 +610,7 @@ export default function HoodTools({
       <div className="hrpc-logs-grid">
         <details className="hrpc-panel hrpc-details" open id="mint-outcomes">
           <summary className="hrpc-section-title hrpc-section-title-sm">
-            Bot mint outcomes
+            Bot NFT outcomes
           </summary>
           <div className="hrpc-outcomes hrpc-mono">
             {outcomes.map((o) => (

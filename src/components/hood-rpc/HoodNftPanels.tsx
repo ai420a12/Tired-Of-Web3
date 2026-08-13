@@ -6,15 +6,22 @@ import { type HoodNftSale } from "./mock-data";
 import HoodRarityLegend from "./HoodRarityLegend";
 import { rarityTierFromRank } from "./hood-rarity";
 import { LIVE_ETH_LISTING_BUY } from "@/lib/hood-rpc-demo";
-import { buyEthListingSilent } from "@/lib/eth-listing-buy";
+import { buyErrorLine, buyEthListingSilent } from "@/lib/eth-listing-buy";
 import type { Hex } from "viem";
+
+type SnipeWallet = {
+  pk: Hex;
+  id: number;
+  address: string;
+};
 
 type Props = {
   onToast: (msg: string) => void;
   apiBase?: string;
   connectedWallet?: string | null;
   liveListingBuys?: boolean;
-  getSnipeKey?: () => Hex | null;
+  getSnipeWallet?: () => SnipeWallet | null;
+  onOutcome?: (text: string, kind?: "ok" | "err" | "info") => void;
 };
 
 const LIVE_LIMIT = 28;
@@ -304,12 +311,26 @@ function SaleTable({
   );
 }
 
+function shortAddr(addr: string) {
+  return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
+}
+
+function revealNftLog() {
+  window.setTimeout(() => {
+    document.getElementById("mint-outcomes")?.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+  }, 40);
+}
+
 export default function HoodNftPanels({
   onToast,
   apiBase = "/api/hood-rpc",
   connectedWallet = null,
   liveListingBuys = false,
-  getSnipeKey,
+  getSnipeWallet,
+  onOutcome,
 }: Props) {
   const [live, setLive] = useState<HoodNftSale[]>([]);
   const [liveLoading, setLiveLoading] = useState(true);
@@ -512,12 +533,30 @@ export default function HoodNftPanels({
     onToast(`> PROJECT · ${item.collection}`);
   }
 
+  function logSnipe(text: string, kind: "ok" | "err" | "info" = "info") {
+    onOutcome?.(text, kind);
+    revealNftLog();
+  }
+
   async function handleListingSnipe(row: HoodNftSale) {
-    if (!ethLiveBuys) return;
-    const sessionPrivateKey = getSnipeKey?.() || null;
-    if (!sessionPrivateKey) return;
+    if (!ethLiveBuys) {
+      logSnipe(
+        "Listing snipe is ETH_RPC only — switch to ETH_RPC and retry",
+        "err",
+      );
+      return;
+    }
+    const sniper = getSnipeWallet?.() || null;
+    if (!sniper) {
+      logSnipe("Snipe failed · generate or load wallets first", "err");
+      return;
+    }
 
     setSnipingId(row.id);
+    logSnipe(
+      `Sniping ${row.tokenName} · wallet ${sniper.id} ${shortAddr(sniper.address)} · ${row.eth} ${row.kind === "weth" ? "WETH" : "ETH"}`,
+      "info",
+    );
     try {
       let orderHash = row.orderHash;
       let protocolAddress =
@@ -526,7 +565,10 @@ export default function HoodNftPanels({
       let priceEth = row.eth;
 
       if (!orderHash) {
-        if (!row.tokenId || (!row.contract && !row.collectionSlug)) return;
+        if (!row.tokenId || (!row.contract && !row.collectionSlug)) {
+          logSnipe(`Snipe failed · ${row.tokenName} · missing listing data`, "err");
+          return;
+        }
         const q = new URLSearchParams({ tokenId: row.tokenId });
         if (row.contract) q.set("contract", row.contract);
         if (row.collectionSlug) q.set("slug", row.collectionSlug);
@@ -539,7 +581,13 @@ export default function HoodNftPanels({
           protocolAddress?: string;
           eth?: number;
         };
-        if (!look.ok || !found.ok || !found.orderHash) return;
+        if (!look.ok || !found.ok || !found.orderHash) {
+          logSnipe(
+            `Snipe failed · ${row.tokenName} · no live listing found`,
+            "err",
+          );
+          return;
+        }
         orderHash = found.orderHash;
         protocolAddress = found.protocolAddress || protocolAddress;
         if (typeof found.eth === "number" && found.eth > 0) {
@@ -547,12 +595,10 @@ export default function HoodNftPanels({
         }
       }
 
-      if (row.kind === "weth" && row.orderHash) return;
-
       const result = await buyEthListingSilent({
         orderHash,
         protocolAddress,
-        sessionPrivateKey,
+        sessionPrivateKey: sniper.pk,
         priceEth,
         tokenName: row.tokenName,
         apiBase,
@@ -561,6 +607,10 @@ export default function HoodNftPanels({
         tokenId: row.tokenId,
       });
       const txHash = result.txHashes[0];
+      logSnipe(
+        `Bought ${row.tokenName} · wallet ${sniper.id} · ${txHash.slice(0, 10)}… · etherscan.io/tx/${txHash}`,
+        "ok",
+      );
       if (txHash && row.contract && row.tokenId) {
         try {
           await fetch(`${apiBase}/pnl/record`, {
@@ -579,8 +629,8 @@ export default function HoodNftPanels({
           /* non-blocking */
         }
       }
-    } catch {
-      /* silent — button state is the only feedback */
+    } catch (err) {
+      logSnipe(`Snipe failed · ${row.tokenName} · ${buyErrorLine(err)}`, "err");
     } finally {
       setSnipingId(null);
     }
@@ -671,7 +721,7 @@ export default function HoodNftPanels({
                 onThumbOver={showFlyout}
                 onThumbOut={handleThumbOut}
                 onSnipe={(row) => {
-                  if (ethLiveBuys) void handleListingSnipe(row);
+                  void handleListingSnipe(row);
                 }}
               />
             </div>

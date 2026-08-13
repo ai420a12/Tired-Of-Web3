@@ -5,6 +5,7 @@
 import {
   createPublicClient,
   createWalletClient,
+  formatEther,
   http,
   parseGwei,
   type Address,
@@ -139,6 +140,13 @@ export async function buyEthListingSilent(
     } catch {
       /* keep fallback */
     }
+    const bal = await publicClient.getBalance({ address: account.address });
+    const need = value + gas * maxFeePerGas;
+    if (bal < need) {
+      throw new Error(
+        `insufficient funds · wallet has ${Number(formatEther(bal)).toFixed(4)} ETH · needs ~${Number(formatEther(need)).toFixed(4)} ETH`,
+      );
+    }
     const signedTx = await walletClient.signTransaction({
       to: tx.to as Address,
       data: tx.data as Hex,
@@ -161,7 +169,7 @@ export async function buyEthListingSilent(
   };
 }
 
-export function buyErrorToast(err: unknown): string {
+export function buyErrorLine(err: unknown): string {
   const msg =
     err instanceof Error
       ? err.message
@@ -170,13 +178,22 @@ export function buyErrorToast(err: unknown): string {
         : "BUY_FAILED";
   switch (msg) {
     case "NO_SESSION_KEY":
-      return "> GENERATE OR PASTE SQUAD KEYS FIRST";
+      return "Generate or paste squad keys first";
     case "FULFILL_FAILED":
     case "NO_TX":
-      return "> NO BUY TX · LISTING SOLD OR UNAVAILABLE";
+      return "No buy tx · listing sold or unavailable";
     default:
-      if (/insufficient funds/i.test(msg)) return "> SQUAD WALLET NEEDS MORE ETH";
-      if (msg.length < 90) return `> ${msg.toUpperCase()}`;
-      return "> SNIPE FAILED · RETRY";
+      if (/insufficient funds/i.test(msg)) {
+        return msg.length < 140 ? msg : "Squad wallet needs more ETH for price + gas";
+      }
+      if (/Could not build buy tx/i.test(msg)) {
+        return "Listing sold or OpenSea could not build the buy tx";
+      }
+      if (msg.length < 110) return msg;
+      return "Snipe failed · retry";
   }
+}
+
+export function buyErrorToast(err: unknown): string {
+  return `> ${buyErrorLine(err).toUpperCase()}`;
 }

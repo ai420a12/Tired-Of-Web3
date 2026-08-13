@@ -790,13 +790,14 @@ export default function HoodDashboard({
           apiBase={cfg.apiBase}
           connectedWallet={wallet}
           liveListingBuys={variant === "eth"}
-          getSnipeKey={() => {
+          getSnipeWallet={() => {
             for (const w of squad) {
               const pk = pkById.current.get(w.id);
-              if (pk) return pk;
+              if (pk) return { pk, id: w.id, address: w.address };
             }
             return null;
           }}
+          onOutcome={pushOutcome}
         />
 
         <div className="hrpc-grid-2" id="launches">
