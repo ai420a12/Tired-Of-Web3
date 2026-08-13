@@ -3,7 +3,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { HoodRpcVariant } from "@/lib/hood-rpc-chain";
 import type { MintFeedChain, MintFeedRow } from "@/lib/mint-feed";
-import { sendMintWithMetaMask, walletErrorText } from "@/lib/metamask-mint";
+import {
+  estimateMintCostEth,
+  quoteMintFees,
+  sendMintWithMetaMask,
+  walletErrorText,
+} from "@/lib/metamask-mint";
 
 type Props = {
   apiBase: string;
@@ -151,6 +156,7 @@ export default function HoodMintBoard({
   const [allowPaid, setAllowPaid] = useState(false);
   const [minting, setMinting] = useState(false);
   const [prepared, setPrepared] = useState<PreparedMint | null>(null);
+  const [feeEth, setFeeEth] = useState<number | null>(null);
 
   const loadRadar = useCallback(async () => {
     try {
@@ -230,10 +236,12 @@ export default function HoodMintBoard({
   useEffect(() => {
     if (!selected || !connectedWallet || !ready) {
       setPrepared(null);
+      setFeeEth(null);
       return;
     }
     if (paid && !allowPaid) {
       setPrepared(null);
+      setFeeEth(null);
       return;
     }
     let cancelled = false;
@@ -256,13 +264,31 @@ export default function HoodMintBoard({
         };
         if (!cancelled && data.ok && data.tx?.to && data.tx?.data) {
           setPrepared(data.tx);
+          try {
+            const fees = await quoteMintFees(selected.chain);
+            if (!cancelled) {
+              setFeeEth(
+                estimateMintCostEth({
+                  valueHex: data.tx.value,
+                  gasHex: data.tx.gas,
+                  maxFeePerGasHex: fees.maxFeePerGas,
+                }),
+              );
+            }
+          } catch {
+            if (!cancelled) setFeeEth(data.tx.serviceFeeTotalEth ?? null);
+          }
         } else if (!cancelled) {
           setPrepared(null);
+          setFeeEth(null);
         }
       } catch {
-        if (!cancelled) setPrepared(null);
+        if (!cancelled) {
+          setPrepared(null);
+          setFeeEth(null);
+        }
       }
-    }, 200);
+    }, 280);
     return () => {
       cancelled = true;
       window.clearTimeout(timer);
@@ -449,9 +475,11 @@ export default function HoodMintBoard({
                   {connectedWallet
                     ? `Mints to ${shortAddr(connectedWallet)}`
                     : "Connect MetaMask to mint"}
-                  {prepared?.serviceFeeTotalEth
-                    ? ` · helper ~${prepared.serviceFeeTotalEth} ETH + gas`
-                    : ""}
+                  {feeEth != null
+                    ? ` · ~${feeEth < 0.001 ? feeEth.toFixed(5) : feeEth.toFixed(4)} ETH total`
+                    : prepared?.serviceFeeTotalEth
+                      ? ` · helper ${prepared.serviceFeeTotalEth} ETH + gas`
+                      : ""}
                 </span>
               </div>
             </div>
