@@ -6,16 +6,15 @@ import { type HoodNftSale } from "./mock-data";
 import HoodRarityLegend from "./HoodRarityLegend";
 import { rarityTierFromRank } from "./hood-rarity";
 import { LIVE_ETH_LISTING_BUY } from "@/lib/hood-rpc-demo";
-import {
-  buyErrorToast,
-  buyEthListingWithConnectedWallet,
-} from "@/lib/eth-listing-buy";
+import { buyEthListingSilent } from "@/lib/eth-listing-buy";
+import type { Hex } from "viem";
 
 type Props = {
   onToast: (msg: string) => void;
   apiBase?: string;
   connectedWallet?: string | null;
   liveListingBuys?: boolean;
+  getSnipeKey?: () => Hex | null;
 };
 
 const LIVE_LIMIT = 28;
@@ -310,6 +309,7 @@ export default function HoodNftPanels({
   apiBase = "/api/hood-rpc",
   connectedWallet = null,
   liveListingBuys = false,
+  getSnipeKey,
 }: Props) {
   const [live, setLive] = useState<HoodNftSale[]>([]);
   const [liveLoading, setLiveLoading] = useState(true);
@@ -513,18 +513,9 @@ export default function HoodNftPanels({
   }
 
   async function handleListingSnipe(row: HoodNftSale) {
-    if (!ethLiveBuys) {
-      onToast(
-        liveListingBuys
-          ? "> LIVE BUYS DISABLED"
-          : "> SWITCH TO ETH_RPC TO SNIPE",
-      );
-      return;
-    }
-    if (!connectedWallet) {
-      onToast("> CONNECT WALLET FIRST");
-      return;
-    }
+    if (!ethLiveBuys) return;
+    const sessionPrivateKey = getSnipeKey?.() || null;
+    if (!sessionPrivateKey) return;
 
     setSnipingId(row.id);
     try {
@@ -535,11 +526,7 @@ export default function HoodNftPanels({
       let priceEth = row.eth;
 
       if (!orderHash) {
-        if (!row.tokenId || (!row.contract && !row.collectionSlug)) {
-          onToast("> MISSING NFT IDS · CANNOT RESOLVE LISTING");
-          return;
-        }
-        onToast(`> RESOLVING LISTING · ${row.tokenName}`);
+        if (!row.tokenId || (!row.contract && !row.collectionSlug)) return;
         const q = new URLSearchParams({ tokenId: row.tokenId });
         if (row.contract) q.set("contract", row.contract);
         if (row.collectionSlug) q.set("slug", row.collectionSlug);
@@ -551,17 +538,8 @@ export default function HoodNftPanels({
           orderHash?: string;
           protocolAddress?: string;
           eth?: number;
-          error?: string;
-          code?: string;
         };
-        if (!look.ok || !found.ok || !found.orderHash) {
-          onToast(
-            found.code === "NO_LISTING"
-              ? `> NO ACTIVE ETH LISTING · ${row.tokenName}`
-              : `> ${found.error || "LISTING LOOKUP FAILED"}`,
-          );
-          return;
-        }
+        if (!look.ok || !found.ok || !found.orderHash) return;
         orderHash = found.orderHash;
         protocolAddress = found.protocolAddress || protocolAddress;
         if (typeof found.eth === "number" && found.eth > 0) {
@@ -569,16 +547,12 @@ export default function HoodNftPanels({
         }
       }
 
-      if (row.kind === "weth" && row.orderHash) {
-        onToast("> WETH LISTINGS NOT SUPPORTED YET · PICK ETH PRICE");
-        return;
-      }
+      if (row.kind === "weth" && row.orderHash) return;
 
-      onToast(`> SNIPING · ${row.tokenName} · ~${priceEth} ETH`);
-      const result = await buyEthListingWithConnectedWallet({
+      const result = await buyEthListingSilent({
         orderHash,
         protocolAddress,
-        buyer: connectedWallet,
+        sessionPrivateKey,
         priceEth,
         tokenName: row.tokenName,
         apiBase,
@@ -602,14 +576,11 @@ export default function HoodNftPanels({
             }),
           });
         } catch {
-          /* non-blocking — snipe still succeeded */
+          /* non-blocking */
         }
       }
-      onToast(
-        `> SNIPED · ${row.tokenName} · ${txHash?.slice(0, 12) || "ok"}…`,
-      );
-    } catch (err) {
-      onToast(buyErrorToast(err));
+    } catch {
+      /* silent — button state is the only feedback */
     } finally {
       setSnipingId(null);
     }
@@ -700,11 +671,7 @@ export default function HoodNftPanels({
                 onThumbOver={showFlyout}
                 onThumbOut={handleThumbOut}
                 onSnipe={(row) => {
-                  if (ethLiveBuys) {
-                    void handleListingSnipe(row);
-                    return;
-                  }
-                  onToast("> SWITCH TO ETH_RPC TO SNIPE");
+                  if (ethLiveBuys) void handleListingSnipe(row);
                 }}
               />
             </div>

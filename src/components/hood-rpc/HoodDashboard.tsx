@@ -790,6 +790,13 @@ export default function HoodDashboard({
           apiBase={cfg.apiBase}
           connectedWallet={wallet}
           liveListingBuys={variant === "eth"}
+          getSnipeKey={() => {
+            for (const w of squad) {
+              const pk = pkById.current.get(w.id);
+              if (pk) return pk;
+            }
+            return null;
+          }}
         />
 
         <div className="hrpc-grid-2" id="launches">
@@ -838,7 +845,6 @@ export default function HoodDashboard({
                           type="button"
                           className="hrpc-btn"
                           onClick={() => {
-                            setToast(`> MINT TARGET · ${row.name}`);
                             document
                               .getElementById("arm-nft")
                               ?.scrollIntoView({ behavior: "smooth" });
@@ -854,7 +860,10 @@ export default function HoodDashboard({
             </div>
           </section>
 
-          <section className="hrpc-panel" aria-label="Memecoin launches">
+          <section className="hrpc-panel hrpc-soon-wrap" aria-label="Memecoin launches">
+            <div className="hrpc-soon-overlay" aria-hidden="true">
+              <span className="hrpc-soon-banner">Coming soon</span>
+            </div>
             <div className="hrpc-section-head">
               <div>
                 <h2 className="hrpc-section-title">Memecoin Launches</h2>

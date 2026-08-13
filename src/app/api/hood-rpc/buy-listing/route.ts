@@ -176,15 +176,6 @@ export async function POST(req: Request) {
   if (!isAddress(buyer)) {
     return NextResponse.json({ error: "Invalid buyer" }, { status: 400 });
   }
-  if (buyer !== access.address.toLowerCase()) {
-    return NextResponse.json(
-      {
-        error: "Buyer must be the verified Access Key wallet",
-        code: "BUYER_MISMATCH",
-      },
-      { status: 403 },
-    );
-  }
   if (!rateLimit(access.address.toLowerCase())) {
     return NextResponse.json(
       { error: "Too many buy attempts — wait a minute", code: "RATE_LIMIT" },
