@@ -86,35 +86,6 @@
   min-width: 0;
 }
 
-.hrpc-gas-arm {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-}
-
-.hrpc-gas-select {
-  min-width: 5.5rem;
-  padding: 0.35rem 0.45rem;
-  font-size: 0.72rem;
-  font-weight: 800;
-}
-
-.hrpc-arm-btn.hrpc-arm-on {
-  border-color: var(--lime);
-  color: #000;
-  background: var(--lime);
-}
-
-.hrpc-tools-safe {
-  margin: 0 0 0.75rem;
-  padding: 0.55rem 0.75rem;
-  border: 1px solid rgba(250, 204, 21, 0.35);
-  background: rgba(250, 204, 21, 0.08);
-  color: #fde68a;
-  font-size: 0.72rem;
-  line-height: 1.4;
-}
-
 .hrpc-chain-switcher {
   display: flex;
   flex-direction: column;
@@ -454,24 +425,6 @@
 
 .hrpc-access-cover-opensea:hover {
   opacity: 0.85;
-}
-
-.hrpc-demo-banner {
-  width: 100%;
-  padding: 0.7rem 0.9rem;
-  border: 1px solid rgba(255, 60, 60, 0.55);
-  background: rgba(40, 0, 0, 0.45);
-  color: #ff4d4d;
-  font-size: clamp(0.78rem, 1.6vw, 0.95rem);
-  font-weight: 800;
-  font-style: italic;
-  letter-spacing: 0.04em;
-  text-align: center;
-  text-shadow:
-    0 0 8px rgba(255, 50, 50, 0.85),
-    0 0 18px rgba(255, 40, 40, 0.45),
-    0 0 28px rgba(255, 30, 30, 0.25);
-  box-shadow: 0 0 24px rgba(255, 40, 40, 0.12);
 }
 
 .hrpc-nav-account {
@@ -2818,12 +2771,6 @@
   .hrpc-nft-list .hrpc-btn {
     padding: 0.28rem 0.45rem;
     font-size: 0.62rem;
-  }
-
-  .hrpc-demo-banner {
-    font-size: 0.68rem;
-    padding: 0.45rem 0.65rem;
-    line-height: 1.35;
   }
 
   .hrpc-nav-right {

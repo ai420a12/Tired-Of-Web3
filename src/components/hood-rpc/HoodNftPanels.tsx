@@ -8,19 +8,14 @@ import { rarityTierFromRank } from "./hood-rarity";
 import { DEMO_TOAST, LIVE_ETH_LISTING_BUY } from "@/lib/hood-rpc-demo";
 import {
   buyErrorToast,
-  buyEthListingWithSessionKey,
+  buyEthListingWithConnectedWallet,
 } from "@/lib/eth-listing-buy";
 
 type Props = {
   onToast: (msg: string) => void;
   apiBase?: string;
-  /** Verified Access Key wallet — unlocks the board */
   connectedWallet?: string | null;
-  /** ETH_RPC dashboard enables silent listing snipes */
   liveListingBuys?: boolean;
-  /** In-memory hot wallet private key (never persisted) */
-  sessionPrivateKey?: string | null;
-  gasMode?: "normal" | "fast" | "hyper";
 };
 
 const LIVE_LIMIT = 28;
@@ -315,8 +310,6 @@ export default function HoodNftPanels({
   apiBase = "/api/hood-rpc",
   connectedWallet = null,
   liveListingBuys = false,
-  sessionPrivateKey = null,
-  gasMode = "hyper",
 }: Props) {
   const [live, setLive] = useState<HoodNftSale[]>([]);
   const [liveLoading, setLiveLoading] = useState(true);
@@ -519,16 +512,12 @@ export default function HoodNftPanels({
       onToast(
         liveListingBuys
           ? "> LIVE BUYS DISABLED"
-          : "> LIVE BUYS ON ETH_RPC ONLY · SWITCH CHAIN",
+          : "> SWITCH TO ETH_RPC TO SNIPE",
       );
       return;
     }
     if (!connectedWallet) {
-      onToast("> CONNECT ACCESS KEY WALLET FIRST");
-      return;
-    }
-    if (!sessionPrivateKey) {
-      onToast("> ARM SNIPER KEY FIRST (paste hot wallet PK)");
+      onToast("> CONNECT WALLET FIRST");
       return;
     }
 
@@ -580,22 +569,20 @@ export default function HoodNftPanels({
         return;
       }
 
-      onToast(
-        `> SNIPING · ${row.tokenName} · ~${priceEth} ETH · gas ${gasMode.toUpperCase()}`,
-      );
-      const result = await buyEthListingWithSessionKey({
+      onToast(`> SNIPING · ${row.tokenName} · ~${priceEth} ETH`);
+      const result = await buyEthListingWithConnectedWallet({
         orderHash,
         protocolAddress,
-        sessionPrivateKey,
+        buyer: connectedWallet,
         priceEth,
         tokenName: row.tokenName,
         apiBase,
-        gasMode,
+        gasMode: "hyper",
         contract: row.contract,
         tokenId: row.tokenId,
       });
       onToast(
-        `> SNIPED · ${row.tokenName} · tx ${result.txHashes[0]?.slice(0, 12)}…`,
+        `> SNIPED · ${row.tokenName} · ${result.txHashes[0]?.slice(0, 12)}…`,
       );
     } catch (err) {
       onToast(buyErrorToast(err));

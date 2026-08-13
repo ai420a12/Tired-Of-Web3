@@ -1,24 +1,15 @@
 /**
- * Silent ETH listing snipes — session private key signs in-browser.
- * Broadcast via our Alchemy relay (no MetaMask, no popup windows).
+ * ETH listing snipe via the same wallet used for Access Key verify (MetaMask/Rabby).
+ * Elevated gas is suggested on the tx; user confirms once in their wallet.
  */
-import {
-  createPublicClient,
-  createWalletClient,
-  http,
-  parseGwei,
-  type Hex,
-  type Address,
-} from "viem";
-import { privateKeyToAccount } from "viem/accounts";
-import { mainnet } from "viem/chains";
+import { parseGwei } from "viem";
 
 export type GasMode = "normal" | "fast" | "hyper";
 
-export type SessionBuyInput = {
+export type WalletBuyInput = {
   orderHash?: string;
   protocolAddress: string;
-  sessionPrivateKey: string;
+  buyer: string;
   priceEth: number;
   tokenName: string;
   apiBase?: string;
@@ -30,55 +21,78 @@ export type SessionBuyInput = {
 export type ListingBuyResult = {
   txHashes: string[];
   explorerUrl: string;
-  from: Address;
+  from: string;
 };
 
-const SIGN_RPC = "https://ethereum.publicnode.com";
+type EthereumProvider = {
+  request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+};
 
-function normalizePk(raw: string): Hex {
-  const v = raw.trim();
-  if (!/^(0x)?[0-9a-fA-F]{64}$/.test(v)) {
-    throw new Error("BAD_SESSION_KEY");
+const ETH_CHAIN_ID_HEX = "0x1";
+
+function getEthereum(): EthereumProvider {
+  const eth = (window as Window & { ethereum?: EthereumProvider }).ethereum;
+  if (!eth) throw new Error("NO_WALLET");
+  return eth;
+}
+
+async function ensureMainnet(eth: EthereumProvider) {
+  const chainId = String(
+    (await eth.request({ method: "eth_chainId" })) || "",
+  ).toLowerCase();
+  if (chainId === ETH_CHAIN_ID_HEX) return;
+  try {
+    await eth.request({
+      method: "wallet_switchEthereumChain",
+      params: [{ chainId: ETH_CHAIN_ID_HEX }],
+    });
+  } catch (err) {
+    const code = (err as { code?: number })?.code;
+    if (code === 4902) {
+      await eth.request({
+        method: "wallet_addEthereumChain",
+        params: [
+          {
+            chainId: ETH_CHAIN_ID_HEX,
+            chainName: "Ethereum Mainnet",
+            nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+            rpcUrls: ["https://ethereum.publicnode.com"],
+            blockExplorerUrls: ["https://etherscan.io"],
+          },
+        ],
+      });
+      return;
+    }
+    throw err;
   }
-  return (v.startsWith("0x") ? v : `0x${v}`) as Hex;
 }
 
-export function addressFromSessionKey(raw: string): Address {
-  return privateKeyToAccount(normalizePk(raw)).address;
-}
-
-function gasMultipliers(mode: GasMode): {
-  priorityX: bigint;
-  maxX: bigint;
-  floorPriority: bigint;
+function gasHints(mode: GasMode): {
+  maxFeePerGas: string;
+  maxPriorityFeePerGas: string;
 } {
+  // Hyper by default — sniper-style tip
   switch (mode) {
-    case "hyper":
+    case "normal":
       return {
-        priorityX: BigInt(12),
-        maxX: BigInt(3),
-        floorPriority: parseGwei("40"),
+        maxPriorityFeePerGas: `0x${parseGwei("2").toString(16)}`,
+        maxFeePerGas: `0x${parseGwei("40").toString(16)}`,
       };
     case "fast":
       return {
-        priorityX: BigInt(6),
-        maxX: BigInt(2),
-        floorPriority: parseGwei("15"),
+        maxPriorityFeePerGas: `0x${parseGwei("15").toString(16)}`,
+        maxFeePerGas: `0x${parseGwei("80").toString(16)}`,
       };
     default:
       return {
-        priorityX: BigInt(3),
-        maxX: BigInt(2),
-        floorPriority: parseGwei("3"),
+        maxPriorityFeePerGas: `0x${parseGwei("40").toString(16)}`,
+        maxFeePerGas: `0x${parseGwei("150").toString(16)}`,
       };
   }
 }
 
-async function fetchFulfillment(
-  apiBase: string,
-  buyer: Address,
-  input: SessionBuyInput,
-) {
+async function fetchFulfillment(input: WalletBuyInput, buyer: string) {
+  const apiBase = input.apiBase || "/api/hood-rpc/eth";
   const res = await fetch(`${apiBase}/buy-listing`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -103,92 +117,47 @@ async function fetchFulfillment(
   return data.transactions;
 }
 
-async function broadcastRaw(apiBase: string, signedTx: Hex): Promise<Hex> {
-  const res = await fetch(`${apiBase}/broadcast`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ signedTx }),
-  });
-  const data = (await res.json()) as {
-    ok?: boolean;
-    hash?: string;
-    error?: string;
-  };
-  if (!res.ok || !data.ok || !data.hash) {
-    throw new Error(data.error || "BROADCAST_FAILED");
-  }
-  return data.hash as Hex;
-}
-
-/** Instant snipe — no MetaMask, no new browser tabs. */
-export async function buyEthListingWithSessionKey(
-  input: SessionBuyInput,
+/** Snipe with the connected Access Key wallet. */
+export async function buyEthListingWithConnectedWallet(
+  input: WalletBuyInput,
 ): Promise<ListingBuyResult> {
-  const pk = normalizePk(input.sessionPrivateKey);
-  const account = privateKeyToAccount(pk);
-  const apiBase = input.apiBase || "/api/hood-rpc/eth";
-  const mode = input.gasMode || "hyper";
-  const { priorityX, maxX, floorPriority } = gasMultipliers(mode);
+  const eth = getEthereum();
+  await ensureMainnet(eth);
 
-  const txs = await fetchFulfillment(apiBase, account.address, input);
-
-  const publicClient = createPublicClient({
-    chain: mainnet,
-    transport: http(SIGN_RPC),
-  });
-  const walletClient = createWalletClient({
-    account,
-    chain: mainnet,
-    transport: http(SIGN_RPC),
-  });
-
-  const fees = await publicClient.estimateFeesPerGas().catch(() => null);
-  let maxPriorityFeePerGas =
-    (fees?.maxPriorityFeePerGas ?? parseGwei("2")) * priorityX;
-  if (maxPriorityFeePerGas < floorPriority) {
-    maxPriorityFeePerGas = floorPriority;
+  const accounts = (await eth.request({
+    method: "eth_requestAccounts",
+  })) as string[];
+  const active = accounts?.[0]?.toLowerCase();
+  if (!active) throw new Error("NO_ACCOUNT");
+  if (active !== input.buyer.toLowerCase()) {
+    throw new Error("WALLET_MISMATCH");
   }
-  const base = fees?.maxFeePerGas ?? parseGwei("30");
-  const maxFeePerGas = base * maxX + maxPriorityFeePerGas;
 
+  const txs = await fetchFulfillment(input, active);
+  const gas = gasHints(input.gasMode || "hyper");
   const txHashes: string[] = [];
-  let nonce = await publicClient.getTransactionCount({
-    address: account.address,
-    blockTag: "pending",
-  });
 
   for (const tx of txs) {
-    const value = BigInt(tx.value || "0x0");
-    let gas = BigInt(650000);
-    try {
-      gas = await publicClient.estimateGas({
-        account: account.address,
-        to: tx.to as Address,
-        data: tx.data as Hex,
-        value,
-      });
-      gas = (gas * BigInt(130)) / BigInt(100);
-    } catch {
-      /* keep fallback */
-    }
-    const signedTx = await walletClient.signTransaction({
-      to: tx.to as Address,
-      data: tx.data as Hex,
-      value,
-      nonce,
-      maxFeePerGas,
-      maxPriorityFeePerGas,
-      gas,
-      chainId: 1,
-    });
-    const hash = await broadcastRaw(apiBase, signedTx);
+    const hash = (await eth.request({
+      method: "eth_sendTransaction",
+      params: [
+        {
+          from: active,
+          to: tx.to,
+          data: tx.data,
+          value: tx.value || "0x0",
+          maxFeePerGas: gas.maxFeePerGas,
+          maxPriorityFeePerGas: gas.maxPriorityFeePerGas,
+        },
+      ],
+    })) as string;
+    if (!hash) throw new Error("TX_REJECTED");
     txHashes.push(hash);
-    nonce += 1;
   }
 
   return {
     txHashes,
-    from: account.address,
+    from: active,
     explorerUrl: `https://etherscan.io/tx/${txHashes[txHashes.length - 1]}`,
   };
 }
@@ -200,22 +169,22 @@ export function buyErrorToast(err: unknown): string {
       : typeof err === "string"
         ? err
         : "BUY_FAILED";
+  const code = (err as { code?: number })?.code;
+  if (code === 4001 || /user rejected|denied/i.test(msg)) {
+    return "> SNIPE CANCELLED";
+  }
   switch (msg) {
-    case "BAD_SESSION_KEY":
-      return "> ARM A VALID SESSION PRIVATE KEY FIRST";
-    case "NO_SESSION_KEY":
-      return "> ARM SNIPER KEY · PASTE HOT WALLET PK";
+    case "NO_WALLET":
+      return "> CONNECT METAMASK / RABBY";
+    case "NO_ACCOUNT":
+      return "> CONNECT WALLET FIRST";
+    case "WALLET_MISMATCH":
+      return "> USE THE SAME WALLET YOU VERIFIED WITH";
     case "FULFILL_FAILED":
     case "NO_TX":
       return "> NO BUY TX · LISTING SOLD OR UNAVAILABLE";
-    case "BROADCAST_FAILED":
-      return "> BROADCAST FAILED · CHECK ETH + GAS ON HOT WALLET";
-    case "RPC_FAILED":
-      return "> RPC FAILED · RETRY SNIPE";
     default:
-      if (/insufficient funds/i.test(msg)) {
-        return "> HOT WALLET NEEDS MORE ETH";
-      }
+      if (/insufficient funds/i.test(msg)) return "> NEED MORE ETH IN WALLET";
       if (msg.length < 90) return `> ${msg.toUpperCase()}`;
       return "> SNIPE FAILED · RETRY";
   }

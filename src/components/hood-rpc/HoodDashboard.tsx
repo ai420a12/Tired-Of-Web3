@@ -24,7 +24,6 @@ import {
   safeLocalSet,
   walletStorageKey,
 } from "@/lib/session-isolation";
-import { addressFromSessionKey } from "@/lib/eth-listing-buy";
 import {
   getHoodRpcConfig,
   type HoodRpcVariant,
@@ -93,10 +92,6 @@ export default function HoodDashboard({
   const [username, setUsername] = useState("");
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileDraft, setProfileDraft] = useState("");
-  const [sessionPk, setSessionPk] = useState("");
-  const [sessionArmedAddr, setSessionArmedAddr] = useState<string | null>(null);
-  const [snipeGas, setSnipeGas] = useState<"normal" | "fast" | "hyper">("hyper");
-  const [armOpen, setArmOpen] = useState(false);
 
   useEffect(() => {
     if (!wallet) {
@@ -130,9 +125,6 @@ export default function HoodDashboard({
           setHasAccess(false);
           setUsername("");
           setProfileOpen(false);
-          setSessionPk("");
-          setSessionArmedAddr(null);
-          setArmOpen(false);
           setLaunchWalletIds(FLEET.slice(0, 5).map((w) => w.id));
           setLaunchEth("0.25");
           setLaunchSlip("12");
@@ -276,7 +268,7 @@ export default function HoodDashboard({
     };
   }, []);
 
-  /** Real wallet only — proves Access Key ownership. Tools stay in HOOD_RPC_DEMO. */
+  /** Connect + verify Access Key. Same wallet is used for ETH snipes. */
   async function connectWallet() {
     const eth = (window as Window & { ethereum?: EthereumProvider }).ethereum;
     if (!eth) {
@@ -360,36 +352,10 @@ export default function HoodDashboard({
     setHasAccess(false);
     setUsername("");
     setProfileOpen(false);
-    setSessionPk("");
-    setSessionArmedAddr(null);
-    setArmOpen(false);
     setLaunchWalletIds(FLEET.slice(0, 5).map((w) => w.id));
     setLaunchEth("0.25");
     setLaunchSlip("12");
-    setToast("> WALLET DISCONNECTED · LOCAL SESSION CLEARED");
-  }
-
-  function armSessionKey() {
-    const pk = sessionPk.trim();
-    if (!pk) {
-      setToast("> PASTE HOT WALLET PRIVATE KEY");
-      return;
-    }
-    try {
-      const addr = addressFromSessionKey(pk);
-      setSessionArmedAddr(addr);
-      setArmOpen(false);
-      setToast(`> SNIPER ARMED · ${shortAddr(addr)} · gas ${snipeGas.toUpperCase()}`);
-    } catch {
-      setSessionArmedAddr(null);
-      setToast("> INVALID PRIVATE KEY");
-    }
-  }
-
-  function disarmSessionKey() {
-    setSessionPk("");
-    setSessionArmedAddr(null);
-    setToast("> SNIPER KEY CLEARED");
+    setToast("> WALLET DISCONNECTED");
   }
 
   return (
@@ -449,33 +415,6 @@ export default function HoodDashboard({
         </div>
         <div className="hrpc-nav-right">
           <div className="hrpc-nav-account">
-            {variant === "eth" ? (
-              <>
-                <label className="hrpc-gas-arm" title="Snipe gas">
-                  <span className="hrpc-preset-label">Gas</span>
-                  <select
-                    className="hrpc-input hrpc-gas-select"
-                    value={snipeGas}
-                    onChange={(e) =>
-                      setSnipeGas(e.target.value as "normal" | "fast" | "hyper")
-                    }
-                  >
-                    <option value="normal">Normal</option>
-                    <option value="fast">Fast</option>
-                    <option value="hyper">Hyper</option>
-                  </select>
-                </label>
-                <button
-                  type="button"
-                  className={`hrpc-btn hrpc-btn-ghost hrpc-arm-btn${sessionArmedAddr ? " hrpc-arm-on" : ""}`}
-                  onClick={() => setArmOpen((v) => !v)}
-                >
-                  {sessionArmedAddr
-                    ? `Armed · ${shortAddr(sessionArmedAddr)}`
-                    : "Arm sniper key"}
-                </button>
-              </>
-            ) : null}
             <button
               type="button"
               className="hrpc-btn hrpc-btn-ghost hrpc-profile-btn"
@@ -566,67 +505,6 @@ export default function HoodDashboard({
         </div>
       ) : null}
 
-      {armOpen && hasAccess && variant === "eth" ? (
-        <div
-          className="hrpc-modal-backdrop"
-          role="presentation"
-          onClick={() => setArmOpen(false)}
-        >
-          <div
-            className="hrpc-modal hrpc-profile-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Arm sniper key"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="hrpc-modal-head">
-              <h3 className="hrpc-section-title hrpc-section-title-sm">
-                Arm sniper key
-              </h3>
-              <button
-                type="button"
-                className="hrpc-btn hrpc-btn-ghost"
-                onClick={() => setArmOpen(false)}
-              >
-                Close
-              </button>
-            </div>
-            <p className="hrpc-tools-safe">
-              Paste a funded hot-wallet private key. Snipes sign instantly in
-              this tab with elevated gas — no MetaMask popups. Key stays in
-              memory only and clears on disconnect.
-            </p>
-            <label className="hrpc-label" htmlFor="hrpc-session-pk">
-              Session private key
-            </label>
-            <input
-              id="hrpc-session-pk"
-              type="password"
-              className="hrpc-input hrpc-mono"
-              value={sessionPk}
-              onChange={(e) => setSessionPk(e.target.value)}
-              placeholder="0x…"
-              autoComplete="off"
-              spellCheck={false}
-              data-lpignore="true"
-              data-1p-ignore="true"
-            />
-            <div className="hrpc-row-actions" style={{ marginTop: "0.75rem" }}>
-              <button type="button" className="hrpc-btn" onClick={armSessionKey}>
-                Arm
-              </button>
-              <button
-                type="button"
-                className="hrpc-btn hrpc-btn-ghost"
-                onClick={disarmSessionKey}
-              >
-                Clear
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
       <section className="hrpc-hero hrpc-hero-pnl" aria-label={`${cfg.brand} hero`}>
         <div className="hrpc-hero-video-wrap">
           <p className="hrpc-hero-video-label">{cfg.videoLabel}</p>
@@ -666,25 +544,12 @@ export default function HoodDashboard({
         ))}
       </div>
 
-      {hasAccess && wallet ? (
-        <p className="hrpc-session-safe hrpc-mono" role="status">
-          Access · {shortAddr(wallet)}
-          {variant === "eth"
-            ? sessionArmedAddr
-              ? ` · sniper armed ${shortAddr(sessionArmedAddr)} · gas ${snipeGas.toUpperCase()} · instant snipe (no MetaMask popup)`
-              : " · arm a hot-wallet key to snipe instantly"
-            : " · live listing snipes on ETH_RPC"}
-        </p>
-      ) : null}
-
       <main className="hrpc-main">
         <HoodNftPanels
           onToast={setToast}
           apiBase={cfg.apiBase}
           connectedWallet={wallet}
           liveListingBuys={variant === "eth"}
-          sessionPrivateKey={sessionArmedAddr ? sessionPk : null}
-          gasMode={snipeGas}
         />
 
         <div className="hrpc-grid-2" id="launches">
@@ -906,7 +771,6 @@ export default function HoodDashboard({
             </h1>
             <p className="hrpc-access-cover-sub hrpc-muted">
               Hold a Tired Of Web3 Access Key to unlock Hood_RPC and ETH_RPC.
-              Snipers and tools stay in demo mode (no real txs).
             </p>
             <button
               type="button"

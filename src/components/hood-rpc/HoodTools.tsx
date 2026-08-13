@@ -306,12 +306,6 @@ export default function HoodTools({ onToast, connectedWallet }: Props) {
         </div>
       </div>
 
-      <p className="hrpc-tools-safe">
-        Security: private keys stay in this browser tab only — never uploaded.
-        Switching or disconnecting your wallet hard-resets all tool fields.
-        Demo mode does not broadcast real txs.
-      </p>
-
       {/* Squad */}
       <section className="hrpc-panel" aria-label="Squad and balances" id="squad">
         <div className="hrpc-section-head">
@@ -484,10 +478,6 @@ export default function HoodTools({ onToast, connectedWallet }: Props) {
         </div>
         {genOut ? (
           <div className="hrpc-inset" style={{ marginTop: "0.55rem" }}>
-            <p className="hrpc-tools-safe">
-              DEMO keys only — copy offline now. Auto-clears in 60s. Never fund
-              these on mainnet.
-            </p>
             <pre className="hrpc-keys hrpc-mono">{genOut}</pre>
             <button
               type="button"
