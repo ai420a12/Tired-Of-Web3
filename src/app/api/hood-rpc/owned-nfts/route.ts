@@ -37,10 +37,35 @@ function parseTokenId(raw: unknown): string | null {
   }
 }
 
-async function alchemyNfts(owner: string): Promise<OwnedNftRow[]> {
-  const key = alchemyKey();
-  if (!key) return [];
+function pushNft(
+  rows: OwnedNftRow[],
+  seen: Set<string>,
+  owner: string,
+  contractRaw: string,
+  tokenIdRaw: unknown,
+  tokenTypeRaw: string,
+  balanceRaw?: unknown,
+) {
+  const contract = contractRaw.toLowerCase();
+  const tokenId = parseTokenId(tokenIdRaw);
+  if (!isAddress(contract) || !tokenId) return;
+  const key = `${contract}:${tokenId}`;
+  if (seen.has(key)) return;
+  seen.add(key);
+  const kind = tokenTypeRaw.toUpperCase();
+  if (kind === "ERC20") return;
+  rows.push({
+    owner: owner.toLowerCase(),
+    contract,
+    tokenId,
+    tokenType: kind.includes("1155") ? "ERC1155" : "ERC721",
+    balance: String(balanceRaw || "1"),
+  });
+}
+
+async function alchemyNftApi(key: string, owner: string): Promise<OwnedNftRow[]> {
   const rows: OwnedNftRow[] = [];
+  const seen = new Set<string>();
   let pageKey: string | undefined;
   for (let i = 0; i < 8 && rows.length < MAX_NFTS; i++) {
     const q = new URLSearchParams({
@@ -48,7 +73,6 @@ async function alchemyNfts(owner: string): Promise<OwnedNftRow[]> {
       withMetadata: "false",
       pageSize: "100",
     });
-    q.append("excludeFilters[]", "SPAM");
     if (pageKey) q.set("pageKey", pageKey);
     const res = await fetch(
       `https://eth-mainnet.g.alchemy.com/nft/v3/${key}/getNFTsForOwner?${q}`,
@@ -58,30 +82,158 @@ async function alchemyNfts(owner: string): Promise<OwnedNftRow[]> {
     const data = (await res.json()) as {
       ownedNfts?: {
         tokenId?: string;
+        id?: { tokenId?: string };
         balance?: string;
+        tokenType?: string;
         contract?: { address?: string; tokenType?: string };
       }[];
       pageKey?: string;
     };
     for (const nft of data.ownedNfts || []) {
-      const contract = (nft.contract?.address || "").toLowerCase();
-      const tokenId = parseTokenId(nft.tokenId);
-      if (!isAddress(contract) || !tokenId) continue;
-      const kind = (nft.contract?.tokenType || "ERC721").toUpperCase();
-      if (kind === "ERC20") continue;
-      rows.push({
-        owner: owner.toLowerCase(),
-        contract,
-        tokenId,
-        tokenType: kind === "ERC1155" ? "ERC1155" : "ERC721",
-        balance: String(nft.balance || "1"),
-      });
+      pushNft(
+        rows,
+        seen,
+        owner,
+        nft.contract?.address || "",
+        nft.tokenId || nft.id?.tokenId,
+        nft.contract?.tokenType || nft.tokenType || "ERC721",
+        nft.balance,
+      );
       if (rows.length >= MAX_NFTS) break;
     }
     pageKey = data.pageKey;
     if (!pageKey) break;
   }
   return rows;
+}
+
+/** Fresh buys often miss the NFT index — pull recent inbound transfers instead. */
+async function alchemyInboundNfts(
+  key: string,
+  owner: string,
+): Promise<OwnedNftRow[]> {
+  const res = await fetch(`https://eth-mainnet.g.alchemy.com/v2/${key}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "alchemy_getAssetTransfers",
+      params: [
+        {
+          fromBlock: "0x0",
+          toBlock: "latest",
+          toAddress: owner,
+          category: ["erc721", "erc1155"],
+          withMetadata: false,
+          excludeZeroValue: false,
+          maxCount: "0x32",
+          order: "desc",
+        },
+      ],
+    }),
+    cache: "no-store",
+  });
+  if (!res.ok) return [];
+  const json = (await res.json()) as {
+    result?: {
+      transfers?: {
+        category?: string;
+        erc721TokenId?: string;
+        tokenId?: string;
+        erc1155Metadata?: { tokenId?: string; value?: string }[];
+        rawContract?: { address?: string };
+      }[];
+    };
+  };
+  const rows: OwnedNftRow[] = [];
+  const seen = new Set<string>();
+  for (const t of json.result?.transfers || []) {
+    const contract = t.rawContract?.address || "";
+    const is1155 = (t.category || "").toLowerCase().includes("1155");
+    if (is1155) {
+      for (const m of t.erc1155Metadata || []) {
+        pushNft(rows, seen, owner, contract, m.tokenId, "ERC1155", m.value);
+      }
+    } else {
+      pushNft(
+        rows,
+        seen,
+        owner,
+        contract,
+        t.erc721TokenId || t.tokenId,
+        "ERC721",
+        "1",
+      );
+    }
+    if (rows.length >= MAX_NFTS) break;
+  }
+  return rows;
+}
+
+async function stillOwned(
+  key: string,
+  nft: OwnedNftRow,
+): Promise<boolean> {
+  const data =
+    nft.tokenType === "ERC1155"
+      ? encodeBalanceOf(nft.owner, nft.tokenId)
+      : encodeOwnerOf(nft.tokenId);
+  const res = await fetch(`https://eth-mainnet.g.alchemy.com/v2/${key}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "eth_call",
+      params: [{ to: nft.contract, data }, "latest"],
+    }),
+    cache: "no-store",
+  });
+  const json = (await res.json()) as { result?: string };
+  const raw = (json.result || "").toLowerCase();
+  if (!raw || raw === "0x") return false;
+  if (nft.tokenType === "ERC1155") {
+    try {
+      return BigInt(raw) > BigInt(0);
+    } catch {
+      return false;
+    }
+  }
+  const owner = `0x${raw.slice(-40)}`;
+  return owner === nft.owner.toLowerCase();
+}
+
+function pad32(hexNoPrefix: string): string {
+  return hexNoPrefix.replace(/^0x/, "").padStart(64, "0");
+}
+
+function encodeOwnerOf(tokenId: string): string {
+  const id = BigInt(tokenId).toString(16);
+  return `0x6352211e${pad32(id)}`;
+}
+
+function encodeBalanceOf(owner: string, tokenId: string): string {
+  const id = BigInt(tokenId).toString(16);
+  return `0x00fdd58e${pad32(owner.replace(/^0x/, ""))}${pad32(id)}`;
+}
+
+async function alchemyNfts(owner: string): Promise<OwnedNftRow[]> {
+  const key = alchemyKey();
+  if (!key) return [];
+  const [indexed, inbound] = await Promise.all([
+    alchemyNftApi(key, owner),
+    alchemyInboundNfts(key, owner),
+  ]);
+  const indexedKeys = new Set(indexed.map((n) => `${n.contract}:${n.tokenId}`));
+  const extra: OwnedNftRow[] = [];
+  for (const nft of inbound) {
+    const k = `${nft.contract}:${nft.tokenId}`;
+    if (indexedKeys.has(k)) continue;
+    const ok = await stillOwned(key, nft).catch(() => true);
+    if (ok) extra.push(nft);
+  }
+  return [...indexed, ...extra].slice(0, MAX_NFTS);
 }
 
 async function blockscoutNfts(owner: string): Promise<OwnedNftRow[]> {

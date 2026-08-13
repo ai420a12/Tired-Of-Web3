@@ -82,6 +82,17 @@ export default function HoodTools({
     );
   }
 
+  function copyKeysNow() {
+    if (!genOut) return;
+    void navigator.clipboard.writeText(genOut).then(
+      () => {
+        onToast("> KEYS COPIED · SAVE THEM ON YOUR PC NOW");
+        pushOutcome("Generated keys copied — save them off this site", "ok");
+      },
+      () => onToast("> COPY FAILED"),
+    );
+  }
+
   useEffect(() => {
     if (connectedWallet) {
       setMasterAddr((prev) =>
@@ -334,7 +345,7 @@ export default function HoodTools({
       const msg = err instanceof Error ? err.message : "SEND_FAILED";
       onToast(
         msg === "NO_NFTS"
-          ? "> NO NFTS IN SQUAD WALLETS"
+          ? "> NO NFTS FOUND ON SQUAD YET · WAIT A FEW SEC AFTER BUY"
           : `> NFT SEND FAILED · ${msg}`,
       );
       pushOutcome(`NFT sweep failed · ${msg}`, "err");
@@ -537,6 +548,13 @@ export default function HoodTools({
         {genOut ? (
           <div className="hrpc-inset" style={{ marginTop: "0.55rem" }}>
             <pre className="hrpc-keys hrpc-mono">{genOut}</pre>
+            <button
+              type="button"
+              className="hrpc-copy-now"
+              onClick={copyKeysNow}
+            >
+              Copy this now!
+            </button>
             <button
               type="button"
               className="hrpc-btn hrpc-btn-ghost"
