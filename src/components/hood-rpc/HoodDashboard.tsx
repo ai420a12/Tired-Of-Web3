@@ -20,6 +20,11 @@ import {
   ACCESS_OPENSEA_URL,
 } from "@/lib/access-key-shared";
 import {
+  safeLocalGet,
+  safeLocalSet,
+  walletStorageKey,
+} from "@/lib/session-isolation";
+import {
   getHoodRpcConfig,
   type HoodRpcVariant,
 } from "@/lib/hood-rpc-chain";
@@ -93,14 +98,46 @@ export default function HoodDashboard({
       setUsername("");
       return;
     }
-    try {
-      const saved = localStorage.getItem(`${cfg.storagePrefix}-username:${wallet.toLowerCase()}`);
-      setUsername(saved ?? "");
-      setProfileDraft(saved ?? "");
-    } catch {
-      setUsername("");
-    }
+    const saved = safeLocalGet(
+      walletStorageKey(cfg.storagePrefix, wallet, "username"),
+    );
+    setUsername(saved ?? "");
+    setProfileDraft(saved ?? "");
   }, [wallet, cfg.storagePrefix]);
+
+  /** MetaMask account switch → wipe session so data never crosses wallets. */
+  useEffect(() => {
+    const eth = (window as Window & { ethereum?: EthereumProvider }).ethereum;
+    if (!eth?.on || !wallet) return;
+
+    const onAccountsChanged = (...args: unknown[]) => {
+      const accounts = (args[0] as string[] | undefined) || [];
+      const next = accounts[0]?.toLowerCase();
+      const cur = wallet.toLowerCase();
+      if (!next || next !== cur) {
+        void (async () => {
+          try {
+            await fetch("/api/access/logout", { method: "POST" });
+          } catch {
+            /* ignore */
+          }
+          setWallet(null);
+          setHasAccess(false);
+          setUsername("");
+          setProfileOpen(false);
+          setLaunchWalletIds(FLEET.slice(0, 5).map((w) => w.id));
+          setLaunchEth("0.25");
+          setLaunchSlip("12");
+          setToast("> WALLET CHANGED · RECONNECT TO VERIFY");
+        })();
+      }
+    };
+
+    eth.on("accountsChanged", onAccountsChanged);
+    return () => {
+      eth.removeListener?.("accountsChanged", onAccountsChanged);
+    };
+  }, [wallet]);
 
   function saveProfile() {
     if (!wallet) {
@@ -112,10 +149,13 @@ export default function HoodDashboard({
       setToast("> ENTER A USERNAME");
       return;
     }
-    try {
-      localStorage.setItem(`${cfg.storagePrefix}-username:${wallet.toLowerCase()}`, next);
-    } catch {
-      /* ignore */
+    const ok = safeLocalSet(
+      walletStorageKey(cfg.storagePrefix, wallet, "username"),
+      next,
+    );
+    if (!ok) {
+      setToast("> COULD NOT SAVE PROFILE");
+      return;
     }
     setUsername(next);
     setProfileOpen(false);
@@ -312,7 +352,10 @@ export default function HoodDashboard({
     setHasAccess(false);
     setUsername("");
     setProfileOpen(false);
-    setToast("> WALLET DISCONNECTED");
+    setLaunchWalletIds(FLEET.slice(0, 5).map((w) => w.id));
+    setLaunchEth("0.25");
+    setLaunchSlip("12");
+    setToast("> WALLET DISCONNECTED · LOCAL SESSION CLEARED");
   }
 
   return (
@@ -500,6 +543,13 @@ export default function HoodDashboard({
           <span key={item}>{item}</span>
         ))}
       </div>
+
+      {hasAccess && wallet ? (
+        <p className="hrpc-session-safe hrpc-mono" role="status">
+          Session locked to {shortAddr(wallet)} · your tool data stays in this
+          browser only · private keys never uploaded · switch wallet = hard reset
+        </p>
+      ) : null}
 
       <main className="hrpc-main">
         <HoodNftPanels onToast={setToast} apiBase={cfg.apiBase} />
@@ -693,9 +743,17 @@ export default function HoodDashboard({
           }}
         />
 
-        <HoodArmSnipers onToast={setToast} connectedWallet={wallet} />
+        <HoodArmSnipers
+          key={`arm-${wallet?.toLowerCase() || "none"}`}
+          onToast={setToast}
+          connectedWallet={wallet}
+        />
 
-        <HoodTools onToast={setToast} connectedWallet={wallet} />
+        <HoodTools
+          key={`tools-${wallet?.toLowerCase() || "none"}`}
+          onToast={setToast}
+          connectedWallet={wallet}
+        />
       </main>
       </div>
 

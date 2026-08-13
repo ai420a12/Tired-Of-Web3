@@ -199,6 +199,7 @@ export function readAccessToken(
 export function accessCookieOptions(maxAge = ACCESS_COOKIE_MAX_AGE_SEC) {
   return {
     httpOnly: true,
+    // Always Secure in prod so the access session never rides cleartext HTTP
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax" as const,
     path: "/",

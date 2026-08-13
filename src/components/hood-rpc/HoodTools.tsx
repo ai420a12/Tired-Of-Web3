@@ -2,6 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { HOOD_RPC_DEMO } from "@/lib/hood-rpc-demo";
+import { SENSITIVE_INPUT_PROPS } from "@/lib/session-isolation";
+
+function looksLikePrivateKey(line: string) {
+  const v = line.trim();
+  return /^(0x)?[0-9a-fA-F]{64}$/.test(v);
+}
 
 type SquadRow = {
   id: number;
@@ -116,11 +122,35 @@ export default function HoodTools({ onToast, connectedWallet }: Props) {
 
   useEffect(() => {
     if (connectedWallet) {
-      setMasterAddr((prev) =>
-        prev.startsWith("0x") ? prev : connectedWallet,
-      );
+      setMasterAddr(connectedWallet);
     }
   }, [connectedWallet]);
+
+  /** Wipe secrets if this tab hides / unloads (defense in depth). */
+  useEffect(() => {
+    function wipeSecrets() {
+      setPasteKeys("");
+      setWlKeys("");
+      setMasterPk("");
+      setGenOut("");
+    }
+    const onVis = () => {
+      if (document.visibilityState === "hidden") wipeSecrets();
+    };
+    window.addEventListener("pagehide", wipeSecrets);
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      wipeSecrets();
+      window.removeEventListener("pagehide", wipeSecrets);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!genOut) return;
+    const id = window.setTimeout(() => setGenOut(""), 60_000);
+    return () => window.clearTimeout(id);
+  }, [genOut]);
 
   useEffect(() => {
     const tickers = ["$HOODAI", "$SNIPE", "$LIME", "$RPCX", "$FEATHER"];
@@ -165,31 +195,43 @@ export default function HoodTools({ onToast, connectedWallet }: Props) {
     demoToast("> BALANCES REFRESHED");
   }
 
-  function loadPasteKeys() {
+  async function loadPasteKeys() {
     if (!requireDemo()) return;
     const lines = pasteKeys
       .split(/[\n,]+/)
       .map((l) => l.trim())
       .filter((l) => l.startsWith("0x") && l.length >= 10)
       .slice(0, 60);
+    setPasteKeys("");
     if (!lines.length) {
       onToast("> NO VALID 0x KEYS FOUND");
       return;
     }
-    setSquad(
-      lines.map((wallet, i) => ({
+    const rows: SquadRow[] = [];
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const isPk = looksLikePrivateKey(line);
+      const wallet = isPk
+        ? await demoAddressFromPk(line)
+        : line.length > 42
+          ? line.slice(0, 42)
+          : line;
+      rows.push({
         id: i + 1,
         time: "just now",
         logBal: "0.0000 ETH",
-        activity: "Session key loaded (demo)",
-        wallet: wallet.length > 42 ? wallet.slice(0, 42) : wallet,
+        activity: isPk
+          ? "Session key loaded (demo · pk discarded)"
+          : "Session address loaded (demo)",
+        wallet,
         live: "0.0000 ETH",
         usd: "$0.00",
         nfts: 0,
-      })),
-    );
+      });
+    }
+    setSquad(rows);
     setPasteOpen(false);
-    demoToast(`> LOADED ${lines.length} SESSION KEYS`);
+    demoToast(`> LOADED ${rows.length} SESSION WALLETS · KEYS NOT STORED`);
   }
 
   function saveWl() {
@@ -199,17 +241,21 @@ export default function HoodTools({ onToast, connectedWallet }: Props) {
       .map((l) => l.trim())
       .filter(Boolean)
       .slice(0, 2);
+    setWlKeys("");
     if (!lines.length) {
       onToast("> PASTE 1–2 WL KEYS");
       return;
     }
-    setWlStatus(`${lines.length} WL temp key(s) saved (demo)`);
-    demoToast(`> WL WALLETS SAVED · ${lines.length}`);
+    setWlStatus(
+      `${lines.length} WL temp key(s) acknowledged (demo · not persisted)`,
+    );
+    demoToast(`> WL WALLETS ACK · ${lines.length} · NOT SAVED TO DISK`);
   }
 
   async function saveMaster() {
     if (!requireDemo()) return;
     const pk = masterPk.trim();
+    setMasterPk("");
     if (!pk.startsWith("0x") || pk.length < 10) {
       onToast("> PASTE MASTER PRIVATE KEY");
       return;
@@ -217,8 +263,7 @@ export default function HoodTools({ onToast, connectedWallet }: Props) {
     const addr = await demoAddressFromPk(pk);
     setMasterAddr(addr);
     setMasterBal("0.0000 ETH");
-    setMasterPk("");
-    demoToast(`> MASTER SAVED · ${addr.slice(0, 10)}…`);
+    demoToast(`> MASTER BOUND · ${addr.slice(0, 10)}… · PK DISCARDED`);
   }
 
   function splitTo(n: number) {
@@ -250,7 +295,7 @@ export default function HoodTools({ onToast, connectedWallet }: Props) {
       lines.push(`#${i + 1}  ${addr}  ${pk}`);
     }
     setGenOut(lines.join("\n"));
-    demoToast(`> GENERATED ${n} DEMO WALLETS`);
+    demoToast(`> GENERATED ${n} DEMO WALLETS · AUTO-CLEARS IN 60s`);
   }
 
   return (
@@ -260,6 +305,12 @@ export default function HoodTools({ onToast, connectedWallet }: Props) {
           <h2 className="hrpc-section-title">Operator tools</h2>
         </div>
       </div>
+
+      <p className="hrpc-tools-safe">
+        Security: private keys stay in this browser tab only — never uploaded.
+        Switching or disconnecting your wallet hard-resets all tool fields.
+        Demo mode does not broadcast real txs.
+      </p>
 
       {/* Squad */}
       <section className="hrpc-panel" aria-label="Squad and balances" id="squad">
@@ -291,11 +342,14 @@ export default function HoodTools({ onToast, connectedWallet }: Props) {
               value={pasteKeys}
               onChange={(e) => setPasteKeys(e.target.value)}
               placeholder={"0x…\n0x…"}
-              spellCheck={false}
-              autoComplete="off"
+              {...SENSITIVE_INPUT_PROPS}
             />
             <div className="hrpc-row-actions" style={{ marginTop: "0.5rem" }}>
-              <button type="button" className="hrpc-btn" onClick={loadPasteKeys}>
+              <button
+                type="button"
+                className="hrpc-btn"
+                onClick={() => void loadPasteKeys()}
+              >
                 Load keys into bot
               </button>
               <button
@@ -303,6 +357,7 @@ export default function HoodTools({ onToast, connectedWallet }: Props) {
                 className="hrpc-btn hrpc-btn-ghost"
                 onClick={() => {
                   setSquad(makeSquad(8));
+                  setPasteKeys("");
                   onToast("> USING DEFAULT FLEET");
                 }}
               >
@@ -311,7 +366,10 @@ export default function HoodTools({ onToast, connectedWallet }: Props) {
               <button
                 type="button"
                 className="hrpc-btn hrpc-btn-ghost"
-                onClick={() => setPasteOpen(false)}
+                onClick={() => {
+                  setPasteKeys("");
+                  setPasteOpen(false);
+                }}
               >
                 Hide
               </button>
@@ -384,7 +442,7 @@ export default function HoodTools({ onToast, connectedWallet }: Props) {
           value={wlKeys}
           onChange={(e) => setWlKeys(e.target.value)}
           placeholder={"0x… first key\n0x… second key"}
-          spellCheck={false}
+          {...SENSITIVE_INPUT_PROPS}
         />
         <div className="hrpc-row-actions" style={{ marginTop: "0.5rem" }}>
           <button type="button" className="hrpc-btn" onClick={saveWl}>
@@ -425,7 +483,21 @@ export default function HoodTools({ onToast, connectedWallet }: Props) {
           </button>
         </div>
         {genOut ? (
-          <pre className="hrpc-keys hrpc-mono">{genOut}</pre>
+          <div className="hrpc-inset" style={{ marginTop: "0.55rem" }}>
+            <p className="hrpc-tools-safe">
+              DEMO keys only — copy offline now. Auto-clears in 60s. Never fund
+              these on mainnet.
+            </p>
+            <pre className="hrpc-keys hrpc-mono">{genOut}</pre>
+            <button
+              type="button"
+              className="hrpc-btn hrpc-btn-ghost"
+              style={{ marginTop: "0.45rem" }}
+              onClick={() => setGenOut("")}
+            >
+              Clear from screen
+            </button>
+          </div>
         ) : null}
       </details>
 
@@ -453,10 +525,10 @@ export default function HoodTools({ onToast, connectedWallet }: Props) {
           <input
             type="password"
             className="hrpc-input hrpc-mono"
-            placeholder="Paste master private key to save"
+            placeholder="Paste master private key (session only)"
             value={masterPk}
             onChange={(e) => setMasterPk(e.target.value)}
-            autoComplete="off"
+            {...SENSITIVE_INPUT_PROPS}
           />
           <button type="button" className="hrpc-btn" onClick={() => void saveMaster()}>
             Save
