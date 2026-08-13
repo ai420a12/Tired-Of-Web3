@@ -318,9 +318,9 @@ export default function HoodTools({
         keys,
         to: ethTo as Address,
       });
-      onToast(`> ETH SENT · ${hashes.length} TXS`);
+      onToast(`> ETH SWEPT · ${hashes.length} TXS`);
       pushOutcome(
-        `ETH consolidate · ${hashes.length} txs · ${shortAddr(ethTo)}`,
+        `ETH sweep → ${shortAddr(ethTo)} · ${hashes.length} wallets emptied (gas dust only)`,
         "ok",
       );
       setSquad(await applyBalances(squad));

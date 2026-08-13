@@ -171,6 +171,58 @@ export async function splitFromMaster(opts: {
   return { hashes, perWei };
 }
 
+/** Empty a wallet: send balance minus exact tx fee. No fat gas pad. */
+async function sweepAllEthFromKey(opts: {
+  variant: HoodRpcVariant;
+  apiBase: string;
+  privateKey: Hex;
+  to: Address;
+}): Promise<Hex | null> {
+  const account = privateKeyToAccount(opts.privateKey);
+  if (account.address.toLowerCase() === opts.to.toLowerCase()) return null;
+
+  const chain = chainFor(opts.variant);
+  const publicClient = createPublicClient({
+    chain,
+    transport: http(rpcFor(opts.variant)),
+  });
+  const walletClient = createWalletClient({
+    account,
+    chain,
+    transport: http(rpcFor(opts.variant)),
+  });
+
+  const bal = await publicClient.getBalance({ address: account.address });
+  const nonce = await publicClient.getTransactionCount({
+    address: account.address,
+    blockTag: "pending",
+  });
+  const gas = BigInt(21000);
+
+  const fees = await publicClient.estimateFeesPerGas().catch(() => null);
+  const tip =
+    fees?.maxPriorityFeePerGas ??
+    parseGwei(opts.variant === "eth" ? "0.05" : "0.01");
+  const quotedMax =
+    fees?.maxFeePerGas ?? parseGwei(opts.variant === "eth" ? "2" : "0.05");
+  // One-block base-fee bump (12.5%) so it still lands — leftover is dust, not $2.
+  let maxFeePerGas = quotedMax > tip ? quotedMax : tip + parseGwei("0.1");
+  maxFeePerGas = (maxFeePerGas * 1125n) / 1000n;
+  const feeCap = gas * maxFeePerGas;
+  if (bal <= feeCap) return null;
+
+  const signedTx = await walletClient.signTransaction({
+    to: opts.to,
+    value: bal - feeCap,
+    nonce,
+    gas,
+    maxFeePerGas,
+    maxPriorityFeePerGas: tip,
+    chainId: chain.id,
+  });
+  return broadcastSigned(opts.apiBase, signedTx, opts.variant);
+}
+
 export async function consolidateEth(opts: {
   variant: HoodRpcVariant;
   apiBase: string;
@@ -179,18 +231,13 @@ export async function consolidateEth(opts: {
 }): Promise<Hex[]> {
   const hashes: Hex[] = [];
   for (const pk of opts.keys) {
-    const account = privateKeyToAccount(pk);
-    const bal = await getNativeBalance(opts.variant, account.address);
-    const gasReserve = parseGwei(opts.variant === "eth" ? "50" : "1") * BigInt(21000);
-    if (bal <= gasReserve) continue;
-    const { hash } = await sendEthFromKey({
+    const hash = await sweepAllEthFromKey({
       variant: opts.variant,
       apiBase: opts.apiBase,
       privateKey: pk,
       to: opts.to,
-      amountWei: bal - gasReserve,
     });
-    hashes.push(hash);
+    if (hash) hashes.push(hash);
   }
   if (!hashes.length) throw new Error("NOTHING_TO_SEND");
   return hashes;
