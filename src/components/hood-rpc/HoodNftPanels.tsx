@@ -614,15 +614,9 @@ export default function HoodNftPanels({
               rows={live}
               focusSlug={focus?.collectionSlug}
               showCollection
-              showSnipe={ethLiveBuys}
-              snipeLabel="Snipe"
-              snipingId={snipingId}
               onSelect={selectSale}
               onThumbOver={showFlyout}
               onThumbOut={handleThumbOut}
-              onSnipe={(row) => {
-                void handleListingSnipe(row);
-              }}
             />
           )}
         </div>
@@ -678,7 +672,6 @@ export default function HoodNftPanels({
               <SaleTable
                 rows={listings}
                 showSnipe
-                snipeLabel={ethLiveBuys ? "Snipe" : "Snipe"}
                 snipingId={snipingId}
                 onThumbOver={showFlyout}
                 onThumbOut={handleThumbOut}
