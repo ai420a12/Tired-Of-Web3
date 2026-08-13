@@ -793,10 +793,7 @@ export default function HoodDashboard({
         />
 
         <div className="hrpc-grid-2" id="launches">
-          <section className="hrpc-panel hrpc-soon-wrap" aria-label="Upcoming NFT collections" id="upcoming-nfts">
-            <div className="hrpc-soon-overlay" aria-hidden="true">
-              <span className="hrpc-soon-banner">Coming soon</span>
-            </div>
+          <section className="hrpc-panel" aria-label="Upcoming NFT collections" id="upcoming-nfts">
             <div className="hrpc-section-head">
               <div>
                 <h2 className="hrpc-section-title">Upcoming NFTs</h2>
@@ -841,7 +838,10 @@ export default function HoodDashboard({
                           type="button"
                           className="hrpc-btn"
                           onClick={() => {
-                            setToast("> MINT SNIPER COMING SOON");
+                            setToast(`> MINT TARGET · ${row.name}`);
+                            document
+                              .getElementById("arm-nft")
+                              ?.scrollIntoView({ behavior: "smooth" });
                           }}
                         >
                           Snipe
