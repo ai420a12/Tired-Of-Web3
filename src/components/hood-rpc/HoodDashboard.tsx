@@ -37,28 +37,13 @@ const NAV_LINKS = [
   { href: "#master-split", label: "Master Split" },
 ] as const;
 
-const PNL_LEADERS = [
-  { user: "limegod", pnl: "+184.2 ETH" },
-  { user: "sniper_x", pnl: "+121.7 ETH" },
-  { user: "hoodape", pnl: "+98.4 ETH" },
-  { user: "rpc_degen", pnl: "+76.1 ETH" },
-  { user: "neoneyes", pnl: "+64.9 ETH" },
-  { user: "featherking", pnl: "+51.3 ETH" },
-  { user: "mintlord", pnl: "+44.8 ETH" },
-  { user: "wethwhale", pnl: "+39.2 ETH" },
-  { user: "gashunter", pnl: "+33.6 ETH" },
-  { user: "dropcatcher", pnl: "+28.0 ETH" },
-  { user: "alpha_hood", pnl: "+24.5 ETH" },
-  { user: "fastlane", pnl: "+21.1 ETH" },
-  { user: "blockbite", pnl: "+18.7 ETH" },
-  { user: "mevfox", pnl: "+16.4 ETH" },
-  { user: "launchpad", pnl: "+14.9 ETH" },
-  { user: "greentick", pnl: "+12.2 ETH" },
-  { user: "voidmint", pnl: "+10.8 ETH" },
-  { user: "chainwolf", pnl: "+9.4 ETH" },
-  { user: "pulsebag", pnl: "+7.6 ETH" },
-  { user: "edgeops", pnl: "+6.1 ETH" },
-] as const;
+type PnlLeader = {
+  wallet: string;
+  user: string;
+  avatarUrl: string | null;
+  pnl: string;
+  pnlEth: number;
+};
 
 type EthereumProvider = {
   request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
@@ -90,20 +75,104 @@ export default function HoodDashboard({
   const [launchSlip, setLaunchSlip] = useState("12");
   const [launchPickerOpen, setLaunchPickerOpen] = useState(false);
   const [username, setUsername] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [avatarDraft, setAvatarDraft] = useState<string | null>(null);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [profileSaving, setProfileSaving] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileDraft, setProfileDraft] = useState("");
+  const [pnlLeaders, setPnlLeaders] = useState<PnlLeader[]>([]);
+  const [pnlNote, setPnlNote] = useState<string | null>(
+    "Loading live PnL…",
+  );
 
   useEffect(() => {
-    if (!wallet) {
+    if (!wallet || !hasAccess) {
       setUsername("");
+      setAvatarUrl(null);
       return;
     }
-    const saved = safeLocalGet(
-      walletStorageKey(cfg.storagePrefix, wallet, "username"),
-    );
-    setUsername(saved ?? "");
-    setProfileDraft(saved ?? "");
-  }, [wallet, cfg.storagePrefix]);
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch(`${cfg.apiBase}/profile`, { cache: "no-store" });
+        if (!res.ok || cancelled) return;
+        const data = (await res.json()) as {
+          profile?: {
+            username?: string | null;
+            avatarUrl?: string | null;
+          };
+        };
+        const name = data.profile?.username || "";
+        const avatar = data.profile?.avatarUrl || null;
+        if (cancelled) return;
+        setUsername(name);
+        setAvatarUrl(avatar);
+        setProfileDraft(name);
+        if (name) {
+          safeLocalSet(
+            walletStorageKey(cfg.storagePrefix, wallet, "username"),
+            name,
+          );
+        }
+        if (avatar) {
+          safeLocalSet(
+            walletStorageKey(cfg.storagePrefix, wallet, "avatar"),
+            avatar,
+          );
+        }
+      } catch {
+        const saved = safeLocalGet(
+          walletStorageKey(cfg.storagePrefix, wallet, "username"),
+        );
+        const savedAvatar = safeLocalGet(
+          walletStorageKey(cfg.storagePrefix, wallet, "avatar"),
+        );
+        if (!cancelled) {
+          setUsername(saved ?? "");
+          setAvatarUrl(savedAvatar);
+          setProfileDraft(saved ?? "");
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [wallet, hasAccess, cfg.apiBase, cfg.storagePrefix]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadPnl() {
+      try {
+        const res = await fetch(`${cfg.apiBase}/pnl/leaderboard?limit=20`, {
+          cache: "no-store",
+        });
+        if (!res.ok || cancelled) return;
+        const data = (await res.json()) as {
+          leaders?: PnlLeader[];
+          note?: string;
+        };
+        if (cancelled) return;
+        setPnlLeaders(Array.isArray(data.leaders) ? data.leaders : []);
+        setPnlNote(
+          Array.isArray(data.leaders) && data.leaders.length
+            ? null
+            : data.note ||
+                "No snipes yet — PnL appears after real ETH_RPC buys.",
+        );
+      } catch {
+        if (!cancelled) {
+          setPnlNote("PnL board unavailable");
+        }
+      }
+    }
+    void loadPnl();
+    const id = window.setInterval(() => void loadPnl(), 60_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [cfg.apiBase]);
 
   /** MetaMask account switch → wipe session so data never crosses wallets. */
   useEffect(() => {
@@ -124,6 +193,9 @@ export default function HoodDashboard({
           setWallet(null);
           setHasAccess(false);
           setUsername("");
+          setAvatarUrl(null);
+          setAvatarDraft(null);
+          setAvatarFile(null);
           setProfileOpen(false);
           setLaunchWalletIds(FLEET.slice(0, 5).map((w) => w.id));
           setLaunchEth("0.25");
@@ -139,7 +211,7 @@ export default function HoodDashboard({
     };
   }, [wallet]);
 
-  function saveProfile() {
+  async function saveProfile() {
     if (!wallet) {
       setToast("> CONNECT WALLET FIRST");
       return;
@@ -149,17 +221,83 @@ export default function HoodDashboard({
       setToast("> ENTER A USERNAME");
       return;
     }
-    const ok = safeLocalSet(
-      walletStorageKey(cfg.storagePrefix, wallet, "username"),
-      next,
-    );
-    if (!ok) {
+    setProfileSaving(true);
+    try {
+      const res = await fetch(`${cfg.apiBase}/profile`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ username: next }),
+      });
+      const data = (await res.json()) as {
+        ok?: boolean;
+        error?: string;
+        profile?: { username?: string | null; avatarUrl?: string | null };
+      };
+      if (!res.ok || !data.ok) {
+        setToast(`> ${data.error || "COULD NOT SAVE PROFILE"}`);
+        return;
+      }
+      const name = data.profile?.username || next;
+      setUsername(name);
+      safeLocalSet(
+        walletStorageKey(cfg.storagePrefix, wallet, "username"),
+        name,
+      );
+
+      if (avatarFile) {
+        const form = new FormData();
+        form.append("avatar", avatarFile);
+        const up = await fetch(`${cfg.apiBase}/profile/avatar`, {
+          method: "POST",
+          body: form,
+        });
+        const upData = (await up.json()) as {
+          ok?: boolean;
+          error?: string;
+          profile?: { avatarUrl?: string | null };
+        };
+        if (!up.ok || !upData.ok) {
+          setToast(`> USERNAME SAVED · AVATAR FAILED · ${upData.error || ""}`);
+          setProfileOpen(false);
+          return;
+        }
+        const avatar = upData.profile?.avatarUrl || null;
+        setAvatarUrl(avatar);
+        if (avatar) {
+          safeLocalSet(
+            walletStorageKey(cfg.storagePrefix, wallet, "avatar"),
+            avatar,
+          );
+        }
+        setAvatarFile(null);
+        setAvatarDraft(null);
+      }
+
+      setProfileOpen(false);
+      setToast(`> PROFILE SAVED · @${name}`);
+    } catch {
       setToast("> COULD NOT SAVE PROFILE");
+    } finally {
+      setProfileSaving(false);
+    }
+  }
+
+  function onAvatarPick(file: File | null) {
+    if (!file) {
+      setAvatarFile(null);
+      setAvatarDraft(null);
       return;
     }
-    setUsername(next);
-    setProfileOpen(false);
-    setToast(`> PROFILE SAVED · @${next}`);
+    if (!/^image\/(jpeg|png|webp)$/.test(file.type)) {
+      setToast("> USE JPEG, PNG, OR WEBP");
+      return;
+    }
+    if (file.size > 1_000_000) {
+      setToast("> IMAGE MUST BE UNDER 1MB");
+      return;
+    }
+    setAvatarFile(file);
+    setAvatarDraft(URL.createObjectURL(file));
   }
 
   // Live memecoins + upcoming NFT schedule
@@ -351,6 +489,9 @@ export default function HoodDashboard({
     setWallet(null);
     setHasAccess(false);
     setUsername("");
+    setAvatarUrl(null);
+    setAvatarDraft(null);
+    setAvatarFile(null);
     setProfileOpen(false);
     setLaunchWalletIds(FLEET.slice(0, 5).map((w) => w.id));
     setLaunchEth("0.25");
@@ -424,10 +565,24 @@ export default function HoodDashboard({
                   return;
                 }
                 setProfileDraft(username);
+                setAvatarDraft(avatarUrl);
+                setAvatarFile(null);
                 setProfileOpen(true);
               }}
             >
-              Profile{username ? ` · @${username}` : ""}
+              {avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={avatarUrl}
+                  alt=""
+                  className="hrpc-avatar hrpc-avatar-nav"
+                  width={22}
+                  height={22}
+                />
+              ) : null}
+              <span>
+                Profile{username ? ` · @${username}` : ""}
+              </span>
             </button>
             {wallet ? (
               <button
@@ -483,6 +638,38 @@ export default function HoodDashboard({
             <p className="hrpc-mono hrpc-muted">
               Wallet · {wallet ? shortAddr(wallet) : "—"}
             </p>
+            <div className="hrpc-avatar-edit">
+              <div className="hrpc-avatar-preview">
+                {avatarDraft || avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={avatarDraft || avatarUrl || ""}
+                    alt="Profile"
+                    className="hrpc-avatar hrpc-avatar-lg"
+                    width={72}
+                    height={72}
+                  />
+                ) : (
+                  <span className="hrpc-avatar hrpc-avatar-lg hrpc-avatar-empty">
+                    ?
+                  </span>
+                )}
+              </div>
+              <label className="hrpc-btn hrpc-btn-ghost hrpc-avatar-pick">
+                Upload image
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  hidden
+                  onChange={(e) =>
+                    onAvatarPick(e.target.files?.[0] || null)
+                  }
+                />
+              </label>
+              <p className="hrpc-muted" style={{ fontSize: "0.68rem" }}>
+                JPEG / PNG / WebP · max 1MB
+              </p>
+            </div>
             <label className="hrpc-label" htmlFor="hrpc-username">
               Username
             </label>
@@ -497,8 +684,13 @@ export default function HoodDashboard({
                 autoComplete="off"
                 spellCheck={false}
               />
-              <button type="button" className="hrpc-btn" onClick={saveProfile}>
-                Save
+              <button
+                type="button"
+                className="hrpc-btn"
+                onClick={() => void saveProfile()}
+                disabled={profileSaving}
+              >
+                {profileSaving ? "Saving…" : "Save"}
               </button>
             </div>
           </div>
@@ -524,17 +716,44 @@ export default function HoodDashboard({
         <aside className="hrpc-pnl-board" aria-label="Top PnL leaderboard">
           <div className="hrpc-pnl-head">
             <h2 className="hrpc-section-title hrpc-section-title-sm">Top PnL</h2>
-            <span className="hrpc-nft-chip">Top 20 registered</span>
+            <span className="hrpc-nft-chip">Live · site snipes</span>
           </div>
-          <ol className="hrpc-pnl-list">
-            {PNL_LEADERS.map((row, i) => (
-              <li key={row.user} className="hrpc-pnl-row">
-                <span className="hrpc-pnl-rank hrpc-mono">#{i + 1}</span>
-                <span className="hrpc-pnl-user">@{row.user}</span>
-                <span className="hrpc-pnl-val hrpc-mono">{row.pnl}</span>
-              </li>
-            ))}
-          </ol>
+          {pnlLeaders.length === 0 ? (
+            <p className="hrpc-pnl-empty hrpc-muted">
+              {pnlNote ||
+                "No snipes yet — PnL appears after real ETH_RPC buys."}
+            </p>
+          ) : (
+            <ol className="hrpc-pnl-list">
+              {pnlLeaders.map((row, i) => (
+                <li key={row.wallet || row.user} className="hrpc-pnl-row">
+                  <span className="hrpc-pnl-rank hrpc-mono">#{i + 1}</span>
+                  {row.avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={row.avatarUrl}
+                      alt=""
+                      className="hrpc-avatar hrpc-avatar-sm"
+                      width={22}
+                      height={22}
+                    />
+                  ) : (
+                    <span className="hrpc-avatar hrpc-avatar-sm hrpc-avatar-empty">
+                      {(row.user || "?").slice(0, 1).toUpperCase()}
+                    </span>
+                  )}
+                  <span className="hrpc-pnl-user">
+                    {row.user.startsWith("0x") ? row.user : `@${row.user}`}
+                  </span>
+                  <span
+                    className={`hrpc-pnl-val hrpc-mono${row.pnlEth < 0 ? " hrpc-pnl-neg" : ""}`}
+                  >
+                    {row.pnl}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          )}
         </aside>
       </section>
 

@@ -586,8 +586,27 @@ export default function HoodNftPanels({
         contract: row.contract,
         tokenId: row.tokenId,
       });
+      const txHash = result.txHashes[0];
+      if (txHash && row.contract && row.tokenId) {
+        try {
+          await fetch(`${apiBase}/pnl/record`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              txHash,
+              contract: row.contract,
+              tokenId: row.tokenId,
+              costEth: priceEth,
+              collectionSlug: row.collectionSlug,
+              tokenName: row.tokenName,
+            }),
+          });
+        } catch {
+          /* non-blocking — snipe still succeeded */
+        }
+      }
       onToast(
-        `> SNIPED · ${row.tokenName} · ${result.txHashes[0]?.slice(0, 12)}…`,
+        `> SNIPED · ${row.tokenName} · ${txHash?.slice(0, 12) || "ok"}…`,
       );
     } catch (err) {
       onToast(buyErrorToast(err));

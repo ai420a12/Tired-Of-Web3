@@ -449,6 +449,9 @@
 }
 
 .hrpc-profile-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   font-size: 0.72rem;
   padding: 0.45rem 0.7rem;
   white-space: nowrap;
@@ -456,6 +459,62 @@
 
 .hrpc-profile-modal {
   max-width: 420px;
+}
+
+.hrpc-avatar {
+  border-radius: 50%;
+  object-fit: cover;
+  background: #111;
+  border: 1px solid var(--line);
+  flex-shrink: 0;
+}
+
+.hrpc-avatar-nav {
+  width: 22px;
+  height: 22px;
+}
+
+.hrpc-avatar-sm {
+  width: 22px;
+  height: 22px;
+  font-size: 0.62rem;
+}
+
+.hrpc-avatar-lg {
+  width: 72px;
+  height: 72px;
+  font-size: 1.4rem;
+}
+
+.hrpc-avatar-empty {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted, #888);
+  font-weight: 800;
+}
+
+.hrpc-avatar-edit {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.45rem;
+  margin: 0.75rem 0 1rem;
+}
+
+.hrpc-avatar-pick {
+  cursor: pointer;
+}
+
+.hrpc-pnl-empty {
+  margin: 0.75rem 0 0;
+  padding: 0.5rem 0.15rem;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.hrpc-pnl-neg {
+  color: #f87171;
 }
 
 .hrpc-chip {
@@ -653,7 +712,7 @@
 
 .hrpc-pnl-row {
   display: grid;
-  grid-template-columns: 2rem minmax(0, 1fr) auto;
+  grid-template-columns: 2rem 1.4rem minmax(0, 1fr) auto;
   gap: 0.4rem;
   align-items: center;
   padding: 0.38rem 0.2rem;
