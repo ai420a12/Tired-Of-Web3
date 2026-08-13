@@ -286,11 +286,15 @@ export default function HoodTools({
       const { wallet, pk } = generateSquadWallet(i + 1);
       pkById.current.set(wallet.id, pk);
       rows.push(wallet);
-      lines.push(`#${wallet.id}  ${wallet.address}  ${pk}`);
+      lines.push(
+        `Wallet ${wallet.id}: ${wallet.address}`,
+        `Private key: ${pk}`,
+        "",
+      );
     }
     setSquad(rows);
     setWorkers(n);
-    setGenOut(lines.join("\n"));
+    setGenOut(lines.join("\n").trim());
     onToast(`> GENERATED ${n} WALLETS · COPY NOW · KEYS STAY IN THIS TAB`);
     pushOutcome(`Generated ${n} wallets (session)`);
   }
