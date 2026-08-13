@@ -36,32 +36,38 @@ export type ListingBuyResult = {
 };
 
 const SIGN_RPC = "https://ethereum.publicnode.com";
+const SEAPORT_GAS_FALLBACK = BigInt(300000);
 
-function gasMultipliers(mode: GasMode): {
-  priorityX: bigint;
-  maxX: bigint;
-  floorPriority: bigint;
-} {
-  switch (mode) {
-    case "normal":
-      return {
-        priorityX: BigInt(3),
-        maxX: BigInt(2),
-        floorPriority: parseGwei("3"),
-      };
-    case "fast":
-      return {
-        priorityX: BigInt(6),
-        maxX: BigInt(2),
-        floorPriority: parseGwei("15"),
-      };
-    default:
-      return {
-        priorityX: BigInt(12),
-        maxX: BigInt(3),
-        floorPriority: parseGwei("40"),
-      };
-  }
+function eth4(wei: bigint): string {
+  return Number(formatEther(wei)).toFixed(4);
+}
+
+/** Fast snipe gas from the live base fee — not 2021-style 40 gwei floors. */
+async function quoteSnipeGas(
+  publicClient: ReturnType<typeof createPublicClient>,
+  mode: GasMode,
+): Promise<{ maxFeePerGas: bigint; maxPriorityFeePerGas: bigint }> {
+  const block = await publicClient.getBlock({ blockTag: "latest" });
+  const fees = await publicClient.estimateFeesPerGas().catch(() => null);
+  const baseFee =
+    block.baseFeePerGas ?? fees?.maxFeePerGas ?? parseGwei("1");
+  const netTip = fees?.maxPriorityFeePerGas ?? parseGwei("0.05");
+
+  const spec =
+    mode === "normal"
+      ? { tipFloor: parseGwei("0.2"), tipCap: parseGwei("2"), tipX: BigInt(1), baseBps: BigInt(1125) }
+      : mode === "fast"
+        ? { tipFloor: parseGwei("0.4"), tipCap: parseGwei("3"), tipX: BigInt(2), baseBps: BigInt(1250) }
+        : { tipFloor: parseGwei("0.5"), tipCap: parseGwei("5"), tipX: BigInt(3), baseBps: BigInt(1500) };
+
+  let tip = netTip * spec.tipX;
+  if (tip < spec.tipFloor) tip = spec.tipFloor;
+  if (tip > spec.tipCap) tip = spec.tipCap;
+
+  return {
+    maxPriorityFeePerGas: tip,
+    maxFeePerGas: (baseFee * spec.baseBps) / BigInt(1000) + tip,
+  };
 }
 
 async function fetchFulfillment(input: SilentBuyInput, buyer: Address) {
@@ -97,7 +103,6 @@ export async function buyEthListingSilent(
   const account = privateKeyToAccount(input.sessionPrivateKey);
   const apiBase = input.apiBase || "/api/hood-rpc/eth";
   const mode = input.gasMode || "hyper";
-  const { priorityX, maxX, floorPriority } = gasMultipliers(mode);
 
   const txs = await fetchFulfillment(input, account.address);
 
@@ -111,14 +116,10 @@ export async function buyEthListingSilent(
     transport: http(SIGN_RPC),
   });
 
-  const fees = await publicClient.estimateFeesPerGas().catch(() => null);
-  let maxPriorityFeePerGas =
-    (fees?.maxPriorityFeePerGas ?? parseGwei("2")) * priorityX;
-  if (maxPriorityFeePerGas < floorPriority) {
-    maxPriorityFeePerGas = floorPriority;
-  }
-  const base = fees?.maxFeePerGas ?? parseGwei("30");
-  const maxFeePerGas = base * maxX + maxPriorityFeePerGas;
+  const { maxFeePerGas, maxPriorityFeePerGas } = await quoteSnipeGas(
+    publicClient,
+    mode,
+  );
 
   let nonce = await publicClient.getTransactionCount({
     address: account.address,
@@ -128,7 +129,7 @@ export async function buyEthListingSilent(
   const txHashes: string[] = [];
   for (const tx of txs) {
     const value = BigInt(tx.value || "0x0");
-    let gas = BigInt(650000);
+    let gas = SEAPORT_GAS_FALLBACK;
     try {
       gas = await publicClient.estimateGas({
         account: account.address,
@@ -136,15 +137,16 @@ export async function buyEthListingSilent(
         data: tx.data as Hex,
         value,
       });
-      gas = (gas * BigInt(130)) / BigInt(100);
+      gas = (gas * BigInt(115)) / BigInt(100);
     } catch {
       /* keep fallback */
     }
     const bal = await publicClient.getBalance({ address: account.address });
-    const need = value + gas * maxFeePerGas;
+    const gasCap = gas * maxFeePerGas;
+    const need = value + gasCap;
     if (bal < need) {
       throw new Error(
-        `insufficient funds · wallet has ${Number(formatEther(bal)).toFixed(4)} ETH · needs ~${Number(formatEther(need)).toFixed(4)} ETH`,
+        `insufficient funds · has ${eth4(bal)} ETH · listing ${eth4(value)} + gas ~${eth4(gasCap)} · needs ~${eth4(need)} ETH`,
       );
     }
     const signedTx = await walletClient.signTransaction({
