@@ -164,6 +164,15 @@ export async function fetchMintgoBootstrap(
   );
 }
 
+export async function fetchMintgoAllBootstrap(
+  window: MintgoWindow,
+): Promise<Partial<Record<MintgoChain, MintgoBootstrap>>> {
+  const data = await mintgoJson<{
+    chains?: Partial<Record<MintgoChain, MintgoBootstrap>>;
+  }>(`/api/all/bootstrap?window=${window}`, "MintGo all bootstrap");
+  return data.chains || {};
+}
+
 export async function fetchMintgoCollection(
   chain: MintgoChain,
   contract: string,

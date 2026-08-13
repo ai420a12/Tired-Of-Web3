@@ -17,6 +17,7 @@ export async function handleMintTx(req: Request, variant: HoodRpcVariant) {
     quantity?: number;
     from?: string;
     allowPaid?: boolean;
+    chain?: string;
   };
   try {
     body = (await req.json()) as typeof body;
@@ -40,7 +41,12 @@ export async function handleMintTx(req: Request, variant: HoodRpcVariant) {
     );
   }
 
-  const chain: MintgoChain = variant === "eth" ? "ethereum" : "robinhood";
+  const chain: MintgoChain =
+    body.chain === "ethereum" || body.chain === "robinhood"
+      ? body.chain
+      : variant === "eth"
+        ? "ethereum"
+        : "robinhood";
   try {
     const payload = await fetchMintgoMintTx({
       chain,

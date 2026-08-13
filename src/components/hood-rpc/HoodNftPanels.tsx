@@ -10,7 +10,6 @@ import { buyErrorLine, buyEthListingSilent } from "@/lib/eth-listing-buy";
 import type { Hex } from "viem";
 import type { HoodRpcVariant } from "@/lib/hood-rpc-chain";
 import HoodMintBoard from "./HoodMintBoard";
-import type { SquadMintWallet } from "@/lib/seadrop-mint";
 
 type SnipeWallet = {
   pk: Hex;
@@ -25,7 +24,7 @@ type Props = {
   liveListingBuys?: boolean;
   variant?: HoodRpcVariant;
   getSnipeWallet?: () => SnipeWallet | null;
-  getSquadWallets?: () => SquadMintWallet[];
+  getSquadWallets?: () => { pk: Hex; id: number; address: string }[];
   onOutcome?: (text: string, kind?: "ok" | "err" | "info") => void;
 };
 
@@ -336,7 +335,6 @@ export default function HoodNftPanels({
   liveListingBuys = false,
   variant = "hood",
   getSnipeWallet,
-  getSquadWallets,
   onOutcome,
 }: Props) {
   const [live, setLive] = useState<HoodNftSale[]>([]);
@@ -748,7 +746,7 @@ export default function HoodNftPanels({
     <HoodMintBoard
       apiBase={apiBase}
       variant={variant}
-      getSquadWallets={getSquadWallets}
+      connectedWallet={connectedWallet}
       onToast={onToast}
       onOutcome={onOutcome}
     />

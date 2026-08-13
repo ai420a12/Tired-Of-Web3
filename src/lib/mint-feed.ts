@@ -1,5 +1,8 @@
+export type MintFeedChain = "robinhood" | "ethereum";
+
 export type MintFeedRow = {
   id: string;
+  chain: MintFeedChain;
   contract: string;
   name: string;
   image: string;
@@ -8,11 +11,21 @@ export type MintFeedRow = {
   max: string;
   floor: string;
   mintCount: string;
+  mintCountNum: number;
   minters: string;
   volume: string;
+  volumeNum: number;
   qty: string;
   tokenId: string;
   minter: string;
   ago: string;
   price: string;
+  hot: boolean;
+  proxy: boolean;
+  free: boolean;
+  standard: string;
+  sales: string;
+  change: string;
+  changeNum: number;
+  rank: string;
 };

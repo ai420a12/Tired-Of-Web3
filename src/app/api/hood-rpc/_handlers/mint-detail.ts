@@ -25,8 +25,15 @@ export async function handleMintDetail(
   const access = await requireAccessKey(req);
   if (isAccessDenied(access)) return access;
 
-  const chain: MintgoChain = variant === "eth" ? "ethereum" : "robinhood";
-  const contract = (new URL(req.url).searchParams.get("contract") || "")
+  const url = new URL(req.url);
+  const rawChain = url.searchParams.get("chain");
+  const chain: MintgoChain =
+    rawChain === "ethereum" || rawChain === "robinhood"
+      ? rawChain
+      : variant === "eth"
+        ? "ethereum"
+        : "robinhood";
+  const contract = (url.searchParams.get("contract") || "")
     .trim()
     .toLowerCase();
   if (!/^0x[a-f0-9]{40}$/.test(contract)) {

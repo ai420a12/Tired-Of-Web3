@@ -2,16 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { HoodRpcVariant } from "@/lib/hood-rpc-chain";
-import {
-  signAndBroadcastMint,
-  type SquadMintWallet,
-} from "@/lib/seadrop-mint";
-import type { MintFeedRow } from "@/lib/mint-feed";
+import type { MintFeedChain, MintFeedRow } from "@/lib/mint-feed";
+import { sendMintWithMetaMask, walletErrorText } from "@/lib/metamask-mint";
 
 type Props = {
   apiBase: string;
   variant: HoodRpcVariant;
-  getSquadWallets?: () => SquadMintWallet[];
+  connectedWallet?: string | null;
   onToast: (msg: string) => void;
   onOutcome?: (text: string, kind?: "ok" | "err" | "info") => void;
 };
@@ -19,7 +16,6 @@ type Props = {
 type RadarPayload = {
   ok?: boolean;
   error?: string;
-  window?: string;
   trending?: MintFeedRow[];
   mints?: MintFeedRow[];
   market?: MintFeedRow[];
@@ -31,13 +27,9 @@ type DetailPayload = {
   contract?: string;
   name?: string;
   image?: string;
-  slug?: string;
   openseaUrl?: string;
   minted?: number;
   max?: number;
-  floor?: number;
-  holders?: number;
-  priceLabel?: string;
   analysis?: {
     ready?: boolean;
     reason?: string;
@@ -45,14 +37,28 @@ type DetailPayload = {
     maxPerWallet?: number;
     unitPriceWei?: string;
     unitPriceEth?: number;
-    functionLabel?: string;
     nativeSymbol?: string;
+    requiresHelper?: boolean;
+    serviceFeePerMintWei?: string;
   };
 };
 
+type PreparedMint = {
+  to: string;
+  data: string;
+  value?: string;
+  gas?: string;
+  from?: string;
+  serviceFeeTotalEth?: number;
+};
+
 const WINDOWS = ["1m", "5m", "15m", "1h", "1d"] as const;
-const QTY_SET = [1, 5, 10] as const;
-const QTY_MINT = [30, 50, 100] as const;
+const VIEWS = [
+  { id: "all", label: "ALL" },
+  { id: "robinhood", label: "RH" },
+  { id: "ethereum", label: "ETH" },
+] as const;
+const QTY_CHIPS = [1, 5, 10, 30, 50, 100] as const;
 const POLL_MS = 8000;
 
 function shortAddr(addr: string) {
@@ -60,20 +66,28 @@ function shortAddr(addr: string) {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }
 
-function supplyLine(minted: string | number, max: string | number) {
-  const a = String(minted || "").trim();
-  const b = String(max || "").trim();
-  if (a && b) return `${a}/${b}`;
-  return a || b || "—";
+function rowKey(row: MintFeedRow) {
+  return `${row.chain}:${row.contract}`;
+}
+
+function ChainBadge({ chain }: { chain: MintFeedChain }) {
+  return (
+    <span className={`hrpc-mint-net hrpc-mint-net-${chain === "ethereum" ? "eth" : "rh"}`}>
+      {chain === "ethereum" ? "ETH" : "RH"}
+    </span>
+  );
 }
 
 export default function HoodMintBoard({
   apiBase,
   variant,
-  getSquadWallets,
+  connectedWallet = null,
   onToast,
   onOutcome,
 }: Props) {
+  const [view, setView] = useState<(typeof VIEWS)[number]["id"]>(
+    variant === "eth" ? "ethereum" : "all",
+  );
   const [win, setWin] = useState<(typeof WINDOWS)[number]>("1m");
   const [query, setQuery] = useState("");
   const [trending, setTrending] = useState<MintFeedRow[]>([]);
@@ -83,17 +97,17 @@ export default function HoodMintBoard({
   const [note, setNote] = useState<string | null>(null);
   const [selected, setSelected] = useState<MintFeedRow | null>(null);
   const [detail, setDetail] = useState<DetailPayload | null>(null);
-  const [qty, setQty] = useState(1);
+  const [qty, setQty] = useState(30);
   const [allowPaid, setAllowPaid] = useState(false);
-  const [minting, setMinting] = useState<number | null>(null);
-
-  const chainLabel = variant === "eth" ? "ETH" : "RH";
+  const [minting, setMinting] = useState(false);
+  const [prepared, setPrepared] = useState<PreparedMint | null>(null);
 
   const loadRadar = useCallback(async () => {
     try {
-      const res = await fetch(`${apiBase}/mint-radar?window=${win}`, {
-        cache: "no-store",
-      });
+      const res = await fetch(
+        `${apiBase}/mint-radar?window=${win}&view=${view}`,
+        { cache: "no-store" },
+      );
       const data = (await res.json()) as RadarPayload;
       if (!res.ok || data.ok === false) {
         setNote(data.error || "Live mint feed unavailable");
@@ -108,26 +122,23 @@ export default function HoodMintBoard({
     } finally {
       setLoading(false);
     }
-  }, [apiBase, win]);
+  }, [apiBase, win, view]);
 
   useEffect(() => {
     setLoading(true);
     void loadRadar();
-    const id = window.setInterval(() => {
-      void loadRadar();
-    }, POLL_MS);
+    const id = window.setInterval(() => void loadRadar(), POLL_MS);
     return () => window.clearInterval(id);
   }, [loadRadar]);
 
   const loadDetail = useCallback(
-    async (contract: string) => {
+    async (row: MintFeedRow) => {
       try {
         const res = await fetch(
-          `${apiBase}/mint-detail?contract=${contract}`,
+          `${apiBase}/mint-detail?contract=${row.contract}&chain=${row.chain}`,
           { cache: "no-store" },
         );
-        const data = (await res.json()) as DetailPayload;
-        setDetail(data);
+        setDetail((await res.json()) as DetailPayload);
       } catch {
         setDetail({ ok: false, error: "Could not load mint route" });
       }
@@ -139,8 +150,9 @@ export default function HoodMintBoard({
     (row: MintFeedRow) => {
       setSelected(row);
       setDetail(null);
+      setPrepared(null);
       setAllowPaid(false);
-      void loadDetail(row.contract);
+      void loadDetail(row);
     },
     [loadDetail],
   );
@@ -162,27 +174,67 @@ export default function HoodMintBoard({
   const paid = Number(detail?.analysis?.unitPriceEth || 0) > 0;
   const ready = Boolean(detail?.analysis?.ready);
   const unit = Number(detail?.analysis?.unitPriceEth || 0);
-  const maxPerWallet = Number(detail?.analysis?.maxPerWallet || 0);
   const native = detail?.analysis?.nativeSymbol || "ETH";
-  const signer = getSquadWallets?.()[0] || null;
+  const proxy = Boolean(detail?.analysis?.requiresHelper || selected?.proxy);
+
+  useEffect(() => {
+    if (!selected || !connectedWallet || !ready) {
+      setPrepared(null);
+      return;
+    }
+    if (paid && !allowPaid) {
+      setPrepared(null);
+      return;
+    }
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      try {
+        const res = await fetch(`${apiBase}/mint-tx`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            contract: selected.contract,
+            quantity: qty,
+            from: connectedWallet,
+            allowPaid: paid && allowPaid,
+            chain: selected.chain,
+          }),
+        });
+        const data = (await res.json()) as {
+          ok?: boolean;
+          tx?: PreparedMint;
+        };
+        if (!cancelled && data.ok && data.tx?.to && data.tx?.data) {
+          setPrepared(data.tx);
+        } else if (!cancelled) {
+          setPrepared(null);
+        }
+      } catch {
+        if (!cancelled) setPrepared(null);
+      }
+    }, 200);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [apiBase, selected, connectedWallet, qty, ready, paid, allowPaid]);
 
   const mintLabel = useMemo(() => {
-    if (!selected) return "Pick a live mint";
+    if (!selected) return "Pick a mint";
+    if (!connectedWallet) return "Connect wallet";
     if (detail && !ready) return detail.analysis?.reason || "No mint route";
-    if (paid && !allowPaid) return "Enable paid mint";
-    if (minting != null) return `Minting ${minting}…`;
+    if (paid && !allowPaid) return "Confirm paid";
+    if (minting) return "Confirm in wallet…";
     return `Mint ${qty}`;
-  }, [selected, detail, ready, paid, allowPaid, minting, qty]);
+  }, [selected, connectedWallet, detail, ready, paid, allowPaid, minting, qty]);
 
-  async function mintQuantity(quantity: number) {
-    const wallets = getSquadWallets?.() || [];
-    const wallet = wallets[0] || null;
+  async function mintNow(quantity: number) {
     if (!selected) {
       onToast("> CLICK A LIVE MINT FIRST");
       return;
     }
-    if (!wallet) {
-      onToast("> GENERATE OR PASTE SQUAD KEYS FIRST");
+    if (!connectedWallet) {
+      onToast("> CONNECT METAMASK FIRST");
       return;
     }
     if (paid && !allowPaid) {
@@ -195,61 +247,59 @@ export default function HoodMintBoard({
     }
 
     setQty(quantity);
-    setMinting(quantity);
+    setMinting(true);
     const name = detail?.name || selected.name;
     onOutcome?.(
-      `Mint ${quantity} · ${name} · wallet #${wallet.id} ${shortAddr(wallet.address)}`,
+      `Proxy mint ${quantity} · ${name} · ${shortAddr(connectedWallet)}`,
       "info",
     );
     try {
-      const res = await fetch(`${apiBase}/mint-tx`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          contract: selected.contract,
-          quantity,
-          from: wallet.address,
-          allowPaid: paid && allowPaid,
-        }),
-      });
-      const data = (await res.json()) as {
-        ok?: boolean;
-        error?: string;
-        tx?: {
-          to?: string;
-          data?: string;
-          value?: string;
-          gas?: string;
-          from?: string;
-          serviceFeeTotalEth?: number;
+      let tx = prepared;
+      if (!tx || quantity !== qty) {
+        const res = await fetch(`${apiBase}/mint-tx`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            contract: selected.contract,
+            quantity,
+            from: connectedWallet,
+            allowPaid: paid && allowPaid,
+            chain: selected.chain,
+          }),
+        });
+        const data = (await res.json()) as {
+          ok?: boolean;
+          error?: string;
+          tx?: PreparedMint;
         };
-      };
-      if (!res.ok || !data.ok || !data.tx) {
-        throw new Error(data.error || "MINT_ROUTE_FAILED");
+        if (!res.ok || !data.ok || !data.tx?.to || !data.tx?.data) {
+          throw new Error(data.error || "MINT_ROUTE_FAILED");
+        }
+        tx = data.tx;
       }
-      const hash = await signAndBroadcastMint({
-        variant,
-        apiBase,
-        privateKey: wallet.pk,
-        tx: data.tx,
+      const hash = await sendMintWithMetaMask({
+        chain: selected.chain,
+        from: connectedWallet,
+        to: tx.to,
+        data: tx.data,
+        value: tx.value,
+        gas: tx.gas,
       });
-      const fee =
-        data.tx.serviceFeeTotalEth != null
-          ? ` · fee ${data.tx.serviceFeeTotalEth} ${native}`
-          : "";
       onOutcome?.(
-        `Minted ${quantity} · ${name} · ${hash.slice(0, 10)}…${fee}`,
+        `Minted ${quantity} · ${name} · ${hash.slice(0, 10)}… · landing in ${shortAddr(connectedWallet)}`,
         "ok",
       );
-      onToast(`> MINTED ${quantity} · ${name.toUpperCase()}`);
+      onToast(`> MINTED ${quantity} · CHECK YOUR WALLET`);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "MINT_FAILED";
+      const msg = walletErrorText(err);
       onOutcome?.(`Mint failed · ${name} · ${msg}`, "err");
       onToast(`> MINT FAILED · ${msg}`);
     } finally {
-      setMinting(null);
+      setMinting(false);
     }
   }
+
+  const selectedKey = selected ? rowKey(selected) : "";
 
   return (
     <section className="hrpc-mint-board" aria-label="Live mint board" id="mint-now">
@@ -257,18 +307,23 @@ export default function HoodMintBoard({
         <div>
           <h2 className="hrpc-section-title">Live Mint</h2>
           <p className="hrpc-mint-sub">
-            Trending · New Mints · Market · one-click 30 / 50 / 100 on {chainLabel}
+            Connect one wallet · pick qty · MetaMask pops · NFTs land in that wallet
           </p>
         </div>
         <div className="hrpc-mint-tools">
-          <input
-            className="hrpc-mint-search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search collection or 0x…"
-            spellCheck={false}
-          />
-          <div className="hrpc-mint-windows" role="tablist" aria-label="Mint window">
+          <div className="hrpc-mint-windows" role="tablist" aria-label="Chain">
+            {VIEWS.map((v) => (
+              <button
+                key={v.id}
+                type="button"
+                className={`hrpc-mint-win${view === v.id ? " is-on" : ""}`}
+                onClick={() => setView(v.id)}
+              >
+                {v.label}
+              </button>
+            ))}
+          </div>
+          <div className="hrpc-mint-windows" role="tablist" aria-label="Window">
             {WINDOWS.map((w) => (
               <button
                 key={w}
@@ -280,6 +335,13 @@ export default function HoodMintBoard({
               </button>
             ))}
           </div>
+          <input
+            className="hrpc-mint-search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search…"
+            spellCheck={false}
+          />
         </div>
       </div>
 
@@ -288,7 +350,7 @@ export default function HoodMintBoard({
           title="Trending"
           empty={loading ? "Loading trending…" : note || "No trending mints."}
           rows={filterRows(trending)}
-          selected={selected?.contract}
+          selectedKey={selectedKey}
           onSelect={selectRow}
           kind="trending"
         />
@@ -296,17 +358,15 @@ export default function HoodMintBoard({
           title="New Mints"
           empty={loading ? "Loading new mints…" : note || "No new mints."}
           rows={filterRows(mints)}
-          selected={selected?.contract}
+          selectedKey={selectedKey}
           onSelect={selectRow}
           kind="mints"
         />
-        <MintCol
-          title="Market"
+        <MarketCol
           empty={loading ? "Loading market…" : note || "No market movers."}
           rows={filterRows(market)}
-          selected={selected?.contract}
+          selectedKey={selectedKey}
           onSelect={selectRow}
-          kind="market"
         />
       </div>
 
@@ -321,47 +381,42 @@ export default function HoodMintBoard({
                 className="hrpc-mint-pick-img"
               />
               <div className="hrpc-mint-pick-meta">
-                <strong>{detail?.name || selected.name}</strong>
+                <strong>
+                  {detail?.name || selected.name}{" "}
+                  <ChainBadge chain={selected.chain} />
+                  {proxy ? <span className="hrpc-mint-tag hrpc-mint-tag-proxy">Proxy Mint</span> : null}
+                </strong>
                 <span>{shortAddr(selected.contract)}</span>
                 <span>
-                  {supplyLine(
-                    detail?.minted ?? selected.minted,
-                    detail?.max ?? selected.max,
-                  )}
-                  {maxPerWallet ? ` · max ${maxPerWallet}/wallet` : ""}
+                  {detail?.minted && detail?.max
+                    ? `${detail.minted}/${detail.max}`
+                    : "—"}
                   {detail?.analysis?.mode ? ` · ${detail.analysis.mode}` : ""}
+                  {paid ? ` · ${unit} ${native}` : " · Free"}
                 </span>
                 <span>
-                  {paid
-                    ? `${unit} ${native} each`
-                    : ready
-                      ? "FREE mint"
-                      : detail?.error ||
-                        detail?.analysis?.reason ||
-                        "Checking mint route…"}
+                  {connectedWallet
+                    ? `Mints to ${shortAddr(connectedWallet)}`
+                    : "Connect MetaMask to mint"}
+                  {prepared?.serviceFeeTotalEth
+                    ? ` · helper ~${prepared.serviceFeeTotalEth} ETH + gas`
+                    : ""}
                 </span>
               </div>
-              {detail?.openseaUrl ? (
-                <a
-                  className="hrpc-btn hrpc-btn-ghost"
-                  href={detail.openseaUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  OpenSea
-                </a>
-              ) : null}
             </div>
 
             <div className="hrpc-mint-actions">
               <div className="hrpc-mint-qty-row">
-                {QTY_SET.map((n) => (
+                {QTY_CHIPS.map((n) => (
                   <button
                     key={n}
                     type="button"
-                    className={`hrpc-mint-chip${qty === n ? " is-on" : ""}`}
-                    disabled={minting != null}
-                    onClick={() => setQty(n)}
+                    className={`hrpc-mint-chip${qty === n ? " is-on" : ""}${n >= 30 ? " hrpc-mint-chip-bulk" : ""}`}
+                    disabled={minting}
+                    onClick={() => {
+                      setQty(n);
+                      if (n >= 30) void mintNow(n);
+                    }}
                   >
                     {n}
                   </button>
@@ -372,7 +427,7 @@ export default function HoodMintBoard({
                   min={1}
                   max={100}
                   value={qty}
-                  disabled={minting != null}
+                  disabled={minting}
                   onChange={(e) => {
                     const n = Math.floor(Number(e.target.value));
                     if (!Number.isFinite(n)) return;
@@ -381,50 +436,33 @@ export default function HoodMintBoard({
                 />
                 <button
                   type="button"
-                  className="hrpc-btn"
-                  disabled={minting != null}
-                  onClick={() => void mintQuantity(qty)}
+                  className="hrpc-btn hrpc-mint-go"
+                  disabled={minting}
+                  onClick={() => void mintNow(qty)}
                 >
                   {mintLabel}
                 </button>
               </div>
-
-              <div className="hrpc-mint-bulk">
-                {QTY_MINT.map((n) => (
-                  <button
-                    key={n}
-                    type="button"
-                    className="hrpc-btn hrpc-mint-bulk-btn"
-                    disabled={minting != null || Boolean(detail && !ready)}
-                    onClick={() => void mintQuantity(n)}
-                  >
-                    {minting === n ? "Minting…" : `Mint ${n}`}
-                  </button>
-                ))}
-              </div>
-
               {paid ? (
                 <label className="hrpc-mint-paid">
                   <input
                     type="checkbox"
-                    className="paid-toggle"
                     checked={allowPaid}
                     onChange={(e) => setAllowPaid(e.target.checked)}
                   />
-                  Paid mint · {unit} {native} each — confirm before 30/50/100
+                  Paid mint · {unit} {native} each — tick this, then mint
                 </label>
               ) : (
                 <p className="hrpc-mint-hint">
-                  {signer
-                    ? `30 / 50 / 100 signs with squad #${signer.id} ${shortAddr(signer.address)}. Fund that wallet, then send NFTs to master.`
-                    : "Generate or paste squad keys first — 30 / 50 / 100 signs with wallet #1."}
+                  One MetaMask confirm. Proxy mint sends all {qty} into your
+                  connected wallet — no extra squad wallets.
                 </p>
               )}
             </div>
           </>
         ) : (
           <p className="hrpc-nft-empty">
-            Click a collection above, then mint 30, 50 or 100 in one click.
+            Click a collection, hit 30 / 50 / 100, confirm in MetaMask. Done.
           </p>
         )}
       </div>
@@ -436,16 +474,16 @@ function MintCol({
   title,
   empty,
   rows,
-  selected,
+  selectedKey,
   onSelect,
   kind,
 }: {
   title: string;
   empty: string;
   rows: MintFeedRow[];
-  selected?: string;
+  selectedKey: string;
   onSelect: (row: MintFeedRow) => void;
-  kind: "trending" | "mints" | "market";
+  kind: "trending" | "mints";
 }) {
   return (
     <aside className="hrpc-panel hrpc-nft-col hrpc-mint-col">
@@ -462,23 +500,110 @@ function MintCol({
               <li key={row.id}>
                 <button
                   type="button"
-                  className={`hrpc-mint-row${selected === row.contract ? " is-on" : ""}`}
+                  className={`hrpc-mint-row${kind === "trending" ? " hrpc-mint-row-trend" : " hrpc-mint-row-live"}${row.hot ? " is-hot" : ""}${selectedKey === rowKey(row) ? " is-on" : ""}`}
                   onClick={() => onSelect(row)}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={row.image} alt="" className="hrpc-mint-row-img" />
-                  <span className="hrpc-mint-row-name">{row.name}</span>
-                  <span className="hrpc-mint-row-stat">
+                  <span className="hrpc-mint-row-main">
+                    <span className="hrpc-mint-row-name">{row.name}</span>
+                    {kind === "mints" ? (
+                      <span className="hrpc-mint-tags">
+                        <ChainBadge chain={row.chain} />
+                        {row.proxy ? (
+                          <span className="hrpc-mint-tag hrpc-mint-tag-proxy">Proxy Mint</span>
+                        ) : null}
+                        <span className="hrpc-mint-tag">{row.price}</span>
+                        {row.standard ? (
+                          <span className="hrpc-mint-tag">{row.standard}</span>
+                        ) : null}
+                        <span className="hrpc-mint-ago">{row.ago}</span>
+                      </span>
+                    ) : (
+                      <ChainBadge chain={row.chain} />
+                    )}
+                  </span>
+                  <span className="hrpc-mint-row-count">
                     {kind === "mints"
-                      ? `${row.qty || "1"} · ${row.price || "FREE"} · ${row.ago}`
-                      : kind === "market"
-                        ? `${row.mintCount || "—"} · ${row.volume || "—"}`
-                        : `${row.mintCount || "—"} · ${row.minters || "—"} minters`}
+                      ? `+${row.qty || "1"}`
+                      : row.mintCount || compactFallback(row.mintCountNum)}
                   </span>
                 </button>
               </li>
             ))}
           </ul>
+        )}
+      </div>
+    </aside>
+  );
+}
+
+function compactFallback(n: number) {
+  if (!n) return "—";
+  if (n >= 1000) return `+${(n / 1000).toFixed(1)}K`;
+  return `+${n}`;
+}
+
+function MarketCol({
+  empty,
+  rows,
+  selectedKey,
+  onSelect,
+}: {
+  empty: string;
+  rows: MintFeedRow[];
+  selectedKey: string;
+  onSelect: (row: MintFeedRow) => void;
+}) {
+  return (
+    <aside className="hrpc-panel hrpc-nft-col hrpc-mint-col">
+      <div className="hrpc-nft-col-head">
+        <h3 className="hrpc-section-title hrpc-section-title-sm">Market</h3>
+        <span className="hrpc-nft-chip">{rows.length}</span>
+      </div>
+      <div className="hrpc-table-wrap hrpc-nft-scroll">
+        {rows.length === 0 ? (
+          <p className="hrpc-nft-empty">{empty}</p>
+        ) : (
+          <div className="hrpc-mint-mkt">
+            <div className="hrpc-mint-mkt-head">
+              <span>Name</span>
+              <span>Volume</span>
+              <span>Change</span>
+              <span>Sales</span>
+            </div>
+            {rows.map((row, i) => (
+              <button
+                key={row.id}
+                type="button"
+                className={`hrpc-mint-mkt-row${selectedKey === rowKey(row) ? " is-on" : ""}`}
+                onClick={() => onSelect(row)}
+              >
+                <span className="hrpc-mint-mkt-name">
+                  <span className="hrpc-mint-mkt-rank">#{i + 1}</span>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={row.image} alt="" className="hrpc-mint-row-img" />
+                  <span>
+                    {row.name}
+                    <ChainBadge chain={row.chain} />
+                  </span>
+                </span>
+                <span>{row.volume || "—"}</span>
+                <span
+                  className={
+                    row.changeNum > 0
+                      ? "hrpc-mint-up"
+                      : row.changeNum < 0
+                        ? "hrpc-mint-down"
+                        : ""
+                  }
+                >
+                  {row.change || "—"}
+                </span>
+                <span>{row.sales || "—"}</span>
+              </button>
+            ))}
+          </div>
         )}
       </div>
     </aside>

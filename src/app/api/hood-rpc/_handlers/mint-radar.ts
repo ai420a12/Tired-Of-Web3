@@ -4,11 +4,12 @@ import {
   type HoodRpcVariant,
 } from "@/lib/hood-rpc-chain";
 import {
+  fetchMintgoAllBootstrap,
   fetchMintgoBootstrap,
   type MintgoChain,
   type MintgoWindow,
 } from "@/lib/mintgo";
-import type { MintFeedRow } from "@/lib/mint-feed";
+import type { MintFeedChain, MintFeedRow } from "@/lib/mint-feed";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -46,6 +47,27 @@ function formatAgo(tsMs: number): string {
   return `${Math.floor(s / 86400)}d`;
 }
 
+function compactCount(n: number): string {
+  if (!n) return "";
+  if (n >= 1000) return `+${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}K`;
+  return `+${n}`;
+}
+
+function formatChange(raw: number): { text: string; value: number } {
+  if (!Number.isFinite(raw) || raw === 0) return { text: "", value: 0 };
+  const pct = Math.abs(raw) <= 2 ? raw * 100 : raw;
+  const sign = pct > 0 ? "+" : "";
+  const text = `${sign}${pct.toFixed(Math.abs(pct) >= 10 ? 0 : 1)}%`;
+  return { text, value: pct };
+}
+
+function formatVolume(n: number): string {
+  if (!n) return "0";
+  if (n >= 10) return n.toFixed(2);
+  if (n >= 1) return n.toFixed(3);
+  return n.toFixed(4);
+}
+
 function displayOf(row: Record<string, unknown>): Record<string, unknown> {
   return asRecord(row.display);
 }
@@ -54,8 +76,47 @@ function collectionOf(row: Record<string, unknown>): Record<string, unknown> {
   return asRecord(row.collection);
 }
 
+function blankRow(
+  chain: MintFeedChain,
+  contract: string,
+  name: string,
+  image: string,
+  slug: string,
+): MintFeedRow {
+  return {
+    id: "",
+    chain,
+    contract,
+    name,
+    image,
+    slug,
+    minted: "",
+    max: "",
+    floor: "",
+    mintCount: "",
+    mintCountNum: 0,
+    minters: "",
+    volume: "",
+    volumeNum: 0,
+    qty: "",
+    tokenId: "",
+    minter: "",
+    ago: "",
+    price: "",
+    hot: false,
+    proxy: false,
+    free: true,
+    standard: "",
+    sales: "",
+    change: "",
+    changeNum: 0,
+    rank: "",
+  };
+}
+
 function mapTrending(
   row: Record<string, unknown>,
+  chain: MintFeedChain,
   fallback: string,
 ): MintFeedRow | null {
   const col = collectionOf(row);
@@ -63,89 +124,98 @@ function mapTrending(
   const contract = addr(col.contractAddress || col.address || row.contractAddress);
   const name = str(col.name || col.collection || row.name).trim();
   if (!contract || !name) return null;
+  const count = num(row.mintCount || row.hotMintCount);
+  const hot = num(row.hotMintCount) >= 40 || num(row.rank) <= 2;
   return {
-    id: `tr:${contract}`,
-    contract,
-    name,
-    image: str(col.image || col.collectionImage || row.image) || fallback,
-    slug: str(col.openSeaSlug || row.openSeaSlug),
+    ...blankRow(
+      chain,
+      contract,
+      name,
+      str(col.image || col.collectionImage || row.image) || fallback,
+      str(col.openSeaSlug || row.openSeaSlug),
+    ),
+    id: `tr:${chain}:${contract}`,
     minted: str(col.mintedSupply || ""),
     max: str(col.maxSupply || ""),
     floor: str(display.floor || col.floorPriceEth || ""),
-    mintCount: str(display.mintCount || row.mintCount || ""),
+    mintCount: str(display.mintCount || compactCount(count)),
+    mintCountNum: count,
     minters: str(display.uniqueMinters || row.uniqueMinters || ""),
-    volume: str(display.volumeEth || row.volumeEth || ""),
-    qty: "",
-    tokenId: "",
-    minter: "",
-    ago: "",
+    volume: str(display.volumeEth || ""),
     price: str(display.floor || ""),
+    hot,
+    rank: str(display.rank || row.rank || ""),
   };
 }
 
 function mapMint(
   row: Record<string, unknown>,
+  chain: MintFeedChain,
   fallback: string,
 ): MintFeedRow | null {
   const contract = addr(
     row.contractAddress || row.address || collectionOf(row).contractAddress,
   );
-  const name = str(
-    row.collectionName || row.collection || row.name,
-  ).trim();
+  const name = str(row.collectionName || row.collection || row.name).trim();
   if (!contract || !name) return null;
   const ts = num(row.timestamp || row.mintedAt);
   const tsMs = ts > 1e12 ? ts : ts > 0 ? ts * 1000 : 0;
-  const qty = str(row.mintQuantity || row.tokenCount || "");
+  const qty = num(row.mintQuantity || row.tokenCount || 1);
   const value = num(row.valueEth);
+  const standard = str(row.standard || "erc721").toUpperCase();
   return {
-    id: str(row.id) || `mn:${contract}:${str(row.txHash)}:${str(row.tokenId)}`,
-    contract,
-    name,
-    image:
+    ...blankRow(
+      chain,
+      contract,
+      name,
       str(row.collectionImage || row.imageUrl || row.tokenImage || row.image) ||
-      fallback,
-    slug: str(row.openSeaSlug),
-    minted: "",
-    max: "",
-    floor: "",
-    mintCount: qty,
-    minters: "",
-    volume: "",
-    qty,
+        fallback,
+      str(row.openSeaSlug),
+    ),
+    id: str(row.id) || `mn:${chain}:${contract}:${str(row.txHash)}:${str(row.tokenId)}`,
+    mintCount: compactCount(qty),
+    mintCountNum: qty,
+    qty: String(qty),
     tokenId: str(row.tokenId),
     minter: str(row.minter || row.transactionFrom),
     ago: formatAgo(tsMs),
-    price: value > 0 ? `Ξ${value}` : "FREE",
+    price: value > 0 ? `Ξ${value}` : "Free",
+    proxy: Boolean(row.isThirdPartyMint),
+    free: !(value > 0),
+    standard,
   };
 }
 
 function mapRunner(
   row: Record<string, unknown>,
+  chain: MintFeedChain,
   fallback: string,
 ): MintFeedRow | null {
   const display = displayOf(row);
   const contract = addr(row.contractAddress || row.address);
   const name = str(row.name || row.collection || display.name).trim();
   if (!contract || !name) return null;
+  const vol = num(row.windowVolumeEth);
+  const sales = num(row.windowTxCount || row.windowMintCount);
+  const change = formatChange(num(row.windowFloorPriceChange));
   return {
-    id: `mk:${contract}`,
-    contract,
-    name,
-    image: str(row.image || display.image) || fallback,
-    slug: str(row.openSeaSlug),
-    minted: "",
-    max: "",
+    ...blankRow(
+      chain,
+      contract,
+      name,
+      str(row.image || display.image) || fallback,
+      str(row.openSeaSlug),
+    ),
+    id: `mk:${chain}:${contract}`,
     floor: str(display.floor || row.floorPriceEth || ""),
     mintCount: str(display.windowMintCount || row.windowMintCount || ""),
-    minters: str(row.windowMinters || ""),
-    volume: str(
-      display.windowVolumeEth || row.windowVolumeEth || display.volumeEth || "",
-    ),
-    qty: "",
-    tokenId: "",
-    minter: "",
-    ago: str(row.window || ""),
+    mintCountNum: sales,
+    volume: formatVolume(vol),
+    volumeNum: vol,
+    sales: String(sales || ""),
+    change: change.text,
+    changeNum: change.value,
+    rank: str(display.rank || row.rank || ""),
     price: str(display.floor || ""),
   };
 }
@@ -162,6 +232,11 @@ function uniqueRows(rows: MintFeedRow[], limit: number): MintFeedRow[] {
   return out;
 }
 
+function parseView(raw: string | null, variant: HoodRpcVariant): "all" | MintgoChain {
+  if (raw === "all" || raw === "ethereum" || raw === "robinhood") return raw;
+  return variant === "eth" ? "ethereum" : "all";
+}
+
 export async function handleMintRadar(
   req: Request,
   variant: HoodRpcVariant,
@@ -173,40 +248,56 @@ export async function handleMintRadar(
   if (isAccessDenied(access)) return access;
 
   const cfg = getHoodRpcConfig(variant);
-  const chain: MintgoChain = variant === "eth" ? "ethereum" : "robinhood";
   const url = new URL(req.url);
   const rawWindow = (url.searchParams.get("window") || "1m") as MintgoWindow;
   const window = WINDOWS.includes(rawWindow) ? rawWindow : "1m";
+  const view = parseView(url.searchParams.get("view"), variant);
+  const fallback = cfg.defaultTokenLogo;
 
   try {
-    const data = await fetchMintgoBootstrap(chain, window);
-    const trending = uniqueRows(
-      (data.trending || [])
-        .map((row) => mapTrending(asRecord(row), cfg.defaultTokenLogo))
-        .filter((row): row is MintFeedRow => !!row),
-      24,
-    );
-    const mints = uniqueRows(
-      (data.mints || [])
-        .map((row) => mapMint(asRecord(row), cfg.defaultTokenLogo))
-        .filter((row): row is MintFeedRow => !!row),
-      40,
-    );
-    const market = uniqueRows(
-      (data.runners || [])
-        .map((row) => mapRunner(asRecord(row), cfg.defaultTokenLogo))
-        .filter((row): row is MintFeedRow => !!row),
-      24,
-    );
+    const packs: { chain: MintFeedChain; data: Awaited<ReturnType<typeof fetchMintgoBootstrap>> }[] =
+      [];
+    if (view === "all") {
+      const all = await fetchMintgoAllBootstrap(window);
+      for (const chain of ["robinhood", "ethereum"] as const) {
+        if (all[chain]) packs.push({ chain, data: all[chain]! });
+      }
+    } else {
+      packs.push({
+        chain: view,
+        data: await fetchMintgoBootstrap(view, window),
+      });
+    }
+
+    const trending: MintFeedRow[] = [];
+    const mints: MintFeedRow[] = [];
+    const market: MintFeedRow[] = [];
+    for (const { chain, data } of packs) {
+      for (const row of data.trending || []) {
+        const mapped = mapTrending(asRecord(row), chain, fallback);
+        if (mapped) trending.push(mapped);
+      }
+      for (const row of data.mints || []) {
+        const mapped = mapMint(asRecord(row), chain, fallback);
+        if (mapped) mints.push(mapped);
+      }
+      for (const row of data.runners || []) {
+        const mapped = mapRunner(asRecord(row), chain, fallback);
+        if (mapped) market.push(mapped);
+      }
+    }
+
+    trending.sort((a, b) => b.mintCountNum - a.mintCountNum);
+    market.sort((a, b) => b.volumeNum - a.volumeNum || b.mintCountNum - a.mintCountNum);
 
     return NextResponse.json({
       ok: true,
-      chain,
+      view,
       window,
       updatedAt: new Date().toISOString(),
-      trending,
-      mints,
-      market,
+      trending: uniqueRows(trending, 24),
+      mints: uniqueRows(mints, 40),
+      market: uniqueRows(market, 24),
     });
   } catch (err) {
     return NextResponse.json(
