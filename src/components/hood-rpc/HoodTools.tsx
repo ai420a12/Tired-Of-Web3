@@ -548,21 +548,22 @@ export default function HoodTools({
         {genOut ? (
           <div className="hrpc-inset" style={{ marginTop: "0.55rem" }}>
             <pre className="hrpc-keys hrpc-mono">{genOut}</pre>
-            <button
-              type="button"
-              className="hrpc-copy-now"
-              onClick={copyKeysNow}
-            >
-              Copy this now!
-            </button>
-            <button
-              type="button"
-              className="hrpc-btn hrpc-btn-ghost"
-              style={{ marginTop: "0.45rem" }}
-              onClick={() => setGenOut("")}
-            >
-              Clear from screen
-            </button>
+            <div className="hrpc-copy-now-wrap">
+              <button
+                type="button"
+                className="hrpc-copy-now"
+                onClick={copyKeysNow}
+              >
+                Copy this now!
+              </button>
+              <button
+                type="button"
+                className="hrpc-btn hrpc-btn-ghost"
+                onClick={() => setGenOut("")}
+              >
+                Clear from screen
+              </button>
+            </div>
           </div>
         ) : null}
       </details>

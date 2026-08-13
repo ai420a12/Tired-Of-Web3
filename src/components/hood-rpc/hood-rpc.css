@@ -2043,6 +2043,57 @@
   word-break: break-all;
 }
 
+.hrpc-copy-now-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.hrpc-copy-now {
+  display: block !important;
+  width: 100% !important;
+  appearance: none !important;
+  border: 2px solid #ff1a1a !important;
+  background: #b00000 !important;
+  color: #ffffff !important;
+  font-size: clamp(0.9rem, 2.2vw, 1.2rem) !important;
+  font-weight: 900 !important;
+  font-style: italic !important;
+  letter-spacing: 0.16em !important;
+  text-transform: uppercase !important;
+  text-shadow: 0 0 10px rgba(255, 40, 40, 0.9) !important;
+  padding: 0.85rem 1rem !important;
+  cursor: pointer;
+  animation: hrpc-neon-red 1.15s ease-in-out infinite;
+}
+
+.hrpc-copy-now:hover {
+  background: #d40000 !important;
+  filter: brightness(1.08);
+}
+
+@keyframes hrpc-neon-red {
+  0%,
+  100% {
+    box-shadow:
+      0 0 6px #ff1a1a,
+      0 0 16px #ff1a1a,
+      0 0 32px #ff0033,
+      0 0 48px rgba(255, 0, 51, 0.55),
+      inset 0 0 10px rgba(255, 40, 40, 0.35) !important;
+  }
+  50% {
+    box-shadow:
+      0 0 14px #ff4d4d,
+      0 0 32px #ff1a1a,
+      0 0 56px #ff0044,
+      0 0 72px rgba(255, 0, 68, 0.7),
+      inset 0 0 14px rgba(255, 80, 80, 0.55) !important;
+  }
+}
+
 /* NFT Live / Project Sales / Project Listings */
 .hrpc-nft-boards {
   display: grid;
@@ -3297,6 +3348,15 @@ html[data-eth-rpc="1"] .hrpc.hrpc-eth {
 .hrpc.hrpc-eth .hrpc-btn:hover {
   border-color: #7dd3fc;
   box-shadow: 0 0 28px rgba(56, 189, 248, 0.35);
+}
+
+.hrpc.hrpc-eth .hrpc-copy-now {
+  border-color: #ff1a1a !important;
+  background: #b00000 !important;
+  color: #ffffff !important;
+  box-shadow:
+    0 0 10px #ff1a1a,
+    0 0 24px #ff0033 !important;
 }
 
 .hrpc.hrpc-eth .hrpc-nav-link-wl,
