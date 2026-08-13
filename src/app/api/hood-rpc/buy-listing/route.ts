@@ -16,25 +16,26 @@ type BuyBody = {
   protocolAddress?: string;
   chain?: string;
   buyer?: string;
+  contract?: string;
+  tokenId?: string;
 };
 
-type FulfillTx = {
+export type FulfillTx = {
   to: string;
   data: string;
   value: string;
   chainId?: number;
 };
 
-/** Simple per-buyer rate limit (in-memory; fine for ~30 concurrent). */
 const hits = new Map<string, { n: number; resetAt: number }>();
 const RATE_WINDOW_MS = 60_000;
-const RATE_MAX = 20;
+const RATE_MAX = 30;
 
-function rateLimit(buyer: string): boolean {
+function rateLimit(addr: string): boolean {
   const now = Date.now();
-  const cur = hits.get(buyer);
+  const cur = hits.get(addr);
   if (!cur || now > cur.resetAt) {
-    hits.set(buyer, { n: 1, resetAt: now + RATE_WINDOW_MS });
+    hits.set(addr, { n: 1, resetAt: now + RATE_WINDOW_MS });
     return true;
   }
   if (cur.n >= RATE_MAX) return false;
@@ -82,57 +83,70 @@ function hexValue(v: unknown): string {
   if (typeof v === "number" && Number.isFinite(v)) {
     return `0x${BigInt(Math.floor(v)).toString(16)}`;
   }
+  if (typeof v === "bigint") return `0x${v.toString(16)}`;
   return "0x0";
 }
 
-function normalizeTxs(payload: Record<string, unknown>): FulfillTx[] {
-  const out: FulfillTx[] = [];
-
-  const actions = payload.actions;
-  if (Array.isArray(actions)) {
-    for (const a of actions) {
-      if (!a || typeof a !== "object") continue;
-      const rec = a as Record<string, unknown>;
-      const tx =
-        (rec.transaction as Record<string, unknown> | undefined) ||
-        (rec.tx as Record<string, unknown> | undefined) ||
-        rec;
-      const to = String(tx.to || tx.address || "").trim();
-      const data = String(tx.data || tx.input || "").trim();
-      if (!to || !data.startsWith("0x")) continue;
-      out.push({
-        to,
-        data,
-        value: hexValue(tx.value ?? tx.value_hex ?? "0x0"),
-        chainId:
-          typeof tx.chainId === "number"
-            ? tx.chainId
-            : typeof tx.chain_id === "number"
-              ? tx.chain_id
-              : 1,
-      });
-    }
+/** Walk any OpenSea / Reservoir-shaped payload for ready calldata txs. */
+export function extractReadyTxs(payload: unknown, depth = 0): FulfillTx[] {
+  if (payload == null || depth > 8) return [];
+  if (Array.isArray(payload)) {
+    return payload.flatMap((x) => extractReadyTxs(x, depth + 1));
   }
+  if (typeof payload !== "object") return [];
+  const rec = payload as Record<string, unknown>;
 
-  const single =
-    (payload.transaction as Record<string, unknown> | undefined) ||
-    (payload.fulfillment_data as Record<string, unknown> | undefined);
-  if (single && out.length === 0) {
-    const nested =
-      (single.transaction as Record<string, unknown> | undefined) || single;
-    const to = String(nested.to || "").trim();
-    const data = String(nested.data || "").trim();
-    if (to && data.startsWith("0x")) {
-      out.push({
+  const to = rec.to ?? rec.address ?? rec.toAddress;
+  const data =
+    rec.data ?? rec.calldata ?? rec.input ?? rec.data_hex ?? rec.callData;
+  const value = rec.value ?? rec.value_hex ?? rec.valueHex ?? rec.wei;
+
+  if (
+    typeof to === "string" &&
+    to.startsWith("0x") &&
+    to.length === 42 &&
+    typeof data === "string" &&
+    data.startsWith("0x") &&
+    data.length > 10
+  ) {
+    return [
+      {
         to,
         data,
-        value: hexValue(nested.value ?? "0x0"),
+        value: hexValue(value ?? "0x0"),
         chainId: 1,
-      });
-    }
+      },
+    ];
   }
 
-  return out;
+  return Object.values(rec).flatMap((v) => extractReadyTxs(v, depth + 1));
+}
+
+async function reservoirExecuteBuy(
+  buyer: string,
+  contract: string,
+  tokenId: string,
+): Promise<FulfillTx[]> {
+  const key = (process.env.RESERVOIR_API_KEY || "").trim();
+  const headers: Record<string, string> = {
+    accept: "application/json",
+    "content-type": "application/json",
+  };
+  if (key) headers["x-api-key"] = key;
+
+  const res = await fetch("https://api.reservoir.tools/execute/buy/v7", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      items: [{ token: `${contract}:${tokenId}`, quantity: 1 }],
+      taker: buyer,
+      source: "tiredofweb3.xyz",
+    }),
+    cache: "no-store",
+  });
+  if (!res.ok) return [];
+  const json = (await res.json()) as Record<string, unknown>;
+  return extractReadyTxs(json);
 }
 
 export async function POST(req: Request) {
@@ -149,9 +163,9 @@ export async function POST(req: Request) {
   const orderHash = (body.orderHash || "").trim();
   const buyer = (body.buyer || "").trim().toLowerCase();
   const chain = (body.chain || "ethereum").trim().toLowerCase();
-  const protocolAddress = (
-    body.protocolAddress || SEAPORT_1_6
-  ).trim();
+  const protocolAddress = (body.protocolAddress || SEAPORT_1_6).trim();
+  const contract = (body.contract || "").trim();
+  const tokenId = (body.tokenId || "").trim();
 
   if (chain !== "ethereum") {
     return NextResponse.json(
@@ -159,125 +173,95 @@ export async function POST(req: Request) {
       { status: 400 },
     );
   }
-  if (!orderHash.startsWith("0x") || orderHash.length < 66) {
-    return NextResponse.json(
-      { error: "Missing or invalid orderHash" },
-      { status: 400 },
-    );
-  }
   if (!isAddress(buyer)) {
     return NextResponse.json({ error: "Invalid buyer" }, { status: 400 });
   }
-  // Access Key cookie unlocks the tool; buyer may be a separate hot/session wallet.
-  // Still rate-limit by the verified access session.
   if (!rateLimit(access.address.toLowerCase())) {
     return NextResponse.json(
       { error: "Too many buy attempts — wait a minute", code: "RATE_LIMIT" },
       { status: 429 },
     );
   }
-  if (!openseaKeys().length) {
-    return NextResponse.json(
-      { error: "OpenSea API key not configured", code: "NO_OS_KEY" },
-      { status: 503 },
-    );
-  }
-
-  // Prefer cross-chain endpoint — returns ready calldata (works same-chain too)
-  const crossRes = await osPost("/listings/cross_chain_fulfillment_data", {
-    listings: [
-      {
-        hash: orderHash,
-        chain: "ethereum",
-        protocol_address: protocolAddress,
-      },
-    ],
-    fulfiller: { address: buyer },
-    payment: {
-      chain: "ethereum",
-      token_address: ZERO,
-    },
-  });
 
   let txs: FulfillTx[] = [];
-  let source = "cross_chain";
+  let source = "none";
 
-  if (crossRes?.ok) {
-    const json = (await crossRes.json()) as Record<string, unknown>;
-    txs = normalizeTxs(json);
-  }
-
-  if (!txs.length) {
-    source = "fulfillment_data";
-    const sameRes = await osPost("/listings/fulfillment_data", {
-      listing: {
-        hash: orderHash,
-        chain: "ethereum",
-        protocol_address: protocolAddress,
-      },
-      fulfiller: { address: buyer },
-    });
-    if (!sameRes) {
-      return NextResponse.json(
-        { error: "OpenSea unreachable" },
-        { status: 502 },
-      );
-    }
-    if (!sameRes.ok) {
-      const errText = await sameRes.text().catch(() => "");
-      console.error(
-        "buy-listing OS error",
-        orderHash.slice(0, 12),
-        buyer.slice(0, 10),
-        sameRes.status,
-      );
-      return NextResponse.json(
+  // 1) OpenSea cross-chain fulfillment (ready calldata)
+  if (orderHash.startsWith("0x") && orderHash.length >= 66 && openseaKeys().length) {
+    const crossRes = await osPost("/listings/cross_chain_fulfillment_data", {
+      listings: [
         {
-          error:
-            sameRes.status === 400
-              ? "Listing unavailable (sold / cancelled / invalid)"
-              : "OpenSea fulfillment failed",
-          code: "OS_FULFILL_FAILED",
-          detail: process.env.NODE_ENV === "development" ? errText.slice(0, 400) : undefined,
+          hash: orderHash,
+          chain: "ethereum",
+          protocol_address: protocolAddress,
         },
-        { status: 502 },
-      );
+      ],
+      fulfiller: { address: buyer },
+      payment: { chain: "ethereum", token_address: ZERO },
+    });
+    if (crossRes?.ok) {
+      const json = (await crossRes.json()) as Record<string, unknown>;
+      txs = extractReadyTxs(json);
+      if (txs.length) source = "opensea_cross";
     }
-    const json = (await sameRes.json()) as Record<string, unknown>;
-    txs = normalizeTxs(json);
 
-    // Some responses nest under fulfillment_data.transaction
+    // 2) Same-chain fulfillment_data
     if (!txs.length) {
-      const fd = json.fulfillment_data as Record<string, unknown> | undefined;
-      const tx = fd?.transaction as Record<string, unknown> | undefined;
-      if (tx?.to && tx?.data) {
-        txs = [
-          {
-            to: String(tx.to),
-            data: String(tx.data),
-            value: hexValue(tx.value ?? "0x0"),
-            chainId: 1,
-          },
-        ];
+      const sameRes = await osPost("/listings/fulfillment_data", {
+        listing: {
+          hash: orderHash,
+          chain: "ethereum",
+          protocol_address: protocolAddress,
+        },
+        fulfiller: { address: buyer },
+      });
+      if (sameRes?.ok) {
+        const json = (await sameRes.json()) as Record<string, unknown>;
+        txs = extractReadyTxs(json);
+        if (txs.length) source = "opensea_same";
+      } else if (sameRes && !sameRes.ok) {
+        const errText = await sameRes.text().catch(() => "");
+        console.error(
+          "buy-listing OS error",
+          orderHash.slice(0, 12),
+          buyer.slice(0, 10),
+          sameRes.status,
+          errText.slice(0, 200),
+        );
       }
     }
+  }
+
+  // 3) Reservoir fallback by token (often more reliable calldata)
+  if (!txs.length && contract && isAddress(contract) && tokenId) {
+    txs = await reservoirExecuteBuy(buyer, contract, tokenId);
+    if (txs.length) source = "reservoir";
   }
 
   if (!txs.length) {
     return NextResponse.json(
       {
         error:
-          "Could not build buy transaction from OpenSea — try again or buy on OpenSea",
+          "Could not build buy tx — listing may be sold, or arm key / try another NFT",
         code: "NO_TX",
       },
       { status: 502 },
     );
   }
 
+  // Dedupe identical txs
+  const seen = new Set<string>();
+  txs = txs.filter((t) => {
+    const k = `${t.to}:${t.data}:${t.value}`;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+
   console.info(
     "buy-listing ok",
     source,
-    orderHash.slice(0, 12),
+    orderHash.slice(0, 12) || "no-hash",
     buyer.slice(0, 10),
     `txs=${txs.length}`,
   );
@@ -286,7 +270,7 @@ export async function POST(req: Request) {
     ok: true,
     chain: "ethereum",
     chainId: 1,
-    orderHash,
+    orderHash: orderHash || undefined,
     buyer,
     transactions: txs,
     source,
