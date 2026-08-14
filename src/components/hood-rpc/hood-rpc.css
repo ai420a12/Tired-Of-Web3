@@ -1993,6 +1993,95 @@
   color: var(--muted);
 }
 
+.hrpc-phase-controls {
+  margin-top: 0.85rem;
+}
+
+.hrpc-phase-controls .hrpc-preset-label {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.hrpc-phase-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.hrpc-phase-chip {
+  appearance: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.12rem;
+  min-width: 8.5rem;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--line);
+  background: #000;
+  color: var(--white);
+  cursor: pointer;
+  text-align: left;
+}
+
+.hrpc-phase-chip strong {
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--lime);
+}
+
+.hrpc-phase-chip span {
+  font-size: 0.68rem;
+  color: var(--muted);
+}
+
+.hrpc-phase-chip.is-on {
+  border-color: var(--lime);
+  background: var(--lime);
+}
+
+.hrpc-phase-chip.is-on strong,
+.hrpc-phase-chip.is-on span {
+  color: #000;
+}
+
+.hrpc-phase-chip.is-ended {
+  opacity: 0.45;
+}
+
+.hrpc-phase-when {
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+}
+
+.hrpc-phase-live {
+  color: var(--lime);
+}
+
+.hrpc-phase-chip.is-on .hrpc-phase-live,
+.hrpc-phase-chip.is-on .hrpc-phase-upcoming,
+.hrpc-phase-chip.is-on .hrpc-phase-ended {
+  color: #000;
+}
+
+.hrpc-phase-armed {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.45rem;
+  margin-top: 0.55rem;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid rgba(var(--accent-rgb), 0.35);
+  color: var(--white);
+  font-size: 0.78rem;
+}
+
 .hrpc-target-slot {
   border: 1px solid rgba(var(--accent-rgb), 0.2);
   padding: 0.55rem;

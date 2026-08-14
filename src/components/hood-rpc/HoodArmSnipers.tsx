@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type MutableRefObject } from "react";
+import { useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import WalletPickerModal from "./WalletPickerModal";
 import type { SquadWallet } from "@/lib/operator-wallets";
 import type { HoodRpcVariant } from "@/lib/hood-rpc-chain";
@@ -33,6 +33,18 @@ type Props = {
 
 type NftTarget = { label: string; ca: string; qty: string };
 
+type MintPhase = {
+  id: string;
+  label: string;
+  stageType: string;
+  priceWei: string;
+  priceEth: number;
+  startAt: number;
+  endAt: number;
+  maxPerWallet: number;
+  status: "live" | "upcoming" | "ended";
+};
+
 type PreparedMint = {
   to: string;
   data: string;
@@ -59,6 +71,32 @@ function shortAddr(addr: string) {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }
 
+function formatPhasePrice(eth: number) {
+  if (!Number.isFinite(eth) || eth <= 0) return "FREE";
+  if (eth < 0.001) return `${eth.toFixed(5)} ETH`;
+  if (eth < 0.01) return `${eth.toFixed(4)} ETH`;
+  return `${eth.toFixed(3)} ETH`;
+}
+
+function formatPhaseWhen(phase: MintPhase, now: number) {
+  if (phase.status === "live") return "LIVE";
+  if (phase.status === "ended") return "ENDED";
+  const ms = Math.max(0, phase.startAt - now);
+  const s = Math.floor(ms / 1000);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  if (h >= 24) return `${Math.floor(h / 24)}d ${String(h % 24).padStart(2, "0")}h`;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+}
+
+function refreshPhaseStatus(phase: MintPhase, now = Date.now()): MintPhase {
+  let status: MintPhase["status"] = "live";
+  if (phase.endAt && now >= phase.endAt) status = "ended";
+  else if (phase.startAt && now < phase.startAt) status = "upcoming";
+  return { ...phase, status };
+}
+
 export default function HoodArmSnipers({
   onToast,
   connectedWallet,
@@ -82,6 +120,17 @@ export default function HoodArmSnipers({
   const [manualGwei, setManualGwei] = useState("");
   const [liveGas, setLiveGas] = useState<LiveGasQuote | null>(null);
   const [arming, setArming] = useState(false);
+  const [phases, setPhases] = useState<MintPhase[]>([]);
+  const [phasesNote, setPhasesNote] = useState("");
+  const [phasesLoading, setPhasesLoading] = useState(false);
+  const [selectedPhaseId, setSelectedPhaseId] = useState<string | null>(null);
+  const [armedPhase, setArmedPhase] = useState<{
+    contract: string;
+    name: string;
+    phaseId: string;
+    raw: string;
+  } | null>(null);
+  const firedArm = useRef(false);
 
   const [ticker, setTicker] = useState("");
   const [buyEth, setBuyEth] = useState("0.25");
@@ -114,6 +163,113 @@ export default function HoodArmSnipers({
       window.clearInterval(id);
     };
   }, [chain, gasMode]);
+
+  const lookupRaw = useMemo(
+    () =>
+      contractCa.trim() ||
+      osUrl.trim() ||
+      spectrumUrl.trim() ||
+      targets[0].ca.trim(),
+    [contractCa, osUrl, spectrumUrl, targets],
+  );
+
+  useEffect(() => {
+    if (!lookupRaw) {
+      setPhases([]);
+      setPhasesNote("");
+      setSelectedPhaseId(null);
+      return;
+    }
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      setPhasesLoading(true);
+      setPhasesNote("");
+      try {
+        const hex = extractAddress(lookupRaw);
+        const q = hex || lookupRaw;
+        const res = await fetch(
+          `${apiBase}/mint-detail?q=${encodeURIComponent(q)}&chain=${chain}`,
+          { cache: "no-store" },
+        );
+        const data = (await res.json()) as {
+          ok?: boolean;
+          error?: string;
+          name?: string;
+          contract?: string;
+          phases?: MintPhase[];
+        };
+        if (cancelled) return;
+        const next = (data.phases || []).map((p) => refreshPhaseStatus(p));
+        setPhases(next);
+        if (!data.ok) {
+          setPhasesNote(data.error || "Could not load phases");
+          setSelectedPhaseId(null);
+          return;
+        }
+        if (!next.length) {
+          setPhasesNote("No mint phases found for this collection");
+          setSelectedPhaseId(null);
+          return;
+        }
+        setSelectedPhaseId((prev) => {
+          if (prev && next.some((p) => p.id === prev)) return prev;
+          const live = next.find((p) => p.status === "live");
+          const upcoming = next.find((p) => p.status === "upcoming");
+          return (live || upcoming || next[0]).id;
+        });
+        if (data.name && !targets[0].label.trim()) {
+          setTargets((cur) => [{ ...cur[0], label: data.name || cur[0].label }]);
+        }
+        if (data.contract && !targets[0].ca.trim() && !extractAddress(contractCa)) {
+          setTargets((cur) => [{ ...cur[0], ca: data.contract || cur[0].ca }]);
+        }
+      } catch {
+        if (!cancelled) {
+          setPhases([]);
+          setPhasesNote("Could not load phases");
+        }
+      } finally {
+        if (!cancelled) setPhasesLoading(false);
+      }
+    }, 450);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [apiBase, chain, lookupRaw]);
+
+  const selectedPhase = useMemo(
+    () => phases.find((p) => p.id === selectedPhaseId) || null,
+    [phases, selectedPhaseId],
+  );
+
+  useEffect(() => {
+    if (!phases.length) return;
+    const id = window.setInterval(() => {
+      setPhases((prev) => prev.map((p) => refreshPhaseStatus(p)));
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [phases.length]);
+
+  useEffect(() => {
+    if (!armedPhase) {
+      firedArm.current = false;
+      return;
+    }
+    const phase = phases.find((p) => p.id === armedPhase.phaseId);
+    if (!phase) return;
+    const live = refreshPhaseStatus(phase);
+    if (live.status === "ended") {
+      onToast(`> ${phase.label.toUpperCase()} ENDED`);
+      pushOutcome(`${phase.label} ended before mint`, "err");
+      setArmedPhase(null);
+      return;
+    }
+    if (live.status !== "live" || firedArm.current || arming) return;
+    firedArm.current = true;
+    void fireArmedMint(armedPhase.raw, { skipPhaseWait: true });
+    setArmedPhase(null);
+  }, [armedPhase, phases, arming]);
 
   function manualValue(): number | undefined {
     if (gasMode !== "manual") return undefined;
@@ -181,7 +337,10 @@ export default function HoodArmSnipers({
       .filter((row): row is { wallet: SquadWallet; pk: Hex } => Boolean(row));
   }
 
-  async function fireArmedMint(raw: string, opts?: { requireWallets?: boolean }) {
+  async function fireArmedMint(
+    raw: string,
+    opts?: { requireWallets?: boolean; skipPhaseWait?: boolean },
+  ) {
     if (!connectedWallet) {
       onToast("> CONNECT WALLET FIRST (top right)");
       return;
@@ -193,6 +352,35 @@ export default function HoodArmSnipers({
     if (gasMode === "manual" && !manualValue()) {
       onToast("> ENTER MANUAL GWEI");
       return;
+    }
+
+    const phase = selectedPhase ? refreshPhaseStatus(selectedPhase) : null;
+    if (!opts?.skipPhaseWait && phase) {
+      if (phase.status === "ended") {
+        onToast(`> ${phase.label.toUpperCase()} ALREADY ENDED — PICK ANOTHER PHASE`);
+        return;
+      }
+      if (phase.status === "upcoming") {
+        const target = await resolveContract(raw).catch(() => null);
+        const contract = target?.contract || extractAddress(raw);
+        if (!contract) {
+          onToast("> NEED A CONTRACT TO ARM THIS PHASE");
+          return;
+        }
+        firedArm.current = false;
+        setArmedPhase({
+          contract,
+          name: targets[0].label.trim() || target?.name || shortAddr(contract),
+          phaseId: phase.id,
+          raw,
+        });
+        onToast(`> ARMED · ${phase.label} · waiting to go live`);
+        pushOutcome(
+          `Armed ${phase.label} · ${formatPhaseWhen(phase, Date.now())}`,
+          "ok",
+        );
+        return;
+      }
     }
 
     const selectedIds = nftWalletIds.length
@@ -210,7 +398,8 @@ export default function HoodArmSnipers({
     const qty = mintQty(targets[0].qty);
     try {
       const target = await resolveContract(raw);
-      const label = targets[0].label.trim() || target.name || shortAddr(target.contract);
+      const phaseTag = phase?.label ? ` · ${phase.label}` : "";
+      const label = `${targets[0].label.trim() || target.name || shortAddr(target.contract)}${phaseTag}`;
       const gasLabel =
         gasMode === "manual"
           ? `${manualValue()} gwei`
@@ -447,6 +636,64 @@ export default function HoodArmSnipers({
               </div>
             </div>
 
+            <div className="hrpc-phase-controls" aria-label="Mint phases">
+              <span className="hrpc-preset-label">Mint phase</span>
+              {phasesLoading ? (
+                <p className="hrpc-gas-live">Loading phases…</p>
+              ) : phases.length ? (
+                <div className="hrpc-phase-row">
+                  {phases.map((phase) => {
+                    const now = Date.now();
+                    const on = selectedPhaseId === phase.id;
+                    return (
+                      <button
+                        key={phase.id}
+                        type="button"
+                        className={`hrpc-phase-chip ${on ? "is-on" : ""} ${phase.status === "ended" ? "is-ended" : ""}`}
+                        onClick={() => {
+                          setSelectedPhaseId(phase.id);
+                          setArmedPhase(null);
+                        }}
+                      >
+                        <strong>{phase.label}</strong>
+                        <span>
+                          {formatPhasePrice(phase.priceEth)}
+                          {phase.maxPerWallet ? ` · ${phase.maxPerWallet}/wallet` : ""}
+                        </span>
+                        <span className={`hrpc-phase-when hrpc-phase-${phase.status}`}>
+                          {formatPhaseWhen(phase, now)}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="hrpc-gas-live">
+                  {phasesNote || "Paste a contract to load mint phases"}
+                </p>
+              )}
+              {armedPhase && selectedPhase ? (
+                <div className="hrpc-phase-armed">
+                  <span>
+                    Armed for <strong>{selectedPhase.label}</strong>
+                    {selectedPhase.status === "upcoming"
+                      ? ` · ${formatPhaseWhen(selectedPhase, Date.now())}`
+                      : " · waiting to fire"}
+                  </span>
+                  <button
+                    type="button"
+                    className="hrpc-btn hrpc-btn-ghost"
+                    onClick={() => {
+                      setArmedPhase(null);
+                      onToast("> NFT PHASE DISARMED");
+                    }}
+                  >
+                    Disarm
+                  </button>
+                </div>
+              ) : null}
+            </div>
+
             <div className="hrpc-gas-controls" aria-label="Gas presets">
               <span className="hrpc-preset-label">Gas (gwei)</span>
               <div className="hrpc-gas-row">
@@ -510,7 +757,13 @@ export default function HoodArmSnipers({
                 onClick={saveTargetsAndArm}
                 disabled={arming}
               >
-                {arming ? "Minting…" : "Save targets + arm mint"}
+                {arming
+                  ? "Minting…"
+                  : armedPhase
+                    ? "Armed"
+                    : selectedPhase?.status === "upcoming"
+                      ? `Arm ${selectedPhase.label}`
+                      : "Save targets + arm mint"}
               </button>
             </div>
           </div>
