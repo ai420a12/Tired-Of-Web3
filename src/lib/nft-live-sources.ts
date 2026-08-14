@@ -111,12 +111,28 @@ type AlchemyNft = {
   rarity?: { rank?: number };
 };
 
-function alchemyEthAmount(sale: AlchemySale): { eth: number; kind: "eth" | "weth" } {
+const MAX_SALE_ETH = 100;
+
+function alchemyEthAmount(sale: AlchemySale): { eth: number; kind: "eth" | "weth" } | null {
   const fee = sale.sellerFee;
-  const raw = Number(fee?.amount || 0);
   const decimals = Number(fee?.decimals ?? 18);
-  const eth = raw > 0 ? raw / 10 ** decimals : 0;
+  const raw = String(fee?.amount ?? "").trim();
+  if (!raw) return null;
+  let eth = 0;
+  try {
+    if (raw.includes(".") || raw.includes("e") || raw.includes("E")) {
+      eth = Number(raw);
+    } else {
+      const wei = BigInt(raw);
+      const base = 10n ** BigInt(Number.isFinite(decimals) ? Math.max(0, Math.min(36, decimals)) : 18);
+      eth = Number(wei) / Number(base);
+    }
+  } catch {
+    return null;
+  }
+  if (!Number.isFinite(eth) || eth <= 0 || eth > MAX_SALE_ETH) return null;
   const sym = (fee?.symbol || "ETH").toUpperCase();
+  if (sym && !sym.includes("ETH") && !sym.includes("WETH")) return null;
   return { eth, kind: sym.includes("WETH") ? "weth" : "eth" };
 }
 
@@ -163,9 +179,9 @@ export async function fetchAlchemyEthSales(
       const tokenId = String(sale.tokenId || "");
       if (!contract || !tokenId) continue;
       const meta = metaByKey.get(`${contract}:${tokenId}`);
-      const { eth, kind } = alchemyEthAmount(sale);
-      // Skip rows with no real sale price (never invent ETH)
-      if (!(eth > 0)) continue;
+      const paid = alchemyEthAmount(sale);
+      if (!paid) continue;
+      const { eth, kind } = paid;
       const collection =
         meta?.contract?.openSeaMetadata?.collectionName ||
         meta?.contract?.name ||

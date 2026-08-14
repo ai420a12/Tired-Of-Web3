@@ -19,6 +19,7 @@ export type MintFeedRow = {
   tokenId: string;
   minter: string;
   ago: string;
+  atMs: number;
   price: string;
   hot: boolean;
   proxy: boolean;

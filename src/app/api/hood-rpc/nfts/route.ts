@@ -136,18 +136,54 @@ function sortNewest(a: SaleRow, b: SaleRow): number {
   return (b.eventTs || 0) - (a.eventTs || 0);
 }
 
+/** Drop junk / mis-decoded amounts (e.g. 1.38M ETH Retail Punk rows). */
+const MAX_SALE_ETH = 100;
+
+function amountToEth(
+  quantity: string | number | undefined,
+  decimals: number | undefined,
+): number | null {
+  const dec =
+    Number.isFinite(decimals) && Number(decimals) >= 0 && Number(decimals) <= 36
+      ? Math.floor(Number(decimals))
+      : 18;
+  const raw = String(quantity ?? "").trim();
+  if (!raw) return null;
+
+  if (raw.includes(".") || raw.includes("e") || raw.includes("E")) {
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n <= 0 || n > MAX_SALE_ETH) return null;
+    return n;
+  }
+
+  try {
+    const wei = BigInt(raw);
+    if (wei <= 0n) return null;
+    const base = 10n ** BigInt(dec);
+    const whole = wei / base;
+    if (whole > BigInt(MAX_SALE_ETH)) return null;
+    const frac = wei % base;
+    const eth = Number(whole) + Number(frac) / Number(base);
+    if (!Number.isFinite(eth) || eth <= 0) return null;
+    return eth;
+  } catch {
+    return null;
+  }
+}
+
 function paymentToEth(
   payment?: OsEvent["payment"],
 ): { eth: number; kind: "eth" | "weth"; usd: number } | null {
-  const qty = Number(payment?.quantity || 0);
-  const decimals = Number(payment?.token?.decimals ?? payment?.decimals ?? 18);
-  let eth = qty;
-  if (qty > 1e9) eth = qty / 10 ** decimals;
-  // Never invent a price — skip events without a real payment
-  if (!Number.isFinite(eth) || eth <= 0) return null;
+  const eth = amountToEth(
+    payment?.quantity,
+    payment?.token?.decimals ?? payment?.decimals,
+  );
+  if (eth == null) return null;
+  const symbol = (payment?.token?.symbol || payment?.symbol || "ETH").toUpperCase();
+  if (symbol && !symbol.includes("ETH")) return null;
   const usdPrice = Number(payment?.token?.usd_price || 0);
   const usd = usdPrice > 0 ? eth * usdPrice : eth * 3200;
-  const symbol = (payment?.token?.symbol || payment?.symbol || "ETH").toUpperCase();
+  if (!Number.isFinite(usd) || usd > 500_000) return null;
   const kind = symbol.includes("WETH") ? "weth" : "eth";
   return { eth: Number(eth.toFixed(4)), kind, usd: Number(usd.toFixed(2)) };
 }
@@ -698,11 +734,11 @@ async function fetchCollectionListings(
     if (seen.has(dedupe)) continue;
     seen.add(dedupe);
 
-    const value = Number(L.price?.current?.value || 0);
-    const decimals = Number(L.price?.current?.decimals ?? 18);
-    let eth = value;
-    if (value > 1e9) eth = value / 10 ** decimals;
-    if (!Number.isFinite(eth) || eth <= 0) continue;
+    const eth = amountToEth(
+      L.price?.current?.value,
+      L.price?.current?.decimals,
+    );
+    if (eth == null) continue;
     const currency = (L.price?.current?.currency || "ETH").toUpperCase();
     const kind: "eth" | "weth" = currency.includes("WETH") ? "weth" : "eth";
 

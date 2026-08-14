@@ -71,7 +71,15 @@ function mergeLiveSales(
     map.set(row.id, keepRarity(older, newer));
   }
   return [...map.values()]
-    .filter((r) => (r.eventTs || 0) > 0)
+    .filter(
+      (r) =>
+        (r.eventTs || 0) > 0 &&
+        typeof r.eth === "number" &&
+        r.eth > 0 &&
+        r.eth <= 100 &&
+        Number.isFinite(r.usd) &&
+        r.usd <= 500_000,
+    )
     .sort((a, b) => (b.eventTs || 0) - (a.eventTs || 0))
     .slice(0, LIVE_LIMIT);
 }
@@ -451,6 +459,7 @@ export default function HoodNftPanels({
               (row) =>
                 typeof row.eth === "number" &&
                 row.eth > 0 &&
+                row.eth <= 100 &&
                 typeof row.eventTs === "number" &&
                 row.eventTs > 0,
             )

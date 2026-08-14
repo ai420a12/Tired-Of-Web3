@@ -102,6 +102,7 @@ function blankRow(
     tokenId: "",
     minter: "",
     ago: "",
+    atMs: 0,
     price: "",
     hot: false,
     proxy: false,
@@ -179,6 +180,7 @@ function mapMint(
     tokenId: str(row.tokenId),
     minter: str(row.minter || row.transactionFrom),
     ago: formatAgo(tsMs),
+    atMs: tsMs,
     price: value > 0 ? `Ξ${value}` : "Free",
     proxy: Boolean(row.isThirdPartyMint),
     free: !(value > 0),
@@ -196,6 +198,7 @@ function mapRunner(
   const name = str(row.name || row.collection || display.name).trim();
   if (!contract || !name) return null;
   const vol = num(row.windowVolumeEth);
+  if (vol < 0 || vol > 10_000) return null;
   const sales = num(row.windowTxCount || row.windowMintCount);
   const change = formatChange(num(row.windowFloorPriceChange));
   return {

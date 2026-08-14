@@ -64,7 +64,25 @@ const VIEWS = [
   { id: "ethereum", label: "ETH" },
 ] as const;
 const QTY_CHIPS = [1, 5, 10, 30, 50, 100] as const;
-const POLL_MS = 8000;
+const POLL_MS = 2500;
+
+function formatAgoLocal(tsMs: number) {
+  if (!tsMs) return "";
+  const s = Math.max(0, Math.floor((Date.now() - tsMs) / 1000));
+  if (s < 2) return "now";
+  if (s < 60) return `${s}s`;
+  if (s < 3600) return `${Math.floor(s / 60)}m`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h`;
+  return `${Math.floor(s / 86400)}d`;
+}
+
+function mergeMintFeed(prev: MintFeedRow[], incoming: MintFeedRow[]): MintFeedRow[] {
+  if (!incoming.length) return prev;
+  if (!prev.length) return incoming;
+  const seen = new Set(incoming.map((row) => row.id));
+  const extra = prev.filter((row) => !seen.has(row.id));
+  return [...incoming, ...extra].slice(0, 80);
+}
 
 function shortAddr(addr: string) {
   if (!addr || addr.length < 10) return addr || "—";
@@ -170,7 +188,7 @@ export default function HoodMintBoard({
         return;
       }
       setTrending(data.trending || []);
-      setMints(data.mints || []);
+      setMints((prev) => mergeMintFeed(prev, data.mints || []));
       setMarket(data.market || []);
       setNote(null);
     } catch {
@@ -182,9 +200,20 @@ export default function HoodMintBoard({
 
   useEffect(() => {
     setLoading(true);
+    setMints([]);
     void loadRadar();
     const id = window.setInterval(() => void loadRadar(), POLL_MS);
-    return () => window.clearInterval(id);
+    const tick = window.setInterval(() => {
+      setMints((prev) =>
+        prev.map((row) =>
+          row.atMs ? { ...row, ago: formatAgoLocal(row.atMs) } : row,
+        ),
+      );
+    }, 1000);
+    return () => {
+      window.clearInterval(id);
+      window.clearInterval(tick);
+    };
   }, [loadRadar]);
 
   const loadDetail = useCallback(
@@ -301,7 +330,7 @@ export default function HoodMintBoard({
     if (detail && !ready) return detail.analysis?.reason || "No mint route";
     if (paid && !allowPaid) return "Confirm paid";
     if (minting) return "Confirm in wallet…";
-    return `Mint ${qty}`;
+    return `Mint ${qty}!`;
   }, [selected, connectedWallet, detail, ready, paid, allowPaid, minting, qty]);
 
   async function mintNow(quantity: number) {
@@ -492,10 +521,7 @@ export default function HoodMintBoard({
                     type="button"
                     className={`hrpc-mint-chip${qty === n ? " is-on" : ""}${n >= 30 ? " hrpc-mint-chip-bulk" : ""}`}
                     disabled={minting}
-                    onClick={() => {
-                      setQty(n);
-                      if (n >= 30) void mintNow(n);
-                    }}
+                    onClick={() => setQty(n)}
                   >
                     {n}
                   </button>
