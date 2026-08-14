@@ -67,7 +67,7 @@ export default function Nav({ onVentClick }: NavProps) {
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => playClick()}
-            className="rounded-full border border-[#5865F2]/60 bg-[#5865F2]/15 px-3 py-1.5 font-mono text-xs font-bold text-[#8ea1ff] transition-colors hover:bg-[#5865F2]/30 sm:px-4"
+            className="rounded-full border border-neon-green/50 bg-neon-green/10 px-3 py-1.5 font-mono text-xs font-bold text-neon-green transition-colors hover:bg-neon-green/20 sm:px-4"
           >
             Discord
           </a>
