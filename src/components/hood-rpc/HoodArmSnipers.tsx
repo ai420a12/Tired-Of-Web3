@@ -110,7 +110,6 @@ export default function HoodArmSnipers({
   const chain = variant === "eth" ? "ethereum" : "robinhood";
   const [contractCa, setContractCa] = useState("");
   const [osUrl, setOsUrl] = useState("");
-  const [spectrumUrl, setSpectrumUrl] = useState("");
   const [targets, setTargets] = useState<NftTarget[]>([
     { label: "", ca: "", qty: "1" },
   ]);
@@ -131,6 +130,7 @@ export default function HoodArmSnipers({
     raw: string;
   } | null>(null);
   const firedArm = useRef(false);
+  const loadSeq = useRef(0);
 
   const [ticker, setTicker] = useState("");
   const [buyEth, setBuyEth] = useState("0.25");
@@ -164,79 +164,77 @@ export default function HoodArmSnipers({
     };
   }, [chain, gasMode]);
 
-  const lookupRaw = useMemo(
-    () =>
-      contractCa.trim() ||
-      osUrl.trim() ||
-      spectrumUrl.trim() ||
-      targets[0].ca.trim(),
-    [contractCa, osUrl, spectrumUrl, targets],
-  );
-
-  useEffect(() => {
-    if (!lookupRaw) {
-      setPhases([]);
-      setPhasesNote("");
-      setSelectedPhaseId(null);
+  async function loadProject(raw: string, source: "ca" | "os") {
+    const q = raw.trim();
+    if (!q) {
+      onToast(
+        source === "ca"
+          ? "> PASTE A CONTRACT ADDRESS"
+          : "> PASTE AN OPENSEA COLLECTION URL OR SLUG",
+      );
       return;
     }
-    let cancelled = false;
-    const timer = window.setTimeout(async () => {
-      setPhasesLoading(true);
-      setPhasesNote("");
-      try {
-        const hex = extractAddress(lookupRaw);
-        const q = hex || lookupRaw;
-        const res = await fetch(
-          `${apiBase}/mint-detail?q=${encodeURIComponent(q)}&chain=${chain}`,
-          { cache: "no-store" },
-        );
-        const data = (await res.json()) as {
-          ok?: boolean;
-          error?: string;
-          name?: string;
-          contract?: string;
-          phases?: MintPhase[];
-        };
-        if (cancelled) return;
-        const next = (data.phases || []).map((p) => refreshPhaseStatus(p));
-        setPhases(next);
-        if (!data.ok) {
-          setPhasesNote(data.error || "Could not load phases");
-          setSelectedPhaseId(null);
-          return;
-        }
-        if (!next.length) {
-          setPhasesNote("No mint phases found for this collection");
-          setSelectedPhaseId(null);
-          return;
-        }
-        setSelectedPhaseId((prev) => {
-          if (prev && next.some((p) => p.id === prev)) return prev;
-          const live = next.find((p) => p.status === "live");
-          const upcoming = next.find((p) => p.status === "upcoming");
-          return (live || upcoming || next[0]).id;
-        });
-        if (data.name && !targets[0].label.trim()) {
-          setTargets((cur) => [{ ...cur[0], label: data.name || cur[0].label }]);
-        }
-        if (data.contract && !targets[0].ca.trim() && !extractAddress(contractCa)) {
-          setTargets((cur) => [{ ...cur[0], ca: data.contract || cur[0].ca }]);
-        }
-      } catch {
-        if (!cancelled) {
-          setPhases([]);
-          setPhasesNote("Could not load phases");
-        }
-      } finally {
-        if (!cancelled) setPhasesLoading(false);
+    const seq = ++loadSeq.current;
+    setPhasesLoading(true);
+    setPhasesNote("");
+    setArmedPhase(null);
+    try {
+      const res = await fetch(
+        `${apiBase}/mint-detail?q=${encodeURIComponent(q)}&chain=${chain}`,
+        { cache: "no-store" },
+      );
+      const data = (await res.json()) as {
+        ok?: boolean;
+        error?: string;
+        name?: string;
+        contract?: string;
+        phases?: MintPhase[];
+      };
+      if (seq !== loadSeq.current) return;
+      const next = (data.phases || []).map((p) => refreshPhaseStatus(p));
+      setPhases(next);
+      if (!data.ok) {
+        setPhasesNote(data.error || "Could not load project");
+        setSelectedPhaseId(null);
+        onToast(`> ${data.error || "COULD NOT LOAD PROJECT"}`);
+        return;
       }
-    }, 450);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-    };
-  }, [apiBase, chain, lookupRaw]);
+      const contract = extractAddress(data.contract || q);
+      const name = (data.name || "").trim();
+      setTargets((cur) => [
+        {
+          ...cur[0],
+          label: name || cur[0].label,
+          ca: contract || cur[0].ca,
+        },
+      ]);
+      if (contract && source === "os") {
+        setContractCa((prev) => (prev.trim() ? prev : contract));
+      }
+      if (next.length) {
+        const live = next.find((p) => p.status === "live");
+        const upcoming = next.find((p) => p.status === "upcoming");
+        setSelectedPhaseId((live || upcoming || next[0]).id);
+        onToast(
+          `> LOADED ${name || shortAddr(contract)} · ${next.length} MINT STAGE${
+            next.length === 1 ? "" : "S"
+          }`,
+        );
+      } else {
+        setSelectedPhaseId(null);
+        setPhasesNote("No mint phases found for this collection");
+        onToast(`> LOADED ${name || shortAddr(contract)} · NO MINT STAGES FOUND`);
+      }
+    } catch {
+      if (seq !== loadSeq.current) return;
+      setPhases([]);
+      setSelectedPhaseId(null);
+      setPhasesNote("Could not load project");
+      onToast("> COULD NOT LOAD PROJECT");
+    } finally {
+      if (seq === loadSeq.current) setPhasesLoading(false);
+    }
+  }
 
   const selectedPhase = useMemo(
     () => phases.find((p) => p.id === selectedPhaseId) || null,
@@ -346,7 +344,7 @@ export default function HoodArmSnipers({
       return;
     }
     if (!raw.trim()) {
-      onToast("> PASTE CONTRACT, OPENSEA URL, OR MINT LINK");
+      onToast("> LOAD A PROJECT FIRST (CONTRACT OR OPENSEA URL)");
       return;
     }
     if (gasMode === "manual" && !manualValue()) {
@@ -355,6 +353,10 @@ export default function HoodArmSnipers({
     }
 
     const phase = selectedPhase ? refreshPhaseStatus(selectedPhase) : null;
+    if (!opts?.skipPhaseWait && phases.length && !phase) {
+      onToast("> PICK A MINT STAGE");
+      return;
+    }
     if (!opts?.skipPhaseWait && phase) {
       if (phase.status === "ended") {
         onToast(`> ${phase.label.toUpperCase()} ALREADY ENDED — PICK ANOTHER PHASE`);
@@ -482,21 +484,9 @@ export default function HoodArmSnipers({
     }
   }
 
-  function armNftFromCa() {
-    void fireArmedMint(contractCa);
-  }
-
-  function armOpensea() {
-    void fireArmedMint(osUrl || contractCa);
-  }
-
-  function armSpectrum() {
-    void fireArmedMint(spectrumUrl || contractCa);
-  }
-
   function saveTargetsAndArm() {
     const t = targets[0];
-    const raw = t.ca.trim() || contractCa.trim() || osUrl.trim() || spectrumUrl.trim();
+    const raw = t.ca.trim() || contractCa.trim() || osUrl.trim();
     if (!t.label.trim() && !raw) {
       onToast("> SET TARGET NAME OR CONTRACT");
       return;
@@ -557,15 +547,21 @@ export default function HoodArmSnipers({
                 placeholder="Paste custom contract address"
                 value={contractCa}
                 onChange={(e) => setContractCa(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    void loadProject(contractCa, "ca");
+                  }
+                }}
                 spellCheck={false}
               />
               <button
                 type="button"
                 className="hrpc-btn"
-                onClick={armNftFromCa}
-                disabled={arming}
+                onClick={() => void loadProject(contractCa, "ca")}
+                disabled={phasesLoading}
               >
-                {arming ? "Minting…" : "Arm mint"}
+                {phasesLoading ? "Loading…" : "Load"}
               </button>
             </div>
             <div className="hrpc-inline">
@@ -574,33 +570,108 @@ export default function HoodArmSnipers({
                 placeholder="Paste OpenSea collection or slug URL"
                 value={osUrl}
                 onChange={(e) => setOsUrl(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    void loadProject(osUrl, "os");
+                  }
+                }}
                 spellCheck={false}
               />
               <button
                 type="button"
                 className="hrpc-btn"
-                onClick={armOpensea}
-                disabled={arming}
+                onClick={() => void loadProject(osUrl, "os")}
+                disabled={phasesLoading}
               >
-                OpenSea mint
+                {phasesLoading ? "Loading…" : "Load"}
               </button>
             </div>
             <div className="hrpc-inline">
-              <input
-                className="hrpc-input hrpc-mono"
-                placeholder="Paste Spectrum URL — mint link / mint page URL"
-                value={spectrumUrl}
-                onChange={(e) => setSpectrumUrl(e.target.value)}
-                spellCheck={false}
-              />
-              <button
-                type="button"
-                className="hrpc-btn"
-                onClick={armSpectrum}
-                disabled={arming}
+              <select
+                className="hrpc-input hrpc-mono hrpc-phase-select"
+                aria-label="Mint stage"
+                value={selectedPhaseId || ""}
+                disabled={!phases.length}
+                onChange={(e) => {
+                  setSelectedPhaseId(e.target.value || null);
+                  setArmedPhase(null);
+                }}
               >
-                Mint now (WL / any stage)
-              </button>
+                <option value="">
+                  {phasesLoading
+                    ? "Loading mint stages…"
+                    : phases.length
+                      ? "Select mint stage"
+                      : "Load a project to see mint stages"}
+                </option>
+                {phases.map((phase) => (
+                  <option key={phase.id} value={phase.id}>
+                    {phase.label}
+                    {phase.stageType ? ` · ${phase.stageType}` : ""} ·{" "}
+                    {phase.status.toUpperCase()} · {formatPhasePrice(phase.priceEth)}
+                    {phase.maxPerWallet ? ` · ${phase.maxPerWallet}/wallet` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="hrpc-phase-controls" aria-label="Mint stages">
+              <span className="hrpc-preset-label">Mint stages</span>
+              {phasesLoading ? (
+                <p className="hrpc-gas-live">Loading stages…</p>
+              ) : phases.length ? (
+                <div className="hrpc-phase-row">
+                  {phases.map((phase) => {
+                    const now = Date.now();
+                    const on = selectedPhaseId === phase.id;
+                    return (
+                      <button
+                        key={phase.id}
+                        type="button"
+                        className={`hrpc-phase-chip ${on ? "is-on" : ""} ${phase.status === "ended" ? "is-ended" : ""}`}
+                        onClick={() => {
+                          setSelectedPhaseId(phase.id);
+                          setArmedPhase(null);
+                        }}
+                      >
+                        <strong>{phase.label}</strong>
+                        <span>
+                          {formatPhasePrice(phase.priceEth)}
+                          {phase.maxPerWallet ? ` · ${phase.maxPerWallet}/wallet` : ""}
+                        </span>
+                        <span className={`hrpc-phase-when hrpc-phase-${phase.status}`}>
+                          {formatPhaseWhen(phase, now)}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="hrpc-gas-live">
+                  {phasesNote || "Load a contract or OpenSea URL to see mint stages"}
+                </p>
+              )}
+              {armedPhase && selectedPhase ? (
+                <div className="hrpc-phase-armed">
+                  <span>
+                    Armed for <strong>{selectedPhase.label}</strong>
+                    {selectedPhase.status === "upcoming"
+                      ? ` · ${formatPhaseWhen(selectedPhase, Date.now())}`
+                      : " · waiting to fire"}
+                  </span>
+                  <button
+                    type="button"
+                    className="hrpc-btn hrpc-btn-ghost"
+                    onClick={() => {
+                      setArmedPhase(null);
+                      onToast("> NFT PHASE DISARMED");
+                    }}
+                  >
+                    Disarm
+                  </button>
+                </div>
+              ) : null}
             </div>
 
             <div className="hrpc-targets-grid hrpc-targets-single">
@@ -634,64 +705,6 @@ export default function HoodArmSnipers({
                   />
                 </div>
               </div>
-            </div>
-
-            <div className="hrpc-phase-controls" aria-label="Mint phases">
-              <span className="hrpc-preset-label">Mint phase</span>
-              {phasesLoading ? (
-                <p className="hrpc-gas-live">Loading phases…</p>
-              ) : phases.length ? (
-                <div className="hrpc-phase-row">
-                  {phases.map((phase) => {
-                    const now = Date.now();
-                    const on = selectedPhaseId === phase.id;
-                    return (
-                      <button
-                        key={phase.id}
-                        type="button"
-                        className={`hrpc-phase-chip ${on ? "is-on" : ""} ${phase.status === "ended" ? "is-ended" : ""}`}
-                        onClick={() => {
-                          setSelectedPhaseId(phase.id);
-                          setArmedPhase(null);
-                        }}
-                      >
-                        <strong>{phase.label}</strong>
-                        <span>
-                          {formatPhasePrice(phase.priceEth)}
-                          {phase.maxPerWallet ? ` · ${phase.maxPerWallet}/wallet` : ""}
-                        </span>
-                        <span className={`hrpc-phase-when hrpc-phase-${phase.status}`}>
-                          {formatPhaseWhen(phase, now)}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className="hrpc-gas-live">
-                  {phasesNote || "Paste a contract to load mint phases"}
-                </p>
-              )}
-              {armedPhase && selectedPhase ? (
-                <div className="hrpc-phase-armed">
-                  <span>
-                    Armed for <strong>{selectedPhase.label}</strong>
-                    {selectedPhase.status === "upcoming"
-                      ? ` · ${formatPhaseWhen(selectedPhase, Date.now())}`
-                      : " · waiting to fire"}
-                  </span>
-                  <button
-                    type="button"
-                    className="hrpc-btn hrpc-btn-ghost"
-                    onClick={() => {
-                      setArmedPhase(null);
-                      onToast("> NFT PHASE DISARMED");
-                    }}
-                  >
-                    Disarm
-                  </button>
-                </div>
-              ) : null}
             </div>
 
             <div className="hrpc-gas-controls" aria-label="Gas presets">
