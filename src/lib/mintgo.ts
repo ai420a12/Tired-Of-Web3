@@ -198,8 +198,19 @@ export async function fetchMintgoMintTx(opts: {
   gasValidated?: boolean;
 }> {
   const allow = opts.allowPaid ? "1" : "0";
-  return mintgoJson(
+  const res = await mintgoFetch(
     `/api/mint-tx/${opts.contract}?quantity=${opts.quantity}&from=${opts.from}&allowPaid=${allow}&chain=${opts.chain}`,
-    `MintGo mint-tx ${opts.chain}`,
   );
+  const payload = (await res.json().catch(() => ({}))) as {
+    ok?: boolean;
+    error?: string;
+    reason?: string;
+    analysis?: MintgoMintAnalysis;
+    tx?: MintgoPreparedTx;
+    gasValidated?: boolean;
+  };
+  if (!res.ok && !payload.error) {
+    payload.error = `MintGo mint-tx ${opts.chain} ${res.status}`;
+  }
+  return payload;
 }

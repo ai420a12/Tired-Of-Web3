@@ -15,6 +15,54 @@ function asRecord(value: unknown): Record<string, unknown> {
     : {};
 }
 
+function extractAddress(raw: string): string {
+  const m = raw.toLowerCase().match(/0x[a-f0-9]{40}/);
+  return m ? m[0] : "";
+}
+
+function extractOpenSeaSlug(raw: string): string {
+  const text = raw.trim();
+  const fromUrl = text.match(
+    /opensea\.io\/(?:collection\/)?([a-z0-9_-]+)/i,
+  );
+  if (fromUrl?.[1] && !/^(assets|account|rankings|collection)$/i.test(fromUrl[1])) {
+    return fromUrl[1];
+  }
+  if (/^[a-z0-9-]{2,80}$/i.test(text)) return text;
+  return "";
+}
+
+async function resolveOpenSeaContract(
+  slug: string,
+  chain: MintgoChain,
+): Promise<string> {
+  const keys = [
+    (process.env.OPENSEA_API_KEY || "").trim(),
+    ...(process.env.OPENSEA_API_KEYS || "")
+      .split(/[\s,]+/)
+      .map((k) => k.trim()),
+  ].filter(Boolean);
+  const headers: Record<string, string> = { Accept: "application/json" };
+  if (keys[0]) headers["X-API-KEY"] = keys[0];
+  const res = await fetch(
+    `https://api.opensea.io/api/v2/collections/${encodeURIComponent(slug)}`,
+    { headers, cache: "no-store" },
+  );
+  if (!res.ok) return "";
+  const data = (await res.json().catch(() => ({}))) as {
+    contracts?: { address?: string; chain?: string }[];
+    collection?: { contracts?: { address?: string; chain?: string }[] };
+  };
+  const contracts = Array.isArray(data.contracts)
+    ? data.contracts
+    : data.collection?.contracts || [];
+  const want = chain === "ethereum" ? "ethereum" : "robinhood";
+  const match =
+    contracts.find((c) => String(c.chain || "").toLowerCase() === want) ||
+    contracts[0];
+  return extractAddress(String(match?.address || ""));
+}
+
 export async function handleMintDetail(
   req: Request,
   variant: HoodRpcVariant,
@@ -33,9 +81,16 @@ export async function handleMintDetail(
       : variant === "eth"
         ? "ethereum"
         : "robinhood";
-  const contract = (url.searchParams.get("contract") || "")
-    .trim()
-    .toLowerCase();
+  const q =
+    url.searchParams.get("q") ||
+    url.searchParams.get("slug") ||
+    url.searchParams.get("contract") ||
+    "";
+  let contract = extractAddress(url.searchParams.get("contract") || q);
+  if (!contract) {
+    const slug = extractOpenSeaSlug(q || url.searchParams.get("slug") || "");
+    if (slug) contract = await resolveOpenSeaContract(slug, chain);
+  }
   if (!/^0x[a-f0-9]{40}$/.test(contract)) {
     return NextResponse.json({ error: "Invalid contract" }, { status: 400 });
   }

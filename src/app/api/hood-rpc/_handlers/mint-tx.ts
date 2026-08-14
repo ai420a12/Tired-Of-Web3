@@ -47,35 +47,57 @@ export async function handleMintTx(req: Request, variant: HoodRpcVariant) {
       : variant === "eth"
         ? "ethereum"
         : "robinhood";
-  try {
-    const payload = await fetchMintgoMintTx({
-      chain,
-      contract,
-      quantity,
-      from,
-      allowPaid: Boolean(body.allowPaid),
-    });
-    if (!payload?.ok || !payload.tx?.to || !payload.tx?.data) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error:
-            payload?.error ||
-            payload?.reason ||
-            payload?.analysis?.reason ||
-            "No mint route for this contract",
-          analysis: payload?.analysis || null,
-        },
-        { status: 422 },
-      );
+
+  const quantities = [quantity];
+  if (quantity >= 80) {
+    for (const fallback of [99, 90, 80, 50]) {
+      if (fallback < quantity && !quantities.includes(fallback)) {
+        quantities.push(fallback);
+      }
     }
-    return NextResponse.json({
-      ok: true,
-      chain,
-      analysis: payload.analysis || null,
-      tx: payload.tx,
-      gasValidated: Boolean(payload.gasValidated),
-    });
+  }
+
+  try {
+    let lastError = "No mint route for this contract";
+    let lastAnalysis: Awaited<
+      ReturnType<typeof fetchMintgoMintTx>
+    >["analysis"];
+    for (const qty of quantities) {
+      const payload = await fetchMintgoMintTx({
+        chain,
+        contract,
+        quantity: qty,
+        from,
+        allowPaid: Boolean(body.allowPaid),
+      });
+      lastAnalysis = payload.analysis || lastAnalysis;
+      if (payload?.ok && payload.tx?.to && payload.tx?.data) {
+        return NextResponse.json({
+          ok: true,
+          chain,
+          quantity: qty,
+          requested: quantity,
+          analysis: payload.analysis || null,
+          tx: payload.tx,
+          gasValidated: Boolean(payload.gasValidated),
+        });
+      }
+      lastError =
+        payload?.error ||
+        payload?.reason ||
+        payload?.analysis?.reason ||
+        lastError;
+      const simFail = /simulation failed|grouped mint/i.test(lastError);
+      if (!simFail) break;
+    }
+    return NextResponse.json(
+      {
+        ok: false,
+        error: lastError,
+        analysis: lastAnalysis || null,
+      },
+      { status: 422 },
+    );
   } catch (err) {
     return NextResponse.json(
       {

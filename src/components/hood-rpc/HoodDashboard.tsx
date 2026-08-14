@@ -1007,7 +1007,10 @@ export default function HoodDashboard({
           key={`arm-${wallet?.toLowerCase() || "none"}`}
           onToast={setToast}
           connectedWallet={wallet}
+          apiBase={cfg.apiBase}
+          variant={variant}
           squad={squad}
+          pkById={pkById}
           pushOutcome={pushOutcome}
           pushTicker={pushTicker}
         />

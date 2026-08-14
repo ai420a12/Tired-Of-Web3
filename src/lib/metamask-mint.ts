@@ -1,4 +1,8 @@
 import { ROBINHOOD_CHAIN_ID } from "@/lib/factory-balance";
+import {
+  quoteLiveGas,
+  type GasSpeed,
+} from "@/lib/live-gas";
 
 type EthereumProvider = {
   request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
@@ -6,7 +10,6 @@ type EthereumProvider = {
 
 const RH_CHAIN_HEX = `0x${ROBINHOOD_CHAIN_ID.toString(16)}`;
 const RH_RPC = "https://rpc.mainnet.chain.robinhood.com";
-const ETH_RPC = "https://ethereum.publicnode.com";
 
 const RH_ADD = {
   chainId: RH_CHAIN_HEX,
@@ -26,63 +29,22 @@ function toHex(n: bigint): string {
   return `0x${n.toString(16)}`;
 }
 
-async function rpcCall(url: string, method: string, params: unknown[]) {
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
-    cache: "no-store",
-  });
-  const json = (await res.json()) as { result?: string | { baseFeePerGas?: string } };
-  return json.result;
-}
-
 /**
- * Live L2 fees — MetaMask on custom chains often quotes ETH-mainnet gwei
- * and the popup jumps. Pin the wallet to the chain's real base fee.
+ * Live L2 / L1 fees — pin MetaMask to the chain's real base fee
+ * instead of stale 2021-style gwei presets.
  */
-export async function quoteMintFees(chain: "robinhood" | "ethereum"): Promise<{
+export async function quoteMintFees(
+  chain: "robinhood" | "ethereum",
+  mode: GasSpeed = "fast",
+  manualGwei?: number,
+): Promise<{
   maxFeePerGas: string;
   maxPriorityFeePerGas: string;
 }> {
-  const rpc = chain === "ethereum" ? ETH_RPC : RH_RPC;
-  const block = (await rpcCall(rpc, "eth_getBlockByNumber", [
-    "latest",
-    false,
-  ])) as { baseFeePerGas?: string } | string;
-  const base =
-    typeof block === "object" && block?.baseFeePerGas
-      ? BigInt(block.baseFeePerGas)
-      : BigInt(await rpcCall(rpc, "eth_gasPrice", []) as string);
-  let tip = BigInt(0);
-  try {
-    tip = BigInt((await rpcCall(rpc, "eth_maxPriorityFeePerGas", [])) as string);
-  } catch {
-    tip = BigInt(0);
-  }
-
-  if (chain === "robinhood") {
-    const floor = BigInt(1_000_000); // 0.001 gwei
-    const cap = BigInt(80_000_000); // 0.08 gwei
-    if (tip < floor) tip = floor;
-    if (tip > cap) tip = cap;
-    let maxFee = base * BigInt(2) + tip;
-    const maxFeeCap = BigInt(200_000_000); // 0.2 gwei
-    if (maxFee > maxFeeCap) maxFee = maxFeeCap;
-    if (maxFee <= tip) maxFee = tip + base;
-    return {
-      maxFeePerGas: toHex(maxFee),
-      maxPriorityFeePerGas: toHex(tip),
-    };
-  }
-
-  const floor = BigInt(10_000_000); // 0.01 gwei
-  const cap = BigInt(2_000_000_000); // 2 gwei
-  if (tip < floor) tip = floor;
-  if (tip > cap) tip = cap;
+  const fees = await quoteLiveGas({ chain, mode, manualGwei });
   return {
-    maxFeePerGas: toHex((base * BigInt(1250)) / BigInt(1000) + tip),
-    maxPriorityFeePerGas: toHex(tip),
+    maxFeePerGas: toHex(fees.maxFeePerGas),
+    maxPriorityFeePerGas: toHex(fees.maxPriorityFeePerGas),
   };
 }
 
@@ -131,10 +93,16 @@ export async function sendMintWithMetaMask(opts: {
   data: string;
   value?: string;
   gas?: string;
+  gasMode?: GasSpeed;
+  manualGwei?: number;
 }): Promise<string> {
   const eth = provider();
   await ensureMintChain(opts.chain);
-  const fees = await quoteMintFees(opts.chain);
+  const fees = await quoteMintFees(
+    opts.chain,
+    opts.gasMode || "fast",
+    opts.manualGwei,
+  );
   const tx: Record<string, string> = {
     from: opts.from,
     to: opts.to,

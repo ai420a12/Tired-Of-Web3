@@ -1,26 +1,75 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type MutableRefObject } from "react";
 import WalletPickerModal from "./WalletPickerModal";
 import type { SquadWallet } from "@/lib/operator-wallets";
+import type { HoodRpcVariant } from "@/lib/hood-rpc-chain";
+import type { Hex } from "viem";
+import {
+  formatLiveGwei,
+  quoteLiveGas,
+  type GasSpeed,
+  type LiveGasQuote,
+} from "@/lib/live-gas";
+import {
+  sendMintWithMetaMask,
+  walletErrorText,
+} from "@/lib/metamask-mint";
+import {
+  explorerMintTx,
+  signAndBroadcastMint,
+} from "@/lib/seadrop-mint";
 
 type Props = {
   onToast: (msg: string) => void;
   connectedWallet: string | null;
+  apiBase: string;
+  variant: HoodRpcVariant;
   squad: SquadWallet[];
+  pkById: MutableRefObject<Map<number, Hex>>;
   pushOutcome: (text: string, kind?: "ok" | "err" | "info") => void;
   pushTicker: (text: string, kind?: "ok" | "err" | "info") => void;
 };
 
 type NftTarget = { label: string; ca: string; qty: string };
 
+type PreparedMint = {
+  to: string;
+  data: string;
+  value?: string;
+  gas?: string;
+  from?: string;
+};
+
+const ADDR_RE = /0x[a-fA-F0-9]{40}/;
+
+function extractAddress(raw: string): string {
+  const m = raw.match(ADDR_RE);
+  return m ? m[0].toLowerCase() : "";
+}
+
+function mintQty(raw: string): number {
+  const n = Math.floor(Number(raw));
+  if (!Number.isFinite(n) || n < 1) return 1;
+  return Math.min(100, n);
+}
+
+function shortAddr(addr: string) {
+  if (!addr || addr.length < 10) return addr || "—";
+  return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
+}
+
 export default function HoodArmSnipers({
   onToast,
   connectedWallet,
+  apiBase,
+  variant,
   squad,
+  pkById,
   pushOutcome,
   pushTicker,
 }: Props) {
+  const chain = variant === "eth" ? "ethereum" : "robinhood";
   const [contractCa, setContractCa] = useState("");
   const [osUrl, setOsUrl] = useState("");
   const [spectrumUrl, setSpectrumUrl] = useState("");
@@ -29,24 +78,10 @@ export default function HoodArmSnipers({
   ]);
   const [nftWalletIds, setNftWalletIds] = useState<number[]>([]);
   const [pickerFor, setPickerFor] = useState<"nft" | "meme" | null>(null);
-  const [gasMode, setGasMode] = useState<"normal" | "fast" | "hyper" | "manual">(
-    "fast",
-  );
-  const [manualGwei, setManualGwei] = useState("75");
-
-  const GAS_PRESETS = {
-    normal: 30,
-    fast: 50,
-    hyper: 120,
-  } as const;
-
-  function currentGwei(): number {
-    if (gasMode === "manual") {
-      const n = parseFloat(manualGwei);
-      return Number.isFinite(n) && n > 0 ? n : 0;
-    }
-    return GAS_PRESETS[gasMode];
-  }
+  const [gasMode, setGasMode] = useState<GasSpeed>("fast");
+  const [manualGwei, setManualGwei] = useState("");
+  const [liveGas, setLiveGas] = useState<LiveGasQuote | null>(null);
+  const [arming, setArming] = useState(false);
 
   const [ticker, setTicker] = useState("");
   const [buyEth, setBuyEth] = useState("0.25");
@@ -59,84 +94,232 @@ export default function HoodArmSnipers({
     [pickerFor, memeWalletIds, nftWalletIds],
   );
 
-  function requireReady(needWallets = true) {
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const quote = await quoteLiveGas({
+          chain,
+          mode: gasMode === "manual" ? "fast" : gasMode,
+        });
+        if (!cancelled) setLiveGas(quote);
+      } catch {
+        if (!cancelled) setLiveGas(null);
+      }
+    }
+    void load();
+    const id = window.setInterval(() => void load(), 8000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [chain, gasMode]);
+
+  function manualValue(): number | undefined {
+    if (gasMode !== "manual") return undefined;
+    const n = parseFloat(manualGwei);
+    return Number.isFinite(n) && n > 0 ? n : undefined;
+  }
+
+  async function resolveContract(raw: string): Promise<{
+    contract: string;
+    name: string;
+  }> {
+    const hex = extractAddress(raw);
+    if (hex) return { contract: hex, name: "" };
+    const q = raw.trim();
+    if (!q) throw new Error("Paste a contract, OpenSea URL, or mint link");
+    const res = await fetch(
+      `${apiBase}/mint-detail?q=${encodeURIComponent(q)}&chain=${chain}`,
+      { cache: "no-store" },
+    );
+    const data = (await res.json()) as {
+      ok?: boolean;
+      contract?: string;
+      name?: string;
+      error?: string;
+    };
+    const resolved = extractAddress(data.contract || "");
+    if (!resolved) {
+      throw new Error(data.error || "Need a 0x contract (or OpenSea collection URL)");
+    }
+    return { contract: resolved, name: data.name || "" };
+  }
+
+  async function prepareMint(from: string, contract: string, quantity: number) {
+    const res = await fetch(`${apiBase}/mint-tx`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        contract,
+        quantity,
+        from,
+        allowPaid: true,
+        chain,
+      }),
+    });
+    const data = (await res.json()) as {
+      ok?: boolean;
+      error?: string;
+      quantity?: number;
+      tx?: PreparedMint;
+    };
+    if (!data.ok || !data.tx?.to || !data.tx?.data) {
+      throw new Error(data.error || "No mint route for this contract");
+    }
+    return data;
+  }
+
+  function keyedWallets(ids: number[]) {
+    return ids
+      .map((id) => {
+        const wallet = squad.find((w) => w.id === id);
+        const pk = pkById.current.get(id);
+        if (!wallet || !pk) return null;
+        return { wallet, pk };
+      })
+      .filter((row): row is { wallet: SquadWallet; pk: Hex } => Boolean(row));
+  }
+
+  async function fireArmedMint(raw: string, opts?: { requireWallets?: boolean }) {
     if (!connectedWallet) {
       onToast("> CONNECT WALLET FIRST (top right)");
-      return false;
-    }
-    if (needWallets && !squad.length) {
-      onToast("> GENERATE OR PASTE SQUAD KEYS FIRST");
-      return false;
-    }
-    return true;
-  }
-
-  function armNftFromCa() {
-    if (!requireReady()) return;
-    if (!contractCa.trim()) {
-      onToast("> PASTE CONTRACT ADDRESS");
       return;
     }
-    const n = nftWalletIds.length || squad.length;
-    const msg = `> NFT SNIPER ARMED · ${contractCa.trim().slice(0, 14)}… · ${n} wallets · ${currentGwei()} gwei`;
-    onToast(msg);
-    pushOutcome(
-      `NFT armed · ${contractCa.trim().slice(0, 10)}… · ${n} wallets · ${currentGwei()} gwei`,
-      "ok",
-    );
-  }
-
-  function armOpensea() {
-    if (!requireReady()) return;
-    if (!osUrl.trim()) {
-      onToast("> PASTE OPENSEA URL / SLUG");
+    if (!raw.trim()) {
+      onToast("> PASTE CONTRACT, OPENSEA URL, OR MINT LINK");
       return;
     }
-    const n = nftWalletIds.length || squad.length;
-    const msg = `> OPENSEA TARGET ARMED · ${n} wallets · ${osUrl.trim().slice(0, 24)}…`;
-    onToast(msg);
-    pushOutcome(`OpenSea target armed · ${n} wallets`, "ok");
-  }
-
-  function armSpectrum() {
-    if (!requireReady()) return;
-    if (!spectrumUrl.trim()) {
-      onToast("> PASTE SPECTRUM / MINT URL");
-      return;
-    }
-    const n = nftWalletIds.length || squad.length;
-    const msg = `> SPECTRUM TARGET ARMED · ${n} wallets`;
-    onToast(msg);
-    pushOutcome(`Spectrum target armed · ${n} wallets`, "ok");
-  }
-
-  function saveTargetsAndArm() {
-    if (!requireReady()) return;
-    const t = targets[0];
-    if (!t.label.trim() && !t.ca.trim()) {
-      onToast("> SET TARGET NAME OR CONTRACT");
-      return;
-    }
-    const ids = nftWalletIds.length ? nftWalletIds : squad.map((w) => w.id);
-    if (!ids.length) {
-      onToast("> SELECT WALLETS FIRST");
-      return;
-    }
-    const gwei = currentGwei();
-    if (!gwei) {
+    if (gasMode === "manual" && !manualValue()) {
       onToast("> ENTER MANUAL GWEI");
       return;
     }
-    const msg = `> TARGET SAVED + ARMED · ${t.label || t.ca.slice(0, 12)} · ${ids.length} wallets · ${gwei} gwei`;
-    onToast(msg);
-    pushOutcome(
-      `Target armed · ${t.label || t.ca.slice(0, 10)} · ${ids.length} wallets · ${gwei} gwei`,
-      "ok",
-    );
+
+    const selectedIds = nftWalletIds.length
+      ? nftWalletIds
+      : opts?.requireWallets
+        ? squad.map((w) => w.id)
+        : [];
+    const silent = keyedWallets(selectedIds);
+    if (selectedIds.length && !silent.length) {
+      onToast("> PASTE SQUAD KEYS FOR SELECTED WALLETS (or clear selection to mint with MetaMask)");
+      return;
+    }
+
+    setArming(true);
+    const qty = mintQty(targets[0].qty);
+    try {
+      const target = await resolveContract(raw);
+      const label = targets[0].label.trim() || target.name || shortAddr(target.contract);
+      const gasLabel =
+        gasMode === "manual"
+          ? `${manualValue()} gwei`
+          : `${gasMode} · ~${formatLiveGwei(liveGas?.maxFeeGwei || 0)} gwei`;
+
+      if (silent.length) {
+        onToast(`> ARMING ${silent.length} WALLETS · ${label} · ${qty} each`);
+        pushOutcome(
+          `NFT arm · ${label} · ${silent.length} wallets · ${qty} · ${gasLabel}`,
+          "info",
+        );
+        const results = await Promise.allSettled(
+          silent.map(async ({ wallet, pk }) => {
+            const prepared = await prepareMint(wallet.address, target.contract, qty);
+            const hash = await signAndBroadcastMint({
+              variant,
+              apiBase,
+              privateKey: pk,
+              tx: prepared.tx as PreparedMint,
+              gasMode,
+              manualGwei: manualValue(),
+            });
+            return { wallet, hash, quantity: prepared.quantity || qty };
+          }),
+        );
+        let ok = 0;
+        for (const row of results) {
+          if (row.status === "fulfilled") {
+            ok += 1;
+            pushOutcome(
+              `Minted ${row.value.quantity} · ${shortAddr(row.value.wallet.address)} · ${row.value.hash.slice(0, 10)}…`,
+              "ok",
+            );
+          } else {
+            const reason =
+              row.reason instanceof Error ? row.reason.message : "MINT_FAILED";
+            pushOutcome(`Mint failed · ${reason}`, "err");
+          }
+        }
+        if (ok) {
+          const first = results.find((r) => r.status === "fulfilled");
+          const hash =
+            first && first.status === "fulfilled" ? first.value.hash : "";
+          onToast(
+            `> MINTED ${ok}/${silent.length} · ${label}${hash ? ` · ${explorerMintTx(variant, hash)}` : ""}`,
+          );
+        } else {
+          onToast("> NFT ARM FAILED — check bot outcomes");
+        }
+        return;
+      }
+
+      onToast(`> CONFIRM MINT IN METAMASK · ${label} · ${qty}`);
+      pushOutcome(
+        `NFT arm · ${label} · MetaMask · ${qty} · ${gasLabel}`,
+        "info",
+      );
+      const prepared = await prepareMint(connectedWallet, target.contract, qty);
+      const hash = await sendMintWithMetaMask({
+        chain,
+        from: connectedWallet,
+        to: prepared.tx!.to,
+        data: prepared.tx!.data,
+        value: prepared.tx!.value,
+        gas: prepared.tx!.gas,
+        gasMode,
+        manualGwei: manualValue(),
+      });
+      pushOutcome(
+        `Minted ${prepared.quantity || qty} · ${shortAddr(connectedWallet)} · ${hash.slice(0, 10)}…`,
+        "ok",
+      );
+      onToast(`> MINTED ${prepared.quantity || qty} · ${explorerMintTx(variant, hash)}`);
+    } catch (err) {
+      const msg = walletErrorText(err);
+      onToast(`> ${msg}`);
+      pushOutcome(`NFT arm failed · ${msg}`, "err");
+    } finally {
+      setArming(false);
+    }
+  }
+
+  function armNftFromCa() {
+    void fireArmedMint(contractCa);
+  }
+
+  function armOpensea() {
+    void fireArmedMint(osUrl || contractCa);
+  }
+
+  function armSpectrum() {
+    void fireArmedMint(spectrumUrl || contractCa);
+  }
+
+  function saveTargetsAndArm() {
+    const t = targets[0];
+    const raw = t.ca.trim() || contractCa.trim() || osUrl.trim() || spectrumUrl.trim();
+    if (!t.label.trim() && !raw) {
+      onToast("> SET TARGET NAME OR CONTRACT");
+      return;
+    }
+    void fireArmedMint(raw, { requireWallets: true });
   }
 
   function armMemecoin() {
-    if (!requireReady()) return;
+    if (!connectedWallet) {
+      onToast("> CONNECT WALLET FIRST (top right)");
+      return;
+    }
     const t = ticker.trim().replace(/^\$/, "").toUpperCase();
     if (!t) {
       onToast("> ENTER TICKER TO WATCH");
@@ -163,6 +346,11 @@ export default function HoodArmSnipers({
     pushTicker("Meme sniper cleared", "info");
   }
 
+  const liveHint =
+    gasMode === "manual"
+      ? `Live ~${formatLiveGwei(liveGas?.liveGwei || 0)} gwei · enter your max fee`
+      : `Live ~${formatLiveGwei(liveGas?.liveGwei || 0)} gwei · ${gasMode} ~${formatLiveGwei(liveGas?.maxFeeGwei || 0)}`;
+
   return (
     <>
       <div className="hrpc-arm-grid">
@@ -182,8 +370,13 @@ export default function HoodArmSnipers({
                 onChange={(e) => setContractCa(e.target.value)}
                 spellCheck={false}
               />
-              <button type="button" className="hrpc-btn" onClick={armNftFromCa}>
-                Arm mint
+              <button
+                type="button"
+                className="hrpc-btn"
+                onClick={armNftFromCa}
+                disabled={arming}
+              >
+                {arming ? "Minting…" : "Arm mint"}
               </button>
             </div>
             <div className="hrpc-inline">
@@ -194,7 +387,12 @@ export default function HoodArmSnipers({
                 onChange={(e) => setOsUrl(e.target.value)}
                 spellCheck={false}
               />
-              <button type="button" className="hrpc-btn" onClick={armOpensea}>
+              <button
+                type="button"
+                className="hrpc-btn"
+                onClick={armOpensea}
+                disabled={arming}
+              >
                 OpenSea mint
               </button>
             </div>
@@ -206,7 +404,12 @@ export default function HoodArmSnipers({
                 onChange={(e) => setSpectrumUrl(e.target.value)}
                 spellCheck={false}
               />
-              <button type="button" className="hrpc-btn" onClick={armSpectrum}>
+              <button
+                type="button"
+                className="hrpc-btn"
+                onClick={armSpectrum}
+                disabled={arming}
+              >
                 Mint now (WL / any stage)
               </button>
             </div>
@@ -252,21 +455,21 @@ export default function HoodArmSnipers({
                   className={`hrpc-btn ${gasMode === "normal" ? "" : "hrpc-btn-ghost"}`}
                   onClick={() => setGasMode("normal")}
                 >
-                  Normal · {GAS_PRESETS.normal}
+                  Normal
                 </button>
                 <button
                   type="button"
                   className={`hrpc-btn ${gasMode === "fast" ? "" : "hrpc-btn-ghost"}`}
                   onClick={() => setGasMode("fast")}
                 >
-                  Fast · {GAS_PRESETS.fast}
+                  Fast
                 </button>
                 <button
                   type="button"
                   className={`hrpc-btn ${gasMode === "hyper" ? "" : "hrpc-btn-ghost"}`}
                   onClick={() => setGasMode("hyper")}
                 >
-                  Hyper · {GAS_PRESETS.hyper}
+                  Hyper
                 </button>
                 <label className={`hrpc-gas-manual ${gasMode === "manual" ? "on" : ""}`}>
                   <button
@@ -290,6 +493,7 @@ export default function HoodArmSnipers({
                   />
                 </label>
               </div>
+              <span className="hrpc-gas-live">{liveHint}</span>
             </div>
 
             <div className="hrpc-row-actions" style={{ marginTop: "0.75rem" }}>
@@ -300,8 +504,13 @@ export default function HoodArmSnipers({
               >
                 Select wallets ({nftWalletIds.length || squad.length})
               </button>
-              <button type="button" className="hrpc-btn" onClick={saveTargetsAndArm}>
-                Save targets + arm mint
+              <button
+                type="button"
+                className="hrpc-btn"
+                onClick={saveTargetsAndArm}
+                disabled={arming}
+              >
+                {arming ? "Minting…" : "Save targets + arm mint"}
               </button>
             </div>
           </div>

@@ -6,7 +6,6 @@ import {
   createPublicClient,
   createWalletClient,
   http,
-  parseGwei,
   type Address,
   type Hex,
 } from "viem";
@@ -14,6 +13,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { mainnet } from "viem/chains";
 import { broadcastSigned, robinhoodChain } from "@/lib/operator-tx";
 import type { HoodRpcVariant } from "@/lib/hood-rpc-chain";
+import { quoteLiveGas, type GasSpeed } from "@/lib/live-gas";
 
 export type SquadMintWallet = {
   pk: Hex;
@@ -39,32 +39,13 @@ function rpcFor(variant: HoodRpcVariant) {
     : "https://rpc.mainnet.chain.robinhood.com";
 }
 
-async function quoteMintGas(
-  publicClient: ReturnType<typeof createPublicClient>,
-  variant: HoodRpcVariant,
-) {
-  const block = await publicClient.getBlock({ blockTag: "latest" });
-  const fees = await publicClient.estimateFeesPerGas().catch(() => null);
-  const baseFee =
-    block.baseFeePerGas ??
-    fees?.maxFeePerGas ??
-    parseGwei(variant === "eth" ? "0.2" : "0.01");
-  let tip = fees?.maxPriorityFeePerGas ?? parseGwei("0.01");
-  const tipFloor = parseGwei(variant === "eth" ? "0.05" : "0.001");
-  const tipCap = parseGwei(variant === "eth" ? "1.5" : "0.05");
-  if (tip < tipFloor) tip = tipFloor;
-  if (tip > tipCap) tip = tipCap;
-  return {
-    maxPriorityFeePerGas: tip,
-    maxFeePerGas: (baseFee * BigInt(1250)) / BigInt(1000) + tip,
-  };
-}
-
 export async function signAndBroadcastMint(opts: {
   variant: HoodRpcVariant;
   apiBase: string;
   privateKey: Hex;
   tx: PreparedTx;
+  gasMode?: GasSpeed;
+  manualGwei?: number;
 }): Promise<Hex> {
   const account = privateKeyToAccount(opts.privateKey);
   if (
@@ -86,7 +67,11 @@ export async function signAndBroadcastMint(opts: {
     transport: http(rpcFor(opts.variant)),
   });
 
-  const fees = await quoteMintGas(publicClient, opts.variant);
+  const fees = await quoteLiveGas({
+    chain: opts.variant === "eth" ? "ethereum" : "robinhood",
+    mode: opts.gasMode || "fast",
+    manualGwei: opts.manualGwei,
+  });
   const nonce = await publicClient.getTransactionCount({
     address: account.address,
     blockTag: "pending",

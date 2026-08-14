@@ -359,42 +359,43 @@ export default function HoodMintBoard({
       "info",
     );
     try {
-      let tx = prepared;
-      if (!tx || quantity !== qty) {
-        const res = await fetch(`${apiBase}/mint-tx`, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            contract: selected.contract,
-            quantity,
-            from: connectedWallet,
-            allowPaid: paid && allowPaid,
-            chain: selected.chain,
-          }),
-        });
-        const data = (await res.json()) as {
-          ok?: boolean;
-          error?: string;
-          tx?: PreparedMint;
-        };
-        if (!res.ok || !data.ok || !data.tx?.to || !data.tx?.data) {
-          throw new Error(data.error || "MINT_ROUTE_FAILED");
-        }
-        tx = data.tx;
+      const res = await fetch(`${apiBase}/mint-tx`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          contract: selected.contract,
+          quantity,
+          from: connectedWallet,
+          allowPaid: paid && allowPaid,
+          chain: selected.chain,
+        }),
+      });
+      const data = (await res.json()) as {
+        ok?: boolean;
+        error?: string;
+        quantity?: number;
+        requested?: number;
+        tx?: PreparedMint;
+      };
+      if (!res.ok || !data.ok || !data.tx?.to || !data.tx?.data) {
+        throw new Error(data.error || "MINT_ROUTE_FAILED");
       }
+      const mintedQty = data.quantity || quantity;
       const hash = await sendMintWithMetaMask({
         chain: selected.chain,
         from: connectedWallet,
-        to: tx.to,
-        data: tx.data,
-        value: tx.value,
-        gas: tx.gas,
+        to: data.tx.to,
+        data: data.tx.data,
+        value: data.tx.value,
+        gas: data.tx.gas,
       });
+      const note =
+        mintedQty !== quantity ? ` (helper maxed at ${mintedQty})` : "";
       onOutcome?.(
-        `Minted ${quantity} · ${name} · ${hash.slice(0, 10)}… · landing in ${shortAddr(connectedWallet)}`,
+        `Minted ${mintedQty} · ${name} · ${hash.slice(0, 10)}… · landing in ${shortAddr(connectedWallet)}${note}`,
         "ok",
       );
-      onToast(`> MINTED ${quantity} · CHECK YOUR WALLET`);
+      onToast(`> MINTED ${mintedQty} · CHECK YOUR WALLET`);
     } catch (err) {
       const msg = walletErrorText(err);
       onOutcome?.(`Mint failed · ${name} · ${msg}`, "err");

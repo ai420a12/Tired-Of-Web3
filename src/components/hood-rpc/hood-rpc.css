@@ -1985,6 +1985,14 @@
   border-color: var(--lime, #ccff00);
 }
 
+.hrpc-gas-live {
+  display: block;
+  margin-top: 0.4rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
 .hrpc-target-slot {
   border: 1px solid rgba(var(--accent-rgb), 0.2);
   padding: 0.55rem;
