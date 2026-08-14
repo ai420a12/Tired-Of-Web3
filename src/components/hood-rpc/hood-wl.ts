@@ -13,6 +13,7 @@ export const HOOD_RPC_LINKS = {
   home: "/hood-rpc",
   /** Live OpenSea collection drop */
   opensea: TIRED_OF_WEB3_OPENSEA_URL,
+  discord: "https://discord.gg/tiredofweb3",
 } as const;
 
 /** Aug 12 2026, 19:00 UK (BST / Europe/London) */

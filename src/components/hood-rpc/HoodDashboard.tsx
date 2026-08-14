@@ -575,6 +575,14 @@ export default function HoodDashboard({
           >
             OpenSea
           </a>
+          <a
+            className="hrpc-nav-link hrpc-nav-link-discord"
+            href={HOOD_RPC_LINKS.discord}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Discord
+          </a>
         </div>
         <div className="hrpc-nav-right">
           <div className="hrpc-nav-account">

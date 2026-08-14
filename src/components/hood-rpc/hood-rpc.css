@@ -221,11 +221,24 @@
   border-color: var(--lime);
 }
 
+.hrpc-nav-link-discord {
+  background: #5865f2;
+  color: #fff;
+  border-color: #5865f2;
+}
+
 .hrpc-nav-link-wl:hover,
 .hrpc-nav-link-opensea:hover {
   filter: brightness(1.06);
   background: var(--lime);
   color: #000;
+}
+
+.hrpc-nav-link-discord:hover {
+  filter: brightness(1.08);
+  background: #4752c4;
+  color: #fff;
+  border-color: #4752c4;
 }
 
 .hrpc-brand img,
@@ -3372,6 +3385,18 @@ html[data-eth-rpc="1"] .hrpc.hrpc-eth {
   color: #000;
   border-color: #38bdf8;
   filter: brightness(1.06);
+}
+
+.hrpc.hrpc-eth .hrpc-nav-link-discord {
+  background: #5865f2;
+  color: #fff;
+  border-color: #5865f2;
+}
+
+.hrpc.hrpc-eth .hrpc-nav-link-discord:hover {
+  background: #4752c4;
+  color: #fff;
+  border-color: #4752c4;
 }
 
 .hrpc.hrpc-eth .hrpc-wallet-dot {
