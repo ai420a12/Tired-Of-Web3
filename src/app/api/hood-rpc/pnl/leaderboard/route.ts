@@ -15,10 +15,11 @@ export async function GET(req: Request) {
       source: result.source,
       note: result.note,
       leaders: result.rows,
+      updatedAt: new Date().toISOString(),
     },
     {
       headers: {
-        "Cache-Control": "public, s-maxage=30, stale-while-revalidate=60",
+        "Cache-Control": "no-store, max-age=0",
       },
     },
   );

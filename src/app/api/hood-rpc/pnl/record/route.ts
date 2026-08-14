@@ -33,7 +33,7 @@ export async function POST(req: Request) {
     txHash: String(body.txHash || ""),
     contract: String(body.contract || ""),
     tokenId: String(body.tokenId || ""),
-    costEth: Number(body.costEth),
+    costEth: Number.isFinite(Number(body.costEth)) ? Number(body.costEth) : 0,
     collectionSlug: body.collectionSlug
       ? String(body.collectionSlug)
       : undefined,

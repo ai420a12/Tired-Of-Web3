@@ -324,6 +324,25 @@ export default function HoodArmSnipers({
     return data;
   }
 
+  function recordPlatformTx(opts: {
+    txHash: string;
+    contract: string;
+    tokenName?: string;
+    costEth?: number;
+  }) {
+    void fetch(`${apiBase}/pnl/record`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        txHash: opts.txHash,
+        contract: opts.contract,
+        tokenId: "mint",
+        costEth: opts.costEth ?? 0,
+        tokenName: opts.tokenName,
+      }),
+    }).catch(() => null);
+  }
+
   function keyedWallets(ids: number[]) {
     return ids
       .map((id) => {
@@ -431,6 +450,11 @@ export default function HoodArmSnipers({
         for (const row of results) {
           if (row.status === "fulfilled") {
             ok += 1;
+            recordPlatformTx({
+              txHash: row.value.hash,
+              contract: target.contract,
+              tokenName: label,
+            });
             pushOutcome(
               `Minted ${row.value.quantity} · ${shortAddr(row.value.wallet.address)} · ${row.value.hash.slice(0, 10)}…`,
               "ok",
@@ -474,6 +498,11 @@ export default function HoodArmSnipers({
         `Minted ${prepared.quantity || qty} · ${shortAddr(connectedWallet)} · ${hash.slice(0, 10)}…`,
         "ok",
       );
+      recordPlatformTx({
+        txHash: hash,
+        contract: target.contract,
+        tokenName: label,
+      });
       onToast(`> MINTED ${prepared.quantity || qty} · ${explorerMintTx(variant, hash)}`);
     } catch (err) {
       const msg = walletErrorText(err);

@@ -395,6 +395,17 @@ export default function HoodMintBoard({
         `Minted ${mintedQty} · ${name} · ${hash.slice(0, 10)}… · landing in ${shortAddr(connectedWallet)}${note}`,
         "ok",
       );
+      void fetch(`${apiBase}/pnl/record`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          txHash: hash,
+          contract: selected.contract,
+          tokenId: "mint",
+          costEth: 0,
+          tokenName: name,
+        }),
+      }).catch(() => null);
       onToast(`> MINTED ${mintedQty} · CHECK YOUR WALLET`);
     } catch (err) {
       const msg = walletErrorText(err);

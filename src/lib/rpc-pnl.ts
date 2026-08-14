@@ -1,8 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import {
-  listAllProfiles,
-  listProfilesByWallets,
-} from "@/lib/rpc-profile-store";
+import { listProfilesByWallets } from "@/lib/rpc-profile-store";
 
 export type SnipeFill = {
   id: string;
@@ -23,7 +20,13 @@ export type LeaderboardRow = {
   wallet: string;
   user: string;
   avatarUrl: string | null;
+  /** Total platform transactions recorded for this wallet. */
+  txCount: number;
+  /** Display label, e.g. "12 TX". */
+  tx: string;
+  /** @deprecated kept for older clients — same as txCount */
   pnlEth: number;
+  /** @deprecated kept for older clients — same as tx */
   pnl: string;
   openCount: number;
   closedCount: number;
@@ -59,29 +62,6 @@ function getSupabase(): SupabaseClient | null {
   );
 }
 
-function alchemyKey(): string | null {
-  const direct = (process.env.ALCHEMY_API_KEY || "").trim();
-  if (direct) return direct;
-  const rpc = [
-    process.env.ETH_RPC_URL,
-    process.env.RPC_URLS,
-    process.env.ALCHEMY_RPC_URL,
-  ]
-    .filter(Boolean)
-    .join(",");
-  const m = rpc.match(/alchemy\.com\/(?:nft\/v3|v2)\/([A-Za-z0-9_-]+)/);
-  return m?.[1] || null;
-}
-
-function openseaKeys(): string[] {
-  const multi = (process.env.OPENSEA_API_KEYS || "")
-    .split(/[\s,]+/)
-    .map((k) => k.trim())
-    .filter(Boolean);
-  const single = (process.env.OPENSEA_API_KEY || "").trim();
-  return [...new Set([...multi, ...(single ? [single] : [])])];
-}
-
 function rowToFill(row: FillRow): SnipeFill {
   return {
     id: row.id,
@@ -99,35 +79,19 @@ function rowToFill(row: FillRow): SnipeFill {
   };
 }
 
-function formatPnl(eth: number): string {
-  const sign = eth >= 0 ? "+" : "";
-  return `${sign}${eth.toFixed(3)} ETH`;
+function formatTxCount(n: number): string {
+  return `${n} TX`;
 }
 
 function shortAddr(addr: string) {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }
 
-async function fetchJson(
-  url: string,
-  init?: RequestInit,
-  timeoutMs = 5_000,
-): Promise<unknown | null> {
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
-  try {
-    const res = await fetch(url, {
-      ...init,
-      signal: ctrl.signal,
-      cache: "no-store",
-    });
-    if (!res.ok) return null;
-    return await res.json();
-  } catch {
-    return null;
-  } finally {
-    clearTimeout(timer);
-  }
+let leaderboardCache: { at: number; rows: LeaderboardRow[] } | null = null;
+const LEADERBOARD_CACHE_MS = 8_000;
+
+function invalidateLeaderboardCache() {
+  leaderboardCache = null;
 }
 
 export async function recordSnipeFill(input: {
@@ -144,7 +108,7 @@ export async function recordSnipeFill(input: {
 > {
   const supabase = getSupabase();
   if (!supabase) {
-    return { ok: false, error: "PnL store unavailable", code: "NO_STORE" };
+    return { ok: false, error: "TX store unavailable", code: "NO_STORE" };
   }
   const txHash = input.txHash.toLowerCase();
   if (!/^0x[0-9a-f]{64}$/.test(txHash)) {
@@ -154,10 +118,7 @@ export async function recordSnipeFill(input: {
   if (!/^0x[0-9a-f]{40}$/.test(contract)) {
     return { ok: false, error: "Invalid contract", code: "BAD_CONTRACT" };
   }
-  const tokenId = String(input.tokenId || "").trim();
-  if (!tokenId) {
-    return { ok: false, error: "Missing token id", code: "BAD_TOKEN" };
-  }
+  const tokenId = String(input.tokenId || "").trim() || "mint";
   const costEth = Number(input.costEth);
   if (!Number.isFinite(costEth) || costEth < 0) {
     return { ok: false, error: "Invalid cost", code: "BAD_COST" };
@@ -209,121 +170,15 @@ export async function recordSnipeFill(input: {
       )
       .eq("tx_hash", txHash)
       .maybeSingle();
-    if (existing) return { ok: true, fill: rowToFill(existing as FillRow) };
+    if (existing) {
+      invalidateLeaderboardCache();
+      return { ok: true, fill: rowToFill(existing as FillRow) };
+    }
     return { ok: false, error: "Could not record snipe", code: "STORE_ERROR" };
   }
+  invalidateLeaderboardCache();
   return { ok: true, fill: rowToFill(data as FillRow) };
 }
-
-async function isStillOwner(
-  contract: string,
-  tokenId: string,
-  wallet: string,
-): Promise<boolean | null> {
-  const key = alchemyKey();
-  if (!key) return null;
-  const data = (await fetchJson(
-    `https://eth-mainnet.g.alchemy.com/nft/v3/${key}/getOwnersForNFT?contractAddress=${contract}&tokenId=${encodeURIComponent(tokenId)}`,
-  )) as { owners?: string[] } | null;
-  if (!data?.owners) return null;
-  const want = wallet.toLowerCase();
-  return data.owners.some((o) => o.toLowerCase() === want);
-}
-
-async function findExitSaleEth(
-  contract: string,
-  tokenId: string,
-  seller: string,
-  boughtAtIso: string,
-): Promise<number | null> {
-  const key = alchemyKey();
-  if (!key) return null;
-  const boughtMs = Date.parse(boughtAtIso) || 0;
-  const data = (await fetchJson(
-    `https://eth-mainnet.g.alchemy.com/nft/v3/${key}/getNFTSales?contractAddress=${contract}&tokenId=${encodeURIComponent(tokenId)}&order=desc&limit=20`,
-  )) as {
-    nftSales?: {
-      sellerAddress?: string;
-      blockTimestamp?: string;
-      sellerFee?: { amount?: string; decimals?: number };
-    }[];
-  } | null;
-
-  for (const sale of data?.nftSales || []) {
-    if ((sale.sellerAddress || "").toLowerCase() !== seller.toLowerCase()) {
-      continue;
-    }
-    const ts = sale.blockTimestamp
-      ? Date.parse(sale.blockTimestamp)
-      : 0;
-    if (boughtMs && ts && ts < boughtMs - 60_000) continue;
-    const raw = Number(sale.sellerFee?.amount || 0);
-    const decimals = Number(sale.sellerFee?.decimals ?? 18);
-    if (!(raw > 0)) continue;
-    return raw / 10 ** decimals;
-  }
-  return null;
-}
-
-async function bestListingEth(
-  contract: string,
-  tokenId: string,
-): Promise<number | null> {
-  const keys = openseaKeys();
-  if (!keys.length) return null;
-  for (const key of keys) {
-    const res = await fetch(
-      `https://api.opensea.io/api/v2/orders/ethereum/seaport/listings?asset_contract_address=${contract}&token_ids=${encodeURIComponent(tokenId)}&limit=1&order_by=eth_price&order_direction=asc`,
-      {
-        headers: {
-          accept: "application/json",
-          "x-api-key": key,
-        },
-        cache: "no-store",
-      },
-    ).catch(() => null);
-    if (!res || res.status === 429 || res.status === 503) continue;
-    if (!res.ok) return null;
-    const data = (await res.json()) as {
-      orders?: {
-        current_price?: string;
-        price?: { current?: { value?: string; decimals?: number } };
-      }[];
-    };
-    const order = data.orders?.[0];
-    if (!order) return null;
-    const valueStr =
-      order.current_price ||
-      order.price?.current?.value ||
-      "";
-    const value = Number(valueStr);
-    if (!Number.isFinite(value) || value <= 0) return null;
-    // OpenSea current_price is usually wei
-    if (value > 1e9) return value / 1e18;
-    return value;
-  }
-  return null;
-}
-
-async function closeFill(
-  id: string,
-  exitEth: number,
-): Promise<void> {
-  const supabase = getSupabase();
-  if (!supabase) return;
-  await supabase
-    .from("rpc_snipe_fills")
-    .update({
-      status: "closed",
-      exit_eth: exitEth,
-      closed_at: new Date().toISOString(),
-    })
-    .eq("id", id)
-    .eq("status", "open");
-}
-
-let leaderboardCache: { at: number; rows: LeaderboardRow[] } | null = null;
-const LEADERBOARD_CACHE_MS = 45_000;
 
 export async function getLeaderboard(
   limit = 20,
@@ -340,7 +195,7 @@ export async function getLeaderboard(
     return {
       rows: [],
       source: "missing_store",
-      note: "Add Supabase tables (rpc_profiles / rpc_snipe_fills) to track PnL.",
+      note: "Add Supabase tables (rpc_profiles / rpc_snipe_fills) to track platform TX.",
     };
   }
 
@@ -350,7 +205,7 @@ export async function getLeaderboard(
       "id, wallet, tx_hash, contract, token_id, collection_slug, token_name, cost_eth, bought_at, status, exit_eth, closed_at",
     )
     .order("bought_at", { ascending: false })
-    .limit(500);
+    .limit(2000);
 
   if (error) {
     return {
@@ -361,97 +216,54 @@ export async function getLeaderboard(
   }
 
   const fills = ((data || []) as FillRow[]).map(rowToFill);
-
-  // Refresh open fills: ownership + exit detection + MTM
-  const open = fills.filter((f) => f.status === "open").slice(0, 40);
-  const marks = new Map<string, number>();
-
-  for (const fill of open) {
-    const owned = await isStillOwner(fill.contract, fill.tokenId, fill.wallet);
-    if (owned === false) {
-      const exit =
-        (await findExitSaleEth(
-          fill.contract,
-          fill.tokenId,
-          fill.wallet,
-          fill.boughtAt,
-        )) ?? 0;
-      await closeFill(fill.id, exit);
-      fill.status = "closed";
-      fill.exitEth = exit;
-      continue;
-    }
-    const mark = await bestListingEth(fill.contract, fill.tokenId);
-    if (mark != null) marks.set(fill.id, mark);
-  }
-
   const byWallet = new Map<
     string,
-    { pnl: number; openCount: number; closedCount: number }
+    { txCount: number; openCount: number; closedCount: number }
   >();
 
   for (const fill of fills) {
     const cur = byWallet.get(fill.wallet) || {
-      pnl: 0,
+      txCount: 0,
       openCount: 0,
       closedCount: 0,
     };
-    if (fill.status === "closed") {
-      cur.pnl += (fill.exitEth ?? 0) - fill.costEth;
-      cur.closedCount += 1;
-    } else {
-      const mark = marks.get(fill.id);
-      if (mark != null) cur.pnl += mark - fill.costEth;
-      cur.openCount += 1;
-    }
+    cur.txCount += 1;
+    if (fill.status === "closed") cur.closedCount += 1;
+    else cur.openCount += 1;
     byWallet.set(fill.wallet, cur);
   }
 
-  const registered = await listAllProfiles(Math.max(limit, 200));
-  const extra = await listProfilesByWallets(
-    [...byWallet.keys()].filter(
-      (w) => !registered.some((p) => p.wallet === w),
-    ),
-  );
-  const profiles = new Map<string, (typeof registered)[number]>();
-  for (const p of registered) profiles.set(p.wallet, p);
-  for (const [w, p] of extra) profiles.set(w, p);
-
-  const wallets = new Set<string>([
-    ...profiles.keys(),
-    ...byWallet.keys(),
-  ]);
-
-  if (!wallets.size) {
+  if (!byWallet.size) {
     leaderboardCache = { at: Date.now(), rows: [] };
     return {
       rows: [],
       source: "empty",
-      note: "No registered wallets yet.",
+      note: "No platform TX yet — activity appears after real snipes / mints.",
     };
   }
 
-  const rows: LeaderboardRow[] = [...wallets]
-    .map((wallet) => {
-      const stats = byWallet.get(wallet) || {
-        pnl: 0,
-        openCount: 0,
-        closedCount: 0,
-      };
+  const extra = await listProfilesByWallets([...byWallet.keys()]);
+  const profiles = new Map(extra);
+
+  const rows: LeaderboardRow[] = [...byWallet.entries()]
+    .map(([wallet, stats]) => {
       const profile = profiles.get(wallet);
       const user = profile?.username || shortAddr(wallet);
+      const tx = formatTxCount(stats.txCount);
       return {
         wallet,
         user,
         avatarUrl: profile?.avatarUrl || null,
-        pnlEth: stats.pnl,
-        pnl: formatPnl(stats.pnl),
+        txCount: stats.txCount,
+        tx,
+        pnlEth: stats.txCount,
+        pnl: tx,
         openCount: stats.openCount,
         closedCount: stats.closedCount,
       };
     })
     .sort((a, b) => {
-      if (b.pnlEth !== a.pnlEth) return b.pnlEth - a.pnlEth;
+      if (b.txCount !== a.txCount) return b.txCount - a.txCount;
       return a.user.localeCompare(b.user);
     })
     .slice(0, limit);

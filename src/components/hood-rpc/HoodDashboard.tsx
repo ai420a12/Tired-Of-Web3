@@ -43,6 +43,8 @@ type PnlLeader = {
   wallet: string;
   user: string;
   avatarUrl: string | null;
+  tx?: string;
+  txCount?: number;
   pnl: string;
   pnlEth: number;
 };
@@ -101,7 +103,7 @@ export default function HoodDashboard({
   const [profileDraft, setProfileDraft] = useState("");
   const [pnlLeaders, setPnlLeaders] = useState<PnlLeader[]>([]);
   const [pnlNote, setPnlNote] = useState<string | null>(
-    "Loading live PnL…",
+    "Loading top TX…",
   );
 
   useEffect(() => {
@@ -162,9 +164,10 @@ export default function HoodDashboard({
     let cancelled = false;
     async function loadPnl() {
       try {
-        const res = await fetch(`${cfg.apiBase}/pnl/leaderboard?limit=50`, {
-          cache: "no-store",
-        });
+        const res = await fetch(
+          `${cfg.apiBase}/pnl/leaderboard?limit=50&_=${Date.now()}`,
+          { cache: "no-store" },
+        );
         if (!res.ok || cancelled) return;
         const data = (await res.json()) as {
           leaders?: PnlLeader[];
@@ -176,19 +179,26 @@ export default function HoodDashboard({
           Array.isArray(data.leaders) && data.leaders.length
             ? null
             : data.note ||
-                "No snipes yet — PnL appears after real ETH_RPC buys.",
+                "No platform TX yet — activity appears after real snipes / mints.",
         );
       } catch {
         if (!cancelled) {
-          setPnlNote("PnL board unavailable");
+          setPnlNote("TX board unavailable");
         }
       }
     }
     void loadPnl();
-    const id = window.setInterval(() => void loadPnl(), 60_000);
+    const id = window.setInterval(() => void loadPnl(), 12_000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void loadPnl();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
     return () => {
       cancelled = true;
       window.clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
     };
   }, [cfg.apiBase]);
 
@@ -743,15 +753,15 @@ export default function HoodDashboard({
           </video>
         </div>
 
-        <aside className="hrpc-pnl-board" aria-label="Top PnL leaderboard">
+        <aside className="hrpc-pnl-board" aria-label="Top TX leaderboard">
           <div className="hrpc-pnl-head">
-            <h2 className="hrpc-section-title hrpc-section-title-sm">Top PnL</h2>
-            <span className="hrpc-nft-chip">Registered</span>
+            <h2 className="hrpc-section-title hrpc-section-title-sm">Top TX</h2>
+            <span className="hrpc-nft-chip">Platform</span>
           </div>
           {pnlLeaders.length === 0 ? (
             <p className="hrpc-pnl-empty hrpc-muted">
               {pnlNote ||
-                "No snipes yet — PnL appears after real ETH_RPC buys."}
+                "No platform TX yet — activity appears after real snipes / mints."}
             </p>
           ) : (
             <ol className="hrpc-pnl-list">
@@ -775,10 +785,8 @@ export default function HoodDashboard({
                   <span className="hrpc-pnl-user">
                     {row.user.startsWith("0x") ? row.user : `@${row.user}`}
                   </span>
-                  <span
-                    className={`hrpc-pnl-val hrpc-mono${row.pnlEth < 0 ? " hrpc-pnl-neg" : ""}`}
-                  >
-                    {row.pnl}
+                  <span className="hrpc-pnl-val hrpc-mono">
+                    {row.tx || row.pnl}
                   </span>
                 </li>
               ))}

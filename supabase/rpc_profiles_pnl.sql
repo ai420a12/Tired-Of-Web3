@@ -19,7 +19,7 @@ alter table public.rpc_profiles enable row level security;
 grant select, insert, update, delete on table public.rpc_profiles to service_role;
 grant usage on schema public to service_role;
 
--- ETH_RPC site snipes (cost basis for real PnL)
+-- ETH_RPC / Hood_RPC site fills (platform TX leaderboard + cost basis)
 create table if not exists public.rpc_snipe_fills (
   id uuid primary key default gen_random_uuid(),
   wallet text not null,
