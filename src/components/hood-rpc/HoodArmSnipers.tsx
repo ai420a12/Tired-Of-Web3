@@ -332,6 +332,7 @@ export default function HoodArmSnipers({
   }) {
     void fetch(`${apiBase}/pnl/record`, {
       method: "POST",
+      credentials: "same-origin",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         txHash: opts.txHash,
@@ -340,7 +341,19 @@ export default function HoodArmSnipers({
         costEth: opts.costEth ?? 0,
         tokenName: opts.tokenName,
       }),
-    }).catch(() => null);
+    })
+      .then(async (res) => {
+        if (!res.ok) {
+          const data = (await res.json().catch(() => ({}))) as {
+            error?: string;
+          };
+          pushOutcome(
+            `TX track failed · ${data.error || res.status}`,
+            "err",
+          );
+        }
+      })
+      .catch(() => null);
   }
 
   function keyedWallets(ids: number[]) {

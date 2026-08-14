@@ -1,5 +1,8 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { listProfilesByWallets } from "@/lib/rpc-profile-store";
+import {
+  listAllProfiles,
+  listProfilesByWallets,
+} from "@/lib/rpc-profile-store";
 
 export type SnipeFill = {
   id: string;
@@ -199,54 +202,73 @@ export async function getLeaderboard(
     };
   }
 
-  const { data, error } = await supabase
-    .from("rpc_snipe_fills")
-    .select(
-      "id, wallet, tx_hash, contract, token_id, collection_slug, token_name, cost_eth, bought_at, status, exit_eth, closed_at",
-    )
-    .order("bought_at", { ascending: false })
-    .limit(2000);
-
-  if (error) {
-    return {
-      rows: [],
-      source: "error",
-      note: error.message,
-    };
-  }
-
-  const fills = ((data || []) as FillRow[]).map(rowToFill);
+  // Count every fill — select wallet+status only so we can page past 2k if needed.
   const byWallet = new Map<
     string,
     { txCount: number; openCount: number; closedCount: number }
   >();
+  const pageSize = 1000;
+  for (let from = 0; from < 20_000; from += pageSize) {
+    const to = from + pageSize - 1;
+    const { data, error } = await supabase
+      .from("rpc_snipe_fills")
+      .select("wallet, status")
+      .order("bought_at", { ascending: false })
+      .range(from, to);
 
-  for (const fill of fills) {
-    const cur = byWallet.get(fill.wallet) || {
-      txCount: 0,
-      openCount: 0,
-      closedCount: 0,
-    };
-    cur.txCount += 1;
-    if (fill.status === "closed") cur.closedCount += 1;
-    else cur.openCount += 1;
-    byWallet.set(fill.wallet, cur);
+    if (error) {
+      return {
+        rows: [],
+        source: "error",
+        note: error.message,
+      };
+    }
+    const page = (data || []) as { wallet: string; status: "open" | "closed" }[];
+    if (!page.length) break;
+    for (const row of page) {
+      const wallet = String(row.wallet || "").toLowerCase();
+      if (!wallet) continue;
+      const cur = byWallet.get(wallet) || {
+        txCount: 0,
+        openCount: 0,
+        closedCount: 0,
+      };
+      cur.txCount += 1;
+      if (row.status === "closed") cur.closedCount += 1;
+      else cur.openCount += 1;
+      byWallet.set(wallet, cur);
+    }
+    if (page.length < pageSize) break;
   }
 
-  if (!byWallet.size) {
+  const registered = await listAllProfiles(Math.max(limit, 200));
+  const extra = await listProfilesByWallets(
+    [...byWallet.keys()].filter(
+      (w) => !registered.some((p) => p.wallet === w),
+    ),
+  );
+  const profiles = new Map<string, (typeof registered)[number]>();
+  for (const p of registered) profiles.set(p.wallet, p);
+  for (const [w, p] of extra) profiles.set(w, p);
+
+  const wallets = new Set<string>([...profiles.keys(), ...byWallet.keys()]);
+
+  if (!wallets.size) {
     leaderboardCache = { at: Date.now(), rows: [] };
     return {
       rows: [],
       source: "empty",
-      note: "No platform TX yet — activity appears after real snipes / mints.",
+      note: "No registered wallets yet.",
     };
   }
 
-  const extra = await listProfilesByWallets([...byWallet.keys()]);
-  const profiles = new Map(extra);
-
-  const rows: LeaderboardRow[] = [...byWallet.entries()]
-    .map(([wallet, stats]) => {
+  const rows: LeaderboardRow[] = [...wallets]
+    .map((wallet) => {
+      const stats = byWallet.get(wallet) || {
+        txCount: 0,
+        openCount: 0,
+        closedCount: 0,
+      };
       const profile = profiles.get(wallet);
       const user = profile?.username || shortAddr(wallet);
       const tx = formatTxCount(stats.txCount);
@@ -264,6 +286,9 @@ export async function getLeaderboard(
     })
     .sort((a, b) => {
       if (b.txCount !== a.txCount) return b.txCount - a.txCount;
+      const aNamed = a.user.startsWith("0x") ? 1 : 0;
+      const bNamed = b.user.startsWith("0x") ? 1 : 0;
+      if (aNamed !== bNamed) return aNamed - bNamed;
       return a.user.localeCompare(b.user);
     })
     .slice(0, limit);

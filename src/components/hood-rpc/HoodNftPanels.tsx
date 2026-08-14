@@ -629,6 +629,7 @@ export default function HoodNftPanels({
         try {
           await fetch(`${apiBase}/pnl/record`, {
             method: "POST",
+            credentials: "same-origin",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({
               txHash,

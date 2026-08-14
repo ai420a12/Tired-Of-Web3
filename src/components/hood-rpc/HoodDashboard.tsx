@@ -179,7 +179,7 @@ export default function HoodDashboard({
           Array.isArray(data.leaders) && data.leaders.length
             ? null
             : data.note ||
-                "No platform TX yet — activity appears after real snipes / mints.",
+                "No registered wallets yet — set a username after Access Key.",
         );
       } catch {
         if (!cancelled) {
@@ -756,12 +756,12 @@ export default function HoodDashboard({
         <aside className="hrpc-pnl-board" aria-label="Top TX leaderboard">
           <div className="hrpc-pnl-head">
             <h2 className="hrpc-section-title hrpc-section-title-sm">Top TX</h2>
-            <span className="hrpc-nft-chip">Platform</span>
+            <span className="hrpc-nft-chip">Tracked</span>
           </div>
           {pnlLeaders.length === 0 ? (
             <p className="hrpc-pnl-empty hrpc-muted">
               {pnlNote ||
-                "No platform TX yet — activity appears after real snipes / mints."}
+                "No registered wallets yet — set a username after Access Key."}
             </p>
           ) : (
             <ol className="hrpc-pnl-list">
