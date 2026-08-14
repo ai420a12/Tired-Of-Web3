@@ -124,7 +124,9 @@ function alchemyEthAmount(sale: AlchemySale): { eth: number; kind: "eth" | "weth
       eth = Number(raw);
     } else {
       const wei = BigInt(raw);
-      const base = 10n ** BigInt(Number.isFinite(decimals) ? Math.max(0, Math.min(36, decimals)) : 18);
+      const base =
+        BigInt(10) **
+        BigInt(Number.isFinite(decimals) ? Math.max(0, Math.min(36, decimals)) : 18);
       eth = Number(wei) / Number(base);
     }
   } catch {

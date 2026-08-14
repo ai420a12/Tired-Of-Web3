@@ -539,15 +539,15 @@ export default function HoodMintBoard({
                     setQty(Math.max(1, Math.min(100, n)));
                   }}
                 />
-                <button
-                  type="button"
-                  className="hrpc-btn hrpc-mint-go"
-                  disabled={minting}
-                  onClick={() => void mintNow(qty)}
-                >
-                  {mintLabel}
-                </button>
               </div>
+              <button
+                type="button"
+                className="hrpc-btn hrpc-mint-go"
+                disabled={minting}
+                onClick={() => void mintNow(qty)}
+              >
+                {mintLabel}
+              </button>
               {paid ? (
                 <label className="hrpc-mint-paid">
                   <input

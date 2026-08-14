@@ -3773,8 +3773,10 @@ html[data-eth-rpc="1"] .hrpc.hrpc-eth {
 }
 
 .hrpc-mint-go {
-  font-size: 0.88rem;
-  padding: 0.55rem 1rem;
+  font-size: 0.95rem;
+  padding: 0.7rem 1.2rem;
+  align-self: flex-start;
+  min-width: 9rem;
 }
 
 .hrpc-mint-paid,

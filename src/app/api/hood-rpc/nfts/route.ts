@@ -158,8 +158,8 @@ function amountToEth(
 
   try {
     const wei = BigInt(raw);
-    if (wei <= 0n) return null;
-    const base = 10n ** BigInt(dec);
+    if (wei <= BigInt(0)) return null;
+    const base = BigInt(10) ** BigInt(dec);
     const whole = wei / base;
     if (whole > BigInt(MAX_SALE_ETH)) return null;
     const frac = wei % base;
