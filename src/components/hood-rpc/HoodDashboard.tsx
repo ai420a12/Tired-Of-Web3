@@ -14,6 +14,7 @@ import HoodNftPanels from "./HoodNftPanels";
 import HoodArmSnipers from "./HoodArmSnipers";
 import WalletPickerModal from "./WalletPickerModal";
 import ChainSwitcher from "./ChainSwitcher";
+import { ToolHelp, ToolTutorialProvider } from "./ToolTutorial";
 import { HOOD_RPC_LINKS } from "./hood-wl";
 import {
   ACCESS_OPENSEA_URL,
@@ -533,6 +534,7 @@ export default function HoodDashboard({
 
   return (
     <div className={cfg.rootClass}>
+      <ToolTutorialProvider variant={variant}>
       <div
         className={
           hasAccess ? "hrpc-app-shell" : "hrpc-app-shell hrpc-app-shell-locked"
@@ -753,7 +755,8 @@ export default function HoodDashboard({
           </video>
         </div>
 
-        <aside className="hrpc-pnl-board" aria-label="Top TX leaderboard">
+        <aside className="hrpc-pnl-board hrpc-tut-anchor" aria-label="Top TX leaderboard">
+          <ToolHelp tutorialId="top-tx" />
           <div className="hrpc-pnl-head">
             <h2 className="hrpc-section-title hrpc-section-title-sm">Top TX</h2>
             <span className="hrpc-nft-chip">Tracked</span>
@@ -827,7 +830,8 @@ export default function HoodDashboard({
         />
 
         <div className="hrpc-grid-2" id="launches">
-          <section className="hrpc-panel" aria-label="Upcoming NFT collections" id="upcoming-nfts">
+          <section className="hrpc-panel hrpc-tut-anchor" aria-label="Upcoming NFT collections" id="upcoming-nfts">
+            <ToolHelp tutorialId="upcoming-nfts" />
             <div className="hrpc-section-head">
               <div>
                 <h2 className="hrpc-section-title">Upcoming NFTs</h2>
@@ -887,7 +891,8 @@ export default function HoodDashboard({
             </div>
           </section>
 
-          <section className="hrpc-panel hrpc-soon-wrap" aria-label="Memecoin launches">
+          <section className="hrpc-panel hrpc-soon-wrap hrpc-tut-anchor" aria-label="Memecoin launches">
+            <ToolHelp tutorialId="memecoin-launches" />
             <div className="hrpc-soon-overlay" aria-hidden="true">
               <span className="hrpc-soon-banner">Coming soon</span>
             </div>
@@ -1086,6 +1091,7 @@ export default function HoodDashboard({
       >
         {toast}
       </div>
+      </ToolTutorialProvider>
     </div>
   );
 }

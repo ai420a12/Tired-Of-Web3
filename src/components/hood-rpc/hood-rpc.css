@@ -3926,3 +3926,140 @@ html[data-eth-rpc="1"] .hrpc.hrpc-eth {
     max-height: 400px;
   }
 }
+
+/* Tool tutorials — karaoke + cursor. Inherits --lime / --accent-rgb (Hood lime, ETH blue). */
+.hrpc-tut-anchor {
+  position: relative;
+}
+
+.hrpc-tut-btn {
+  position: absolute;
+  top: -0.55rem;
+  right: -0.55rem;
+  z-index: 12;
+  width: 1.65rem;
+  height: 1.65rem;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid var(--lime);
+  background: #000;
+  color: var(--lime);
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-size: 0.95rem;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 0 12px rgba(var(--accent-rgb), 0.35);
+}
+
+.hrpc-tut-btn:hover,
+.hrpc-tut-btn.is-on {
+  background: var(--lime);
+  color: #000;
+}
+
+.hrpc-tut-stage {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  pointer-events: none;
+}
+
+.hrpc-tut-spot {
+  position: fixed;
+  border: 1px solid var(--lime);
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.45), 0 0 22px rgba(var(--accent-rgb), 0.35);
+  pointer-events: none;
+  transition: top 0.25s ease, left 0.25s ease, width 0.25s ease, height 0.25s ease;
+}
+
+.hrpc-tut-cursor {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 92;
+  pointer-events: none;
+  opacity: 0;
+  filter: drop-shadow(0 0 6px rgba(var(--accent-rgb), 0.8));
+  transition: opacity 0.15s ease;
+}
+
+.hrpc-tut-cursor.is-on {
+  opacity: 1;
+}
+
+.hrpc-tut-karaoke {
+  pointer-events: auto;
+  position: fixed;
+  left: 50%;
+  bottom: 1.1rem;
+  z-index: 93;
+  transform: translateX(-50%);
+  width: min(720px, calc(100vw - 1.5rem));
+  padding: 0.7rem 0.85rem 0.8rem;
+  border: 1px solid var(--lime);
+  background: rgba(0, 0, 0, 0.92);
+  box-shadow: 0 0 28px rgba(var(--accent-rgb), 0.2);
+}
+
+.hrpc-tut-karaoke-top {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-bottom: 0.4rem;
+}
+
+.hrpc-tut-k-title {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--lime);
+}
+
+.hrpc-tut-k-step {
+  margin-left: auto;
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-size: 0.68rem;
+  color: var(--muted);
+}
+
+.hrpc-tut-skip {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--lime);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.2rem 0.45rem;
+  cursor: pointer;
+}
+
+.hrpc-tut-line {
+  margin: 0;
+  font-size: 1.02rem;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.45);
+  font-weight: 700;
+}
+
+.hrpc-tut-word.is-done {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.hrpc-tut-word.is-sing {
+  color: var(--lime);
+  text-shadow: 0 0 10px rgba(var(--accent-rgb), 0.65);
+}
+
+.hrpc.hrpc-eth .hrpc-tut-btn:hover,
+.hrpc.hrpc-eth .hrpc-tut-btn.is-on {
+  color: #041018;
+}
+
+  .hrpc-mint-col .hrpc-nft-scroll {
+    max-height: 400px;
+  }
+}

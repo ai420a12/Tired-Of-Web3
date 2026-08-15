@@ -10,6 +10,7 @@ import { buyErrorLine, buyEthListingSilent } from "@/lib/eth-listing-buy";
 import type { Hex } from "viem";
 import type { HoodRpcVariant } from "@/lib/hood-rpc-chain";
 import HoodMintBoard from "./HoodMintBoard";
+import { ToolHelp } from "./ToolTutorial";
 
 type SnipeWallet = {
   pk: Hex;
@@ -658,7 +659,8 @@ export default function HoodNftPanels({
       aria-label="Robinhood NFT tracker"
       id="nft-live"
     >
-      <aside className="hrpc-panel hrpc-nft-col">
+      <aside className="hrpc-panel hrpc-nft-col hrpc-tut-anchor" data-tut="nft-live">
+        <ToolHelp tutorialId="nft-live" />
         <div className="hrpc-nft-col-head hrpc-nft-col-head-legend">
           <h2 className="hrpc-section-title hrpc-section-title-sm">NFT Live</h2>
           <HoodRarityLegend />
@@ -684,7 +686,8 @@ export default function HoodNftPanels({
       </aside>
 
       <div className="hrpc-nft-dual">
-        <aside className="hrpc-panel hrpc-nft-col">
+        <aside className="hrpc-panel hrpc-nft-col hrpc-tut-anchor" data-tut="project-sales">
+          <ToolHelp tutorialId="project-sales" />
           <div className="hrpc-nft-col-head">
             <h2 className="hrpc-section-title hrpc-section-title-sm">
               Project Sales
@@ -710,7 +713,8 @@ export default function HoodNftPanels({
           )}
         </aside>
 
-        <aside className="hrpc-panel hrpc-nft-col">
+        <aside className="hrpc-panel hrpc-nft-col hrpc-tut-anchor" data-tut="project-listings">
+          <ToolHelp tutorialId="project-listings" />
           <div className="hrpc-nft-col-head">
             <h2 className="hrpc-section-title hrpc-section-title-sm">
               Project Listings

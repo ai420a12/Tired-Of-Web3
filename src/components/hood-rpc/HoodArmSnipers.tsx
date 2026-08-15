@@ -19,6 +19,7 @@ import {
   explorerMintTx,
   signAndBroadcastMint,
 } from "@/lib/seadrop-mint";
+import { ToolHelp } from "./ToolTutorial";
 
 type Props = {
   onToast: (msg: string) => void;
@@ -575,7 +576,8 @@ export default function HoodArmSnipers({
   return (
     <>
       <div className="hrpc-arm-grid">
-        <section className="hrpc-panel hrpc-arm-panel" id="arm-nft" aria-label="Arm sniper NFTs">
+        <section className="hrpc-panel hrpc-arm-panel hrpc-tut-anchor" id="arm-nft" aria-label="Arm sniper NFTs">
+          <ToolHelp tutorialId="arm-nft" />
           <div className="hrpc-section-head">
             <div>
               <h2 className="hrpc-section-title">Arm Sniper — NFTs</h2>
@@ -583,7 +585,7 @@ export default function HoodArmSnipers({
           </div>
 
           <div className="hrpc-arm-body">
-            <div className="hrpc-inline">
+            <div className="hrpc-inline" data-tut="arm-load-ca">
               <input
                 className="hrpc-input hrpc-mono"
                 placeholder="Paste custom contract address"
@@ -633,6 +635,7 @@ export default function HoodArmSnipers({
               <select
                 className="hrpc-input hrpc-mono hrpc-phase-select"
                 aria-label="Mint stage"
+                data-tut="arm-stage"
                 value={selectedPhaseId || ""}
                 disabled={!phases.length}
                 onChange={(e) => {
@@ -825,10 +828,11 @@ export default function HoodArmSnipers({
         </section>
 
         <section
-          className="hrpc-panel hrpc-arm-panel hrpc-soon-wrap"
+          className="hrpc-panel hrpc-arm-panel hrpc-soon-wrap hrpc-tut-anchor"
           id="arm-meme"
           aria-label="Arm sniper memecoins"
         >
+          <ToolHelp tutorialId="arm-meme" />
           <div className="hrpc-soon-overlay" aria-hidden="true">
             <span className="hrpc-soon-banner">Coming soon</span>
           </div>

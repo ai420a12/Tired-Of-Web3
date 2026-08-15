@@ -9,6 +9,7 @@ import {
   sendMintWithMetaMask,
   walletErrorText,
 } from "@/lib/metamask-mint";
+import { ToolHelp } from "./ToolTutorial";
 
 type Props = {
   apiBase: string;
@@ -420,7 +421,8 @@ export default function HoodMintBoard({
   const selectedKey = selected ? rowKey(selected) : "";
 
   return (
-    <section className="hrpc-mint-board" aria-label="Live mint board" id="mint-now">
+    <section className="hrpc-mint-board hrpc-tut-anchor" aria-label="Live mint board" id="mint-now">
+      <ToolHelp tutorialId="live-mint" />
       <div className="hrpc-mint-board-head">
         <div>
           <h2 className="hrpc-section-title">Live Mint</h2>

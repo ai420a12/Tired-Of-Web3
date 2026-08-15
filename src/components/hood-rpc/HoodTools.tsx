@@ -20,6 +20,7 @@ import {
   getNativeBalance,
   splitFromMaster,
 } from "@/lib/operator-tx";
+import { ToolHelp } from "./ToolTutorial";
 
 type MintOutcome = {
   id: string;
@@ -400,7 +401,8 @@ export default function HoodTools({
         </div>
       </div>
 
-      <section className="hrpc-panel" aria-label="Squad and balances" id="squad">
+      <section className="hrpc-panel hrpc-tut-anchor" aria-label="Squad and balances" id="squad">
+        <ToolHelp tutorialId="squad" />
         <div className="hrpc-section-head">
           <div>
             <h3 className="hrpc-section-title hrpc-section-title-sm">
@@ -485,10 +487,11 @@ export default function HoodTools({
         </div>
       </section>
 
-      <details className="hrpc-panel hrpc-details" open id="load-wallets">
+      <details className="hrpc-panel hrpc-details hrpc-tut-anchor" open id="load-wallets">
         <summary className="hrpc-section-title hrpc-section-title-sm">
           Load your wallets
         </summary>
+        <ToolHelp tutorialId="load-wallets" />
         <textarea
           className="hrpc-textarea hrpc-mono"
           rows={6}
@@ -521,10 +524,11 @@ export default function HoodTools({
         </div>
       </details>
 
-      <details className="hrpc-panel hrpc-details" open id="generate-wallets">
+      <details className="hrpc-panel hrpc-details hrpc-tut-anchor" open id="generate-wallets">
         <summary className="hrpc-section-title hrpc-section-title-sm">
           Generate Wallets
         </summary>
+        <ToolHelp tutorialId="generate-wallets" />
         <p className="hrpc-key-warn">
           Save those keys to your pc we dont store any private information on
           the website.
@@ -568,7 +572,8 @@ export default function HoodTools({
         ) : null}
       </details>
 
-      <section className="hrpc-panel" id="master-split">
+      <section className="hrpc-panel hrpc-tut-anchor" id="master-split">
+        <ToolHelp tutorialId="master-split" />
         <h3 className="hrpc-section-title hrpc-section-title-sm">Master split</h3>
         <label className="hrpc-label">Master wallet</label>
         <div className="hrpc-inline">
@@ -665,10 +670,11 @@ export default function HoodTools({
       </section>
 
       <div className="hrpc-logs-grid">
-        <details className="hrpc-panel hrpc-details" open id="mint-outcomes">
+        <details className="hrpc-panel hrpc-details hrpc-tut-anchor" open id="mint-outcomes">
           <summary className="hrpc-section-title hrpc-section-title-sm">
             Bot NFT outcomes
           </summary>
+          <ToolHelp tutorialId="mint-outcomes" />
           <div className="hrpc-outcomes hrpc-mono">
             {outcomes.map((o) => (
               <div key={o.id} className={`hrpc-outcome hrpc-outcome-${o.kind}`}>
@@ -678,10 +684,11 @@ export default function HoodTools({
           </div>
         </details>
 
-        <details className="hrpc-panel hrpc-details" open id="ticker-outcomes">
+        <details className="hrpc-panel hrpc-details hrpc-tut-anchor" open id="ticker-outcomes">
           <summary className="hrpc-section-title hrpc-section-title-sm">
             Bot ticker snipes outcomes
           </summary>
+          <ToolHelp tutorialId="ticker-outcomes" />
           <div className="hrpc-outcomes hrpc-mono">
             {tickerOutcomes.map((o) => (
               <div key={o.id} className={`hrpc-outcome hrpc-outcome-${o.kind}`}>
