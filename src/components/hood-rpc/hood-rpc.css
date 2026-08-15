@@ -4058,8 +4058,3 @@ html[data-eth-rpc="1"] .hrpc.hrpc-eth {
 .hrpc.hrpc-eth .hrpc-tut-btn.is-on {
   color: #041018;
 }
-
-  .hrpc-mint-col .hrpc-nft-scroll {
-    max-height: 400px;
-  }
-}
