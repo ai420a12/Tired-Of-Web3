@@ -112,7 +112,16 @@ export async function sendMintWithMetaMask(opts: {
     maxFeePerGas: fees.maxFeePerGas,
     maxPriorityFeePerGas: fees.maxPriorityFeePerGas,
   };
-  if (opts.gas) tx.gas = opts.gas;
+  if (opts.gas) {
+    try {
+      const raw = BigInt(opts.gas);
+      const padded = (raw * BigInt(13)) / BigInt(10);
+      const gas = padded > BigInt(500000) ? padded : BigInt(500000);
+      tx.gas = toHex(gas);
+    } catch {
+      tx.gas = opts.gas;
+    }
+  }
   const hash = await eth.request({
     method: "eth_sendTransaction",
     params: [tx],

@@ -47,55 +47,55 @@ function specFor(
   if (chain === "robinhood") {
     if (mode === "normal") {
       return {
-        baseBps: BigInt(1150),
+        baseBps: BigInt(1500),
         tipX: BigInt(1),
         tipFloor: fromGwei(0.001),
-        tipCap: fromGwei(0.02),
-        maxFeeCap: fromGwei(0.08),
+        tipCap: fromGwei(0.05),
+        maxFeeCap: fromGwei(5),
       };
     }
     if (mode === "fast") {
       return {
-        baseBps: BigInt(1350),
+        baseBps: BigInt(2000),
         tipX: BigInt(2),
-        tipFloor: fromGwei(0.001),
-        tipCap: fromGwei(0.04),
-        maxFeeCap: fromGwei(0.12),
+        tipFloor: fromGwei(0.002),
+        tipCap: fromGwei(0.2),
+        maxFeeCap: fromGwei(8),
       };
     }
     return {
-      baseBps: BigInt(2000),
-      tipX: BigInt(3),
-      tipFloor: fromGwei(0.002),
-      tipCap: fromGwei(0.08),
-      maxFeeCap: fromGwei(0.2),
+      baseBps: BigInt(3000),
+      tipX: BigInt(4),
+      tipFloor: fromGwei(0.005),
+      tipCap: fromGwei(0.8),
+      maxFeeCap: fromGwei(15),
     };
   }
 
   if (mode === "normal") {
     return {
-      baseBps: BigInt(1125),
+      baseBps: BigInt(1500),
       tipX: BigInt(1),
-      tipFloor: fromGwei(0.01),
-      tipCap: fromGwei(1),
-      maxFeeCap: fromGwei(8),
+      tipFloor: fromGwei(0.05),
+      tipCap: fromGwei(5),
+      maxFeeCap: fromGwei(120),
     };
   }
   if (mode === "fast") {
     return {
-      baseBps: BigInt(1250),
+      baseBps: BigInt(2000),
       tipX: BigInt(2),
-      tipFloor: fromGwei(0.02),
-      tipCap: fromGwei(2),
-      maxFeeCap: fromGwei(12),
+      tipFloor: fromGwei(0.1),
+      tipCap: fromGwei(15),
+      maxFeeCap: fromGwei(250),
     };
   }
   return {
-    baseBps: BigInt(1500),
-    tipX: BigInt(3),
-    tipFloor: fromGwei(0.05),
-    tipCap: fromGwei(3),
-    maxFeeCap: fromGwei(20),
+    baseBps: BigInt(3000),
+    tipX: BigInt(4),
+    tipFloor: fromGwei(0.2),
+    tipCap: fromGwei(40),
+    maxFeeCap: fromGwei(500),
   };
 }
 
@@ -155,7 +155,11 @@ export async function quoteLiveGas(opts: {
   if (tip > spec.tipCap) tip = spec.tipCap;
 
   let maxFee = (base * spec.baseBps) / BigInt(1000) + tip;
-  if (maxFee > spec.maxFeeCap) maxFee = spec.maxFeeCap;
+  const floor = base + tip + (base * BigInt(125)) / BigInt(1000);
+  if (maxFee < floor) maxFee = floor;
+  if (maxFee > spec.maxFeeCap && spec.maxFeeCap >= floor) {
+    maxFee = spec.maxFeeCap;
+  }
   if (maxFee <= tip) maxFee = tip + base;
 
   return {

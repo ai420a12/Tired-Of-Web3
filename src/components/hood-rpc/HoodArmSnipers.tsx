@@ -129,9 +129,16 @@ export default function HoodArmSnipers({
     name: string;
     phaseId: string;
     raw: string;
+    startAt: number;
+    endAt: number;
   } | null>(null);
   const firedArm = useRef(false);
+  const armingRef = useRef(false);
   const loadSeq = useRef(0);
+
+  useEffect(() => {
+    armingRef.current = arming;
+  }, [arming]);
 
   const [ticker, setTicker] = useState("");
   const [buyEth, setBuyEth] = useState("0.25");
@@ -249,26 +256,6 @@ export default function HoodArmSnipers({
     }, 1000);
     return () => window.clearInterval(id);
   }, [phases.length]);
-
-  useEffect(() => {
-    if (!armedPhase) {
-      firedArm.current = false;
-      return;
-    }
-    const phase = phases.find((p) => p.id === armedPhase.phaseId);
-    if (!phase) return;
-    const live = refreshPhaseStatus(phase);
-    if (live.status === "ended") {
-      onToast(`> ${phase.label.toUpperCase()} ENDED`);
-      pushOutcome(`${phase.label} ended before mint`, "err");
-      setArmedPhase(null);
-      return;
-    }
-    if (live.status !== "live" || firedArm.current || arming) return;
-    firedArm.current = true;
-    void fireArmedMint(armedPhase.raw, { skipPhaseWait: true });
-    setArmedPhase(null);
-  }, [armedPhase, phases, arming]);
 
   function manualValue(): number | undefined {
     if (gasMode !== "manual") return undefined;
@@ -408,6 +395,8 @@ export default function HoodArmSnipers({
           name: targets[0].label.trim() || target?.name || shortAddr(contract),
           phaseId: phase.id,
           raw,
+          startAt: phase.startAt || 0,
+          endAt: phase.endAt || 0,
         });
         onToast(`> ARMED · ${phase.label} · waiting to go live`);
         pushOutcome(
@@ -431,6 +420,7 @@ export default function HoodArmSnipers({
 
     setArming(true);
     const qty = mintQty(targets[0].qty);
+    const tries = opts?.skipPhaseWait ? 10 : 4;
     try {
       const target = await resolveContract(raw);
       const phaseTag = phase?.label ? ` · ${phase.label}` : "";
@@ -440,6 +430,28 @@ export default function HoodArmSnipers({
           ? `${manualValue()} gwei`
           : `${gasMode} · ~${formatLiveGwei(liveGas?.maxFeeGwei || 0)} gwei`;
 
+      async function prepareReady(from: string) {
+        let last = "No mint route for this contract";
+        for (let i = 0; i < tries; i++) {
+          try {
+            return await prepareMint(from, target.contract, qty);
+          } catch (err) {
+            last = walletErrorText(err);
+            if (/rejected|4001|Invalid contract|ACCESS_REQUIRED/i.test(last)) {
+              throw err instanceof Error ? err : new Error(last);
+            }
+            if (i < tries - 1) {
+              pushOutcome(
+                `Mint not live yet · retry ${i + 1}/${tries - 1} · ${last}`,
+                "info",
+              );
+              await new Promise((r) => window.setTimeout(r, 700 + i * 350));
+            }
+          }
+        }
+        throw new Error(last);
+      }
+
       if (silent.length) {
         onToast(`> ARMING ${silent.length} WALLETS · ${label} · ${qty} each`);
         pushOutcome(
@@ -448,16 +460,34 @@ export default function HoodArmSnipers({
         );
         const results = await Promise.allSettled(
           silent.map(async ({ wallet, pk }) => {
-            const prepared = await prepareMint(wallet.address, target.contract, qty);
-            const hash = await signAndBroadcastMint({
-              variant,
-              apiBase,
-              privateKey: pk,
-              tx: prepared.tx as PreparedMint,
-              gasMode,
-              manualGwei: manualValue(),
-            });
-            return { wallet, hash, quantity: prepared.quantity || qty };
+            let last = "MINT_FAILED";
+            for (let i = 0; i < tries; i++) {
+              try {
+                const prepared = await prepareReady(wallet.address);
+                const hash = await signAndBroadcastMint({
+                  variant,
+                  apiBase,
+                  privateKey: pk,
+                  tx: prepared.tx as PreparedMint,
+                  gasMode,
+                  manualGwei: manualValue(),
+                });
+                return { wallet, hash, quantity: prepared.quantity || qty };
+              } catch (err) {
+                last = walletErrorText(err);
+                if (/rejected|4001|ACCESS_REQUIRED|MINT_WALLET_MISMATCH/i.test(last)) {
+                  throw err instanceof Error ? err : new Error(last);
+                }
+                if (i < tries - 1) {
+                  pushOutcome(
+                    `${shortAddr(wallet.address)} retry ${i + 1} · ${last}`,
+                    "info",
+                  );
+                  await new Promise((r) => window.setTimeout(r, 600 + i * 300));
+                }
+              }
+            }
+            throw new Error(last);
           }),
         );
         let ok = 0;
@@ -497,7 +527,7 @@ export default function HoodArmSnipers({
         `NFT arm · ${label} · MetaMask · ${qty} · ${gasLabel}`,
         "info",
       );
-      const prepared = await prepareMint(connectedWallet, target.contract, qty);
+      const prepared = await prepareReady(connectedWallet);
       const hash = await sendMintWithMetaMask({
         chain,
         from: connectedWallet,
@@ -526,6 +556,70 @@ export default function HoodArmSnipers({
       setArming(false);
     }
   }
+
+  useEffect(() => {
+    if (!armedPhase) {
+      firedArm.current = false;
+      return;
+    }
+
+    const armed = armedPhase;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    function armTick() {
+      if (cancelled || firedArm.current) return;
+      if (armingRef.current) {
+        timer = setTimeout(armTick, 350);
+        return;
+      }
+
+      const now = Date.now();
+      const phase = phases.find((p) => p.id === armed.phaseId);
+      const live = phase ? refreshPhaseStatus(phase) : null;
+      const startAt = armed.startAt || phase?.startAt || 0;
+      const endAt = armed.endAt || phase?.endAt || 0;
+      const label = live?.label || armed.name;
+
+      if (endAt && now >= endAt) {
+        onToast(`> ${label.toUpperCase()} ENDED`);
+        pushOutcome(`${label} ended before mint`, "err");
+        setArmedPhase(null);
+        return;
+      }
+
+      if (startAt && now < startAt - 350) {
+        timer = setTimeout(armTick, Math.min(1000, startAt - now - 350));
+        return;
+      }
+
+      if (live?.status === "upcoming" && startAt && now < startAt) {
+        timer = setTimeout(armTick, Math.min(400, startAt - now + 50));
+        return;
+      }
+
+      if (live?.status === "ended") {
+        onToast(`> ${label.toUpperCase()} ENDED`);
+        pushOutcome(`${label} ended before mint`, "err");
+        setArmedPhase(null);
+        return;
+      }
+
+      firedArm.current = true;
+      void fireArmedMint(armed.raw, {
+        skipPhaseWait: true,
+        requireWallets: true,
+      }).finally(() => {
+        if (!cancelled) setArmedPhase(null);
+      });
+    }
+
+    armTick();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [armedPhase, phases]);
 
   function saveTargetsAndArm() {
     const t = targets[0];

@@ -62,33 +62,53 @@ export async function handleMintTx(req: Request, variant: HoodRpcVariant) {
     let lastAnalysis: Awaited<
       ReturnType<typeof fetchMintgoMintTx>
     >["analysis"];
-    for (const qty of quantities) {
-      const payload = await fetchMintgoMintTx({
-        chain,
-        contract,
-        quantity: qty,
-        from,
-        allowPaid: Boolean(body.allowPaid),
-      });
-      lastAnalysis = payload.analysis || lastAnalysis;
-      if (payload?.ok && payload.tx?.to && payload.tx?.data) {
-        return NextResponse.json({
-          ok: true,
+    for (let attempt = 0; attempt < 4; attempt++) {
+      for (const qty of quantities) {
+        const payload = await fetchMintgoMintTx({
           chain,
+          contract,
           quantity: qty,
-          requested: quantity,
-          analysis: payload.analysis || null,
-          tx: payload.tx,
-          gasValidated: Boolean(payload.gasValidated),
+          from,
+          allowPaid: Boolean(body.allowPaid),
         });
+        lastAnalysis = payload.analysis || lastAnalysis;
+        if (payload?.ok && payload.tx?.to && payload.tx?.data) {
+          if (payload.tx.gas) {
+            try {
+              const raw = BigInt(payload.tx.gas);
+              const padded = (raw * BigInt(13)) / BigInt(10);
+              const gas = padded > BigInt(500000) ? padded : BigInt(500000);
+              payload.tx.gas = `0x${gas.toString(16)}`;
+            } catch {
+              /* keep MintGo gas */
+            }
+          }
+          return NextResponse.json({
+            ok: true,
+            chain,
+            quantity: qty,
+            requested: quantity,
+            analysis: payload.analysis || null,
+            tx: payload.tx,
+            gasValidated: Boolean(payload.gasValidated),
+          });
+        }
+        lastError =
+          payload?.error ||
+          payload?.reason ||
+          payload?.analysis?.reason ||
+          lastError;
+        const simFail = /simulation failed|grouped mint|not (yet )?live|not started|inactive|allowlist/i.test(
+          lastError,
+        );
+        if (!simFail && attempt === 0) break;
       }
-      lastError =
-        payload?.error ||
-        payload?.reason ||
-        payload?.analysis?.reason ||
-        lastError;
-      const simFail = /simulation failed|grouped mint/i.test(lastError);
-      if (!simFail) break;
+      const retryable =
+        /simulation failed|not (yet )?live|not started|inactive|timeout|502|503|429|MintGo mint-tx/i.test(
+          lastError,
+        );
+      if (!retryable || attempt === 3) break;
+      await new Promise((r) => setTimeout(r, 700 + attempt * 400));
     }
     return NextResponse.json(
       {

@@ -77,19 +77,46 @@ export async function signAndBroadcastMint(opts: {
     blockTag: "pending",
   });
   const value = opts.tx.value ? BigInt(opts.tx.value) : BigInt(0);
-  const gas = opts.tx.gas ? BigInt(opts.tx.gas) : BigInt(450000);
+  let gas = opts.tx.gas ? BigInt(opts.tx.gas) : BigInt(500000);
+  const gasFloor = BigInt(500000);
+  const padded = (gas * BigInt(13)) / BigInt(10);
+  if (padded > gas) gas = padded;
+  if (gas < gasFloor) gas = gasFloor;
 
-  const signedTx = await walletClient.signTransaction({
-    to: opts.tx.to as Address,
-    data: opts.tx.data as Hex,
-    value,
-    gas,
-    nonce,
-    maxFeePerGas: fees.maxFeePerGas,
-    maxPriorityFeePerGas: fees.maxPriorityFeePerGas,
-    chainId: chain.id,
-  });
-  return broadcastSigned(opts.apiBase, signedTx, opts.variant);
+  let lastErr = "BROADCAST_FAILED";
+  let maxFee = fees.maxFeePerGas;
+  let tip = fees.maxPriorityFeePerGas;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    if (attempt > 0) {
+      maxFee += (maxFee * BigInt(35)) / BigInt(100);
+      tip += (tip * BigInt(25)) / BigInt(100);
+      if (maxFee <= tip) maxFee = tip + tip;
+    }
+    try {
+      const signedTx = await walletClient.signTransaction({
+        to: opts.tx.to as Address,
+        data: opts.tx.data as Hex,
+        value,
+        gas,
+        nonce,
+        maxFeePerGas: maxFee,
+        maxPriorityFeePerGas: tip,
+        chainId: chain.id,
+      });
+      return await broadcastSigned(opts.apiBase, signedTx, opts.variant);
+    } catch (err) {
+      lastErr = err instanceof Error ? err.message : String(err);
+      if (
+        /max fee per gas less than|underpriced|fee too low|replacement|nonce too low|timeout|429|502|503/i.test(
+          lastErr,
+        )
+      ) {
+        continue;
+      }
+      throw err instanceof Error ? err : new Error(lastErr);
+    }
+  }
+  throw new Error(lastErr);
 }
 
 export function explorerMintTx(variant: HoodRpcVariant, hash: string) {
