@@ -23,6 +23,11 @@ export const metadata: Metadata = {
     description: "Built for speed. Built to snipe. Power your edge on Ethereum.",
     images: ["/images/hood-rpc/tired-of-web3-blue.png"],
   },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "ETH RPC",
+  },
 };
 
 export default function EthRpcPage() {

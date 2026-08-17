@@ -700,6 +700,11 @@ export default function HoodArmSnipers({
                   }
                 }}
                 spellCheck={false}
+                autoCapitalize="off"
+                autoCorrect="off"
+                autoComplete="off"
+                inputMode="text"
+                enterKeyHint="go"
               />
               <button
                 type="button"
@@ -723,6 +728,11 @@ export default function HoodArmSnipers({
                   }
                 }}
                 spellCheck={false}
+                autoCapitalize="off"
+                autoCorrect="off"
+                autoComplete="off"
+                inputMode="url"
+                enterKeyHint="go"
               />
               <button
                 type="button"
@@ -839,6 +849,11 @@ export default function HoodArmSnipers({
                   onChange={(e) => {
                     setTargets([{ ...targets[0], ca: e.target.value }]);
                   }}
+                  spellCheck={false}
+                  autoCapitalize="off"
+                  autoCorrect="off"
+                  autoComplete="off"
+                  inputMode="text"
                 />
                 <div className="hrpc-qty">
                   <label>Mints per wallet</label>
@@ -846,6 +861,9 @@ export default function HoodArmSnipers({
                     className="hrpc-input hrpc-mono"
                     value={targets[0].qty}
                     maxLength={3}
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    enterKeyHint="done"
                     onChange={(e) => {
                       setTargets([{ ...targets[0], qty: e.target.value }]);
                     }}
@@ -907,7 +925,7 @@ export default function HoodArmSnipers({
               <span className="hrpc-gas-live">{liveHint}</span>
             </div>
 
-            <div className="hrpc-row-actions" style={{ marginTop: "0.75rem" }}>
+            <div className="hrpc-row-actions hrpc-arm-actions" style={{ marginTop: "0.75rem" }}>
               <button
                 type="button"
                 className="hrpc-btn hrpc-btn-ghost"
@@ -917,7 +935,7 @@ export default function HoodArmSnipers({
               </button>
               <button
                 type="button"
-                className="hrpc-btn"
+                className="hrpc-btn hrpc-arm-go"
                 onClick={saveTargetsAndArm}
                 disabled={arming}
               >

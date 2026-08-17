@@ -12,13 +12,17 @@
   --ok: #ccff00;
 
   min-height: 100vh;
+  min-height: 100dvh;
   background:
     radial-gradient(ellipse 70% 45% at 80% 10%, rgba(var(--accent-rgb), 0.12), transparent 55%),
     radial-gradient(ellipse 50% 40% at 10% 80%, rgba(var(--accent-rgb), 0.06), transparent 50%),
     linear-gradient(180deg, #050505 0%, var(--black) 40%, #030303 100%);
   color: var(--white);
   font-family: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
-  overflow-x: hidden;
+  overflow-x: clip;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  color-scheme: dark;
 }
 
 .hrpc * {
@@ -363,6 +367,7 @@
   pointer-events: none;
   user-select: none;
   max-height: 100vh;
+  max-height: 100dvh;
   overflow: hidden;
 }
 
@@ -4057,4 +4062,239 @@ html[data-eth-rpc="1"] .hrpc.hrpc-eth {
 .hrpc.hrpc-eth .hrpc-tut-btn:hover,
 .hrpc.hrpc-eth .hrpc-tut-btn.is-on {
   color: #041018;
+}
+
+.hrpc button,
+.hrpc a,
+.hrpc select,
+.hrpc input,
+.hrpc label {
+  touch-action: manipulation;
+}
+
+@media (hover: none) {
+  .hrpc-btn:hover,
+  .hrpc-wallet:hover:not(:disabled),
+  .hrpc-wallet-connected:hover,
+  .hrpc-nav-link:hover {
+    transform: none;
+    filter: none;
+  }
+}
+
+/* Android + iOS phones / tablets in portrait */
+@media (max-width: 900px) {
+  .hrpc-nav {
+    padding-top: max(0.45rem, env(safe-area-inset-top));
+    padding-left: max(0.55rem, env(safe-area-inset-left));
+    padding-right: max(0.55rem, env(safe-area-inset-right));
+  }
+
+  .hrpc-main,
+  .hrpc-drop-rail {
+    padding-left: max(0.65rem, env(safe-area-inset-left));
+    padding-right: max(0.65rem, env(safe-area-inset-right));
+  }
+
+  .hrpc-main {
+    padding-bottom: max(2.25rem, calc(env(safe-area-inset-bottom) + 1.25rem));
+  }
+
+  .hrpc-toast {
+    left: 50%;
+    right: auto;
+    bottom: max(1rem, env(safe-area-inset-bottom));
+    max-width: calc(100vw - 1.5rem);
+    text-align: center;
+    word-break: break-word;
+  }
+
+  .hrpc-input,
+  .hrpc-field input,
+  .hrpc-field select,
+  .hrpc-textarea,
+  .hrpc-mint-qty,
+  .hrpc-phase-select,
+  .hrpc-gas-manual-input {
+    font-size: 16px;
+  }
+
+  .hrpc-btn,
+  .hrpc-wallet,
+  .hrpc-profile-btn,
+  .hrpc-nav-link,
+  .hrpc-chain-switcher a {
+    min-height: 44px;
+  }
+
+  .hrpc-inline {
+    flex-wrap: nowrap;
+    align-items: stretch;
+  }
+
+  .hrpc-inline .hrpc-input,
+  .hrpc-inline .hrpc-phase-select {
+    min-width: 0;
+    flex: 1;
+  }
+
+  #arm-nft .hrpc-inline,
+  #arm-meme .hrpc-inline {
+    flex-direction: column;
+  }
+
+  #arm-nft .hrpc-inline .hrpc-btn,
+  #arm-meme .hrpc-inline .hrpc-btn {
+    width: 100%;
+    min-height: 46px;
+  }
+
+  .hrpc-targets-single {
+    max-width: none;
+  }
+
+  .hrpc-qty .hrpc-input {
+    max-width: 100%;
+  }
+
+  .hrpc-gas-row {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.4rem;
+  }
+
+  .hrpc-gas-controls .hrpc-gas-row .hrpc-btn {
+    width: 100%;
+    min-height: 46px;
+    padding: 0.55rem 0.35rem;
+  }
+
+  .hrpc-gas-manual {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .hrpc-gas-manual-input {
+    flex: 1;
+    width: auto;
+    min-height: 46px;
+  }
+
+  .hrpc-arm-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.55rem;
+  }
+
+  .hrpc-arm-actions .hrpc-btn {
+    width: 100%;
+    min-height: 48px;
+    font-size: 0.82rem;
+    padding: 0.7rem 0.8rem;
+  }
+
+  .hrpc-arm-go {
+    order: -1;
+  }
+
+  .hrpc-phase-row {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 0.2rem;
+    scrollbar-width: thin;
+  }
+
+  .hrpc-phase-chip {
+    flex: 0 0 auto;
+    min-width: 9.5rem;
+    min-height: 64px;
+    padding: 0.6rem 0.7rem;
+  }
+
+  .hrpc-phase-armed {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .hrpc-phase-armed .hrpc-btn {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .hrpc-modal-backdrop {
+    align-items: flex-end;
+    padding: 0;
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+
+  .hrpc-modal {
+    width: 100%;
+    max-height: min(88dvh, 720px);
+    border-radius: 14px 14px 0 0;
+    padding-bottom: max(0.85rem, env(safe-area-inset-bottom));
+  }
+
+  .hrpc-wallet-option {
+    min-height: 52px;
+    padding: 0.7rem 0.65rem;
+    grid-template-columns: auto 2.2rem minmax(0, 1fr) auto;
+  }
+
+  .hrpc-wallet-option input {
+    width: 1.15rem;
+    height: 1.15rem;
+  }
+
+  .hrpc-tut-karaoke {
+    bottom: max(0.75rem, env(safe-area-inset-bottom));
+    width: min(720px, calc(100vw - 1rem));
+  }
+
+  .hrpc-tut-btn {
+    width: 2.15rem;
+    height: 2.15rem;
+    top: -0.3rem;
+    right: -0.15rem;
+  }
+
+  .hrpc-access-cover {
+    padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right))
+      max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+  }
+
+  .hrpc-access-cover-btn {
+    min-width: 0;
+    width: 100%;
+    min-height: 48px;
+  }
+}
+
+@media (max-width: 640px) {
+  .hrpc-wordmark {
+    font-size: 0.92rem;
+  }
+
+  .hrpc-brand img,
+  .hrpc-nav-logo {
+    width: 32px;
+    height: 32px;
+  }
+
+  .hrpc-nav-account {
+    max-width: none;
+  }
+
+  .hrpc-profile-btn span {
+    max-width: 6.2rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: inline-block;
+  }
+
+  .hrpc-wallet {
+    padding: 0.45rem 0.65rem;
+    font-size: 0.68rem;
+  }
 }

@@ -23,6 +23,11 @@ export const metadata: Metadata = {
     description: "Built for speed. Built to snipe. Power your edge.",
     images: ["/images/hood-rpc/banner-ref.png"],
   },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Hood RPC",
+  },
 };
 
 export default function HoodRpcPage() {
