@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type MutableRefObject } from "react";
-import { isAddress, type Address, type Hex } from "viem";
+import { type Address, type Hex } from "viem";
 import { SENSITIVE_INPUT_PROPS } from "@/lib/session-isolation";
 import type { HoodRpcVariant } from "@/lib/hood-rpc-chain";
 import {
@@ -99,6 +99,8 @@ export default function HoodTools({
       setMasterAddr((prev) =>
         prev.startsWith("0x") ? prev : connectedWallet,
       );
+      setNftTo((prev) => (parseAddress(prev) ? prev : connectedWallet));
+      setEthTo((prev) => (parseAddress(prev) ? prev : connectedWallet));
     }
   }, [connectedWallet]);
 
@@ -222,6 +224,20 @@ export default function HoodTools({
     }
   }
 
+  function destAddress(raw: string): Address | null {
+    const typed = parseAddress(raw);
+    if (typed) return typed;
+    if (masterAddr.startsWith("0x")) {
+      const master = parseAddress(masterAddr);
+      if (master) return master;
+    }
+    if (connectedWallet) {
+      const connected = parseAddress(connectedWallet);
+      if (connected) return connected;
+    }
+    return null;
+  }
+
   async function saveMaster() {
     if (!requireWallet()) return;
     const pk = normalizePk(masterPkInput);
@@ -233,6 +249,8 @@ export default function HoodTools({
     const addr = addressFromPk(pk);
     masterPkRef.current = pk;
     setMasterAddr(addr);
+    setNftTo((prev) => (parseAddress(prev) ? prev : addr));
+    setEthTo((prev) => (parseAddress(prev) ? prev : addr));
     try {
       const wei = await getNativeBalance(variant, addr);
       setMasterBal(`${formatEth(wei)} ETH`);
@@ -267,12 +285,15 @@ export default function HoodTools({
         apiBase,
         masterPk: pk,
         recipients: targets.map((w) => w.address),
+        onProgress: (text) => pushOutcome(text, "info"),
       });
       setWorkers(n);
-      onToast(`> SPLIT SENT · ${n} WALLETS · ${formatEth(perWei)} ETH EACH`);
+      onToast(
+        `> SPLIT SENT · ${hashes.length}/${n} WALLETS · ${formatEth(perWei)} ETH EACH`,
+      );
       pushOutcome(
-        `Master split → ${n} wallets · ${formatEth(perWei)} ETH · ${hashes[0]?.slice(0, 10)}…`,
-        "ok",
+        `Master split → ${hashes.length}/${n} wallets · ${formatEth(perWei)} ETH · ${hashes[0]?.slice(0, 10)}…`,
+        hashes.length === n ? "ok" : "err",
       );
       const next = await applyBalances(squad);
       setSquad(next);
@@ -314,11 +335,13 @@ export default function HoodTools({
 
   async function sendNftConsolidate() {
     if (!requireWallet()) return;
-    if (!isAddress(nftTo)) {
-      onToast("> PASTE NFT RECIPIENT");
+    const to = destAddress(nftTo);
+    if (!to) {
+      onToast("> PASTE NFT RECIPIENT OR SET MASTER WALLET");
       pushOutcome("NFT sweep failed · paste master wallet", "err");
       return;
     }
+    if (!nftTo.trim()) setNftTo(to);
     const keys = [...pkById.current.values()];
     if (!keys.length) {
       onToast("> SQUAD NEEDS SESSION KEYS (GENERATE / PASTE PKS)");
@@ -326,17 +349,18 @@ export default function HoodTools({
       return;
     }
     setBusy(true);
-    pushOutcome(`NFT sweep → ${shortAddr(nftTo)} · scanning squad…`);
+    pushOutcome(`NFT sweep → ${shortAddr(to)} · scanning squad…`);
     try {
       const result = await consolidateNfts({
         variant,
         apiBase,
         keys,
-        to: nftTo as Address,
+        to,
+        onProgress: (text) => pushOutcome(text, "info"),
       });
       onToast(`> NFT SWEPT · ${result.sent} SENT`);
       pushOutcome(
-        `NFT sweep → ${shortAddr(nftTo)} · ${result.sent} sent${
+        `NFT sweep → ${shortAddr(to)} · ${result.sent} sent${
           result.skipped ? ` · ${result.skipped} skipped` : ""
         } · ${result.hashes[0]?.slice(0, 10)}…`,
         "ok",
@@ -357,26 +381,30 @@ export default function HoodTools({
 
   async function sendEthConsolidate() {
     if (!requireWallet()) return;
-    if (!isAddress(ethTo)) {
-      onToast("> PASTE ETH RECIPIENT");
+    const to = destAddress(ethTo);
+    if (!to) {
+      onToast("> PASTE ETH RECIPIENT OR SET MASTER WALLET");
       return;
     }
+    if (!ethTo.trim()) setEthTo(to);
     const keys = [...pkById.current.values()];
     if (!keys.length) {
       onToast("> SQUAD NEEDS SESSION KEYS (GENERATE / PASTE PKS)");
       return;
     }
     setBusy(true);
+    pushOutcome(`ETH sweep → ${shortAddr(to)} · ${keys.length} wallets…`);
     try {
       const hashes = await consolidateEth({
         variant,
         apiBase,
         keys,
-        to: ethTo as Address,
+        to,
+        onProgress: (text) => pushOutcome(text, "info"),
       });
       onToast(`> ETH SWEPT · ${hashes.length} TXS`);
       pushOutcome(
-        `ETH sweep → ${shortAddr(ethTo)} · ${hashes.length} wallets emptied (gas dust only)`,
+        `ETH sweep → ${shortAddr(to)} · ${hashes.length} wallets emptied (gas dust only)`,
         "ok",
       );
       setSquad(await applyBalances(squad));
@@ -638,7 +666,7 @@ export default function HoodTools({
         <div className="hrpc-inline" style={{ marginTop: "0.75rem" }}>
           <input
             className="hrpc-input hrpc-mono hrpc-input-lime-ph"
-            placeholder="Send all NFTs to master wallet"
+            placeholder="Send all NFTs to master wallet (blank = master)"
             value={nftTo}
             onChange={(e) => setNftTo(e.target.value)}
           />
@@ -654,7 +682,7 @@ export default function HoodTools({
         <div className="hrpc-inline" style={{ marginTop: "0.55rem" }}>
           <input
             className="hrpc-input hrpc-mono hrpc-input-lime-ph"
-            placeholder="Send all crypto balance to master wallet"
+            placeholder="Send all crypto balance to master wallet (blank = master)"
             value={ethTo}
             onChange={(e) => setEthTo(e.target.value)}
           />

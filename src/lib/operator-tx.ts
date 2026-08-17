@@ -6,6 +6,7 @@ import {
   createWalletClient,
   defineChain,
   encodeFunctionData,
+  fallback,
   formatEther,
   http,
   parseGwei,
@@ -15,6 +16,7 @@ import {
 import { privateKeyToAccount } from "viem/accounts";
 import { mainnet } from "viem/chains";
 import type { HoodRpcVariant } from "@/lib/hood-rpc-chain";
+import { quoteLiveGas } from "@/lib/live-gas";
 
 export const robinhoodChain = defineChain({
   id: 4663,
@@ -31,14 +33,24 @@ export const robinhoodChain = defineChain({
   },
 });
 
+const HTTP_OPTS = { timeout: 12_000 } as const;
+
 function chainFor(variant: HoodRpcVariant) {
   return variant === "eth" ? mainnet : robinhoodChain;
 }
 
-function rpcFor(variant: HoodRpcVariant) {
-  return variant === "eth"
-    ? "https://ethereum.publicnode.com"
-    : "https://rpc.mainnet.chain.robinhood.com";
+function transportFor(variant: HoodRpcVariant) {
+  if (variant === "eth") {
+    return fallback([
+      http("https://ethereum.publicnode.com", HTTP_OPTS),
+      http("https://ethereum-rpc.publicnode.com", HTTP_OPTS),
+      http("https://1rpc.io/eth", HTTP_OPTS),
+      http("https://eth.drpc.org", HTTP_OPTS),
+    ]);
+  }
+  return fallback([
+    http("https://rpc.mainnet.chain.robinhood.com", HTTP_OPTS),
+  ]);
 }
 
 export function explorerTx(variant: HoodRpcVariant, hash: string) {
@@ -47,15 +59,68 @@ export function explorerTx(variant: HoodRpcVariant, hash: string) {
     : `https://robinhoodchain.blockscout.com/tx/${hash}`;
 }
 
+function publicClient(variant: HoodRpcVariant) {
+  return createPublicClient({
+    chain: chainFor(variant),
+    transport: transportFor(variant),
+  });
+}
+
+function walletClient(variant: HoodRpcVariant, account: ReturnType<typeof privateKeyToAccount>) {
+  return createWalletClient({
+    account,
+    chain: chainFor(variant),
+    transport: transportFor(variant),
+  });
+}
+
+async function quoteFees(variant: HoodRpcVariant, mode: "fast" | "hyper" = "fast") {
+  const chain = variant === "eth" ? "ethereum" : "robinhood";
+  try {
+    const q = await quoteLiveGas({ chain, mode });
+    let maxFee = q.maxFeePerGas;
+    let tip = q.maxPriorityFeePerGas;
+    if (tip >= maxFee) {
+      maxFee = tip + (q.liveGwei ? parseGwei(String(Math.max(q.liveGwei, 0.001))) : BigInt(1));
+    }
+    return { maxFeePerGas: maxFee, maxPriorityFeePerGas: tip };
+  } catch {
+    const client = publicClient(variant);
+    const block = await client.getBlock({ blockTag: "latest" });
+    const gasPrice = await client.getGasPrice().catch(() => parseGwei(variant === "eth" ? "1" : "0.01"));
+    const base = block.baseFeePerGas ?? gasPrice;
+    const tip = variant === "eth" ? parseGwei("0.1") : parseGwei("0.002");
+    const maxFee = base + (base * BigInt(125)) / BigInt(1000) + tip;
+    return {
+      maxFeePerGas: maxFee > tip ? maxFee : tip + base,
+      maxPriorityFeePerGas: tip,
+    };
+  }
+}
+
+async function runPool<T>(
+  items: T[],
+  limit: number,
+  fn: (item: T, index: number) => Promise<void>,
+) {
+  let i = 0;
+  const workers = Array.from(
+    { length: Math.min(Math.max(1, limit), items.length || 1) },
+    async () => {
+      while (i < items.length) {
+        const idx = i++;
+        await fn(items[idx], idx);
+      }
+    },
+  );
+  await Promise.all(workers);
+}
+
 export async function getNativeBalance(
   variant: HoodRpcVariant,
   address: Address,
 ): Promise<bigint> {
-  const client = createPublicClient({
-    chain: chainFor(variant),
-    transport: http(rpcFor(variant)),
-  });
-  return client.getBalance({ address });
+  return publicClient(variant).getBalance({ address });
 }
 
 export async function broadcastSigned(
@@ -63,20 +128,39 @@ export async function broadcastSigned(
   signedTx: Hex,
   variant: HoodRpcVariant,
 ): Promise<Hex> {
-  const res = await fetch(`${apiBase}/broadcast`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ signedTx, chain: variant }),
-  });
-  const data = (await res.json()) as {
-    ok?: boolean;
-    hash?: string;
-    error?: string;
-  };
-  if (!res.ok || !data.ok || !data.hash) {
-    throw new Error(data.error || "BROADCAST_FAILED");
+  let last = "BROADCAST_FAILED";
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const res = await fetch(`${apiBase}/broadcast`, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ signedTx, chain: variant }),
+      });
+      const data = (await res.json()) as {
+        ok?: boolean;
+        hash?: string;
+        error?: string;
+      };
+      if (res.ok && data.ok && data.hash) return data.hash as Hex;
+      last = data.error || last;
+      if (/nonce too low|already known|known transaction/i.test(last)) {
+        const m = last.match(/0x[a-fA-F0-9]{64}/);
+        if (m) return m[0] as Hex;
+        if (/already known|known transaction/i.test(last)) {
+          throw new Error(last);
+        }
+      }
+      if (!/timeout|429|502|503|fetch|network/i.test(last) && res.status < 500) {
+        throw new Error(last);
+      }
+    } catch (err) {
+      last = err instanceof Error ? err.message : last;
+      if (/nonce too low|insufficient funds|max fee/i.test(last)) throw err;
+    }
+    await new Promise((r) => setTimeout(r, 400 + attempt * 350));
   }
-  return data.hash as Hex;
+  throw new Error(last);
 }
 
 export async function sendEthFromKey(opts: {
@@ -86,51 +170,89 @@ export async function sendEthFromKey(opts: {
   to: Address;
   amountWei: bigint;
   nonce?: number;
-}): Promise<{ hash: Hex; nonce: number }> {
+  maxFeePerGas?: bigint;
+  maxPriorityFeePerGas?: bigint;
+}): Promise<{ hash: Hex; nonce: number; sent: bigint }> {
   const account = privateKeyToAccount(opts.privateKey);
   const chain = chainFor(opts.variant);
-  const publicClient = createPublicClient({
-    chain,
-    transport: http(rpcFor(opts.variant)),
-  });
-  const walletClient = createWalletClient({
-    account,
-    chain,
-    transport: http(rpcFor(opts.variant)),
-  });
+  const pub = publicClient(opts.variant);
+  const wallet = walletClient(opts.variant, account);
+  const gas = BigInt(21000);
 
   const nonce =
     opts.nonce ??
-    (await publicClient.getTransactionCount({
+    (await pub.getTransactionCount({
       address: account.address,
       blockTag: "pending",
     }));
 
-  const gas = await publicClient
-    .estimateGas({
-      account: account.address,
-      to: opts.to,
-      value: opts.amountWei,
-    })
-    .catch(() => BigInt(21000));
+  let fees =
+    opts.maxFeePerGas && opts.maxPriorityFeePerGas
+      ? {
+          maxFeePerGas: opts.maxFeePerGas,
+          maxPriorityFeePerGas: opts.maxPriorityFeePerGas,
+        }
+      : await quoteFees(opts.variant, "fast");
+  if (fees.maxPriorityFeePerGas >= fees.maxFeePerGas) {
+    fees = {
+      maxFeePerGas: fees.maxPriorityFeePerGas + BigInt(1),
+      maxPriorityFeePerGas: fees.maxPriorityFeePerGas,
+    };
+  }
 
-  const fees = await publicClient.estimateFeesPerGas().catch(() => null);
-  const maxPriorityFeePerGas =
-    fees?.maxPriorityFeePerGas ?? parseGwei("2");
-  const maxFeePerGas =
-    fees?.maxFeePerGas ?? parseGwei(opts.variant === "eth" ? "40" : "0.1");
+  let value = opts.amountWei;
+  const bal = await pub.getBalance({ address: account.address });
+  const cost = gas * fees.maxFeePerGas;
+  if (value + cost > bal) {
+    value = bal > cost ? bal - cost : BigInt(0);
+  }
+  if (value <= BigInt(0)) throw new Error("INSUFFICIENT_FUNDS");
 
-  const signedTx = await walletClient.signTransaction({
-    to: opts.to,
-    value: opts.amountWei,
-    nonce,
-    gas,
-    maxFeePerGas,
-    maxPriorityFeePerGas,
-    chainId: chain.id,
-  });
-  const hash = await broadcastSigned(opts.apiBase, signedTx, opts.variant);
-  return { hash, nonce };
+  let lastErr = "SEND_FAILED";
+  for (let attempt = 0; attempt < 4; attempt++) {
+    if (attempt > 0) {
+      fees = {
+        maxFeePerGas:
+          fees.maxFeePerGas + (fees.maxFeePerGas * BigInt(25)) / BigInt(100),
+        maxPriorityFeePerGas:
+          fees.maxPriorityFeePerGas +
+          (fees.maxPriorityFeePerGas * BigInt(15)) / BigInt(100),
+      };
+      if (fees.maxPriorityFeePerGas >= fees.maxFeePerGas) {
+        fees.maxFeePerGas = fees.maxPriorityFeePerGas + BigInt(1);
+      }
+      const live = await pub.getBalance({ address: account.address });
+      const need = gas * fees.maxFeePerGas;
+      if (value + need > live) {
+        value = live > need ? live - need : BigInt(0);
+      }
+      if (value <= BigInt(0)) break;
+    }
+    try {
+      const signedTx = await wallet.signTransaction({
+        to: opts.to,
+        value,
+        nonce,
+        gas,
+        maxFeePerGas: fees.maxFeePerGas,
+        maxPriorityFeePerGas: fees.maxPriorityFeePerGas,
+        chainId: chain.id,
+      });
+      const hash = await broadcastSigned(opts.apiBase, signedTx, opts.variant);
+      return { hash, nonce, sent: value };
+    } catch (err) {
+      lastErr = err instanceof Error ? err.message : String(err);
+      if (
+        /insufficient funds|max fee per gas less than|underpriced|fee too low|timeout|429|502|503/i.test(
+          lastErr,
+        )
+      ) {
+        continue;
+      }
+      throw err instanceof Error ? err : new Error(lastErr);
+    }
+  }
+  throw new Error(lastErr);
 }
 
 export async function splitFromMaster(opts: {
@@ -138,41 +260,60 @@ export async function splitFromMaster(opts: {
   apiBase: string;
   masterPk: Hex;
   recipients: Address[];
+  onProgress?: (text: string) => void;
 }): Promise<{ hashes: Hex[]; perWei: bigint }> {
   if (!opts.recipients.length) throw new Error("NO_RECIPIENTS");
   const account = privateKeyToAccount(opts.masterPk);
-  const bal = await getNativeBalance(opts.variant, account.address);
+  const pub = publicClient(opts.variant);
   const n = BigInt(opts.recipients.length);
-  const gasReserve = parseGwei(opts.variant === "eth" ? "80" : "1") * BigInt(25000) * n;
-  if (bal <= gasReserve) throw new Error("INSUFFICIENT_MASTER");
-  const perWei = (bal - gasReserve) / n;
+  const fees = await quoteFees(opts.variant, "fast");
+  const gas = BigInt(21000);
+  const perTxCost = gas * fees.maxFeePerGas + (gas * fees.maxFeePerGas) / BigInt(8);
+  const bal = await pub.getBalance({ address: account.address });
+  if (bal <= perTxCost * n) throw new Error("INSUFFICIENT_MASTER");
+  const perWei = (bal - perTxCost * n) / n;
   if (perWei <= BigInt(0)) throw new Error("INSUFFICIENT_MASTER");
 
-  const publicClient = createPublicClient({
-    chain: chainFor(opts.variant),
-    transport: http(rpcFor(opts.variant)),
-  });
-  let nonce = await publicClient.getTransactionCount({
+  let nonce = await pub.getTransactionCount({
     address: account.address,
     blockTag: "pending",
   });
   const hashes: Hex[] = [];
-  for (const to of opts.recipients) {
-    const { hash } = await sendEthFromKey({
-      variant: opts.variant,
-      apiBase: opts.apiBase,
-      privateKey: opts.masterPk,
-      to,
-      amountWei: perWei,
-      nonce,
-    });
-    hashes.push(hash);
-    nonce += 1;
+  const errors: string[] = [];
+  for (let i = 0; i < opts.recipients.length; i++) {
+    const to = opts.recipients[i];
+    opts.onProgress?.(
+      `Split ${i + 1}/${opts.recipients.length} → ${to.slice(0, 6)}…`,
+    );
+    try {
+      const { hash } = await sendEthFromKey({
+        variant: opts.variant,
+        apiBase: opts.apiBase,
+        privateKey: opts.masterPk,
+        to,
+        amountWei: perWei,
+        nonce,
+        maxFeePerGas: fees.maxFeePerGas,
+        maxPriorityFeePerGas: fees.maxPriorityFeePerGas,
+      });
+      hashes.push(hash);
+      nonce += 1;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "SPLIT_FAILED";
+      errors.push(msg);
+      nonce = await pub.getTransactionCount({
+        address: account.address,
+        blockTag: "pending",
+      });
+    }
+  }
+  if (!hashes.length) {
+    throw new Error(errors[0] || "SPLIT_FAILED");
   }
   return { hashes, perWei };
 }
 
-/** Empty a wallet: send balance minus current base-fee, not a fat RPC quote. */
+/** Empty a wallet: send balance minus live max-fee, keep only dust. */
 async function sweepAllEthFromKey(opts: {
   variant: HoodRpcVariant;
   apiBase: string;
@@ -183,80 +324,68 @@ async function sweepAllEthFromKey(opts: {
   if (account.address.toLowerCase() === opts.to.toLowerCase()) return null;
 
   const chain = chainFor(opts.variant);
-  const publicClient = createPublicClient({
-    chain,
-    transport: http(rpcFor(opts.variant)),
-  });
-  const walletClient = createWalletClient({
-    account,
-    chain,
-    transport: http(rpcFor(opts.variant)),
-  });
+  const pub = publicClient(opts.variant);
+  const wallet = walletClient(opts.variant, account);
 
-  const bal = await publicClient.getBalance({ address: account.address });
+  const bal = await pub.getBalance({ address: account.address });
   const gas = BigInt(21000);
   if (bal <= gas) return null;
 
-  const nonce = await publicClient.getTransactionCount({
+  const nonce = await pub.getTransactionCount({
     address: account.address,
     blockTag: "pending",
   });
 
-  const block = await publicClient.getBlock({ blockTag: "latest" });
-  const gasPrice = await publicClient.getGasPrice().catch(() => parseGwei("1"));
-  const baseFee = block.baseFeePerGas ?? gasPrice;
-  const tip = parseGwei(opts.variant === "eth" ? "0.2" : "0.01");
-  let maxFeePerGas = baseFee + (baseFee * BigInt(125)) / BigInt(1000) + tip;
-  if (maxFeePerGas < tip + BigInt(1)) maxFeePerGas = tip + BigInt(1);
-
+  let fees = await quoteFees(opts.variant, "fast");
   const affordable = bal / gas;
-  if (affordable < baseFee) {
-    throw new Error(
-      `leftover ${formatEth(bal)} ETH is below gas (${formatEth(gas * baseFee)} ETH)`,
-    );
+  if (affordable <= fees.maxPriorityFeePerGas) return null;
+  if (fees.maxFeePerGas > affordable) fees.maxFeePerGas = affordable;
+  if (fees.maxPriorityFeePerGas >= fees.maxFeePerGas) {
+    fees.maxPriorityFeePerGas = fees.maxFeePerGas / BigInt(2) || BigInt(1);
   }
-  if (maxFeePerGas > affordable) maxFeePerGas = affordable;
-  let priority = tip < maxFeePerGas ? tip : maxFeePerGas / BigInt(2);
-  let value = bal - gas * maxFeePerGas;
+
+  let value = bal - gas * fees.maxFeePerGas;
   if (value <= BigInt(0)) return null;
 
   let lastErr = "SWEEP_FAILED";
-  for (let attempt = 0; attempt < 4; attempt++) {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    if (attempt > 0) {
+      if (/insufficient funds/i.test(lastErr)) {
+        const cut = gas * (opts.variant === "eth" ? parseGwei("0.5") : parseGwei("0.02"));
+        if (value <= cut) return null;
+        value -= cut;
+        fees.maxFeePerGas = (bal - value) / gas;
+      } else {
+        fees.maxFeePerGas += (fees.maxFeePerGas * BigInt(30)) / BigInt(100);
+        if (fees.maxFeePerGas > affordable) fees.maxFeePerGas = affordable;
+        value = bal - gas * fees.maxFeePerGas;
+      }
+      if (value <= BigInt(0)) return null;
+      if (fees.maxPriorityFeePerGas >= fees.maxFeePerGas) {
+        fees.maxPriorityFeePerGas = fees.maxFeePerGas / BigInt(2) || BigInt(1);
+      }
+    }
     try {
-      const signedTx = await walletClient.signTransaction({
+      const signedTx = await wallet.signTransaction({
         to: opts.to,
         value,
         nonce,
         gas,
-        maxFeePerGas,
-        maxPriorityFeePerGas: priority,
+        maxFeePerGas: fees.maxFeePerGas,
+        maxPriorityFeePerGas: fees.maxPriorityFeePerGas,
         chainId: chain.id,
       });
       return await broadcastSigned(opts.apiBase, signedTx, opts.variant);
     } catch (err) {
       lastErr = err instanceof Error ? err.message : String(err);
-      if (/insufficient funds/i.test(lastErr)) {
-        const cut = gas * parseGwei(opts.variant === "eth" ? "1" : "0.05");
-        if (value <= cut) break;
-        value -= cut;
-        maxFeePerGas = (bal - value) / gas;
-        if (priority >= maxFeePerGas) {
-          priority = maxFeePerGas / BigInt(2);
-        }
+      if (
+        /insufficient funds|max fee per gas less than|underpriced|fee too low|timeout|429|502|503/i.test(
+          lastErr,
+        )
+      ) {
         continue;
       }
-      if (/max fee per gas less than|underpriced|fee too low/i.test(lastErr)) {
-        const bump = (maxFeePerGas * BigInt(20)) / BigInt(100) + parseGwei("0.5");
-        maxFeePerGas += bump;
-        if (maxFeePerGas > affordable) maxFeePerGas = affordable;
-        value = bal - gas * maxFeePerGas;
-        if (value <= BigInt(0)) break;
-        if (priority >= maxFeePerGas) {
-          priority = maxFeePerGas / BigInt(2);
-        }
-        continue;
-      }
-      throw err;
+      throw err instanceof Error ? err : new Error(lastErr);
     }
   }
   throw new Error(lastErr);
@@ -267,10 +396,12 @@ export async function consolidateEth(opts: {
   apiBase: string;
   keys: Hex[];
   to: Address;
+  onProgress?: (text: string) => void;
 }): Promise<Hex[]> {
   const hashes: Hex[] = [];
   const errors: string[] = [];
-  for (const pk of opts.keys) {
+  let done = 0;
+  await runPool(opts.keys, 6, async (pk) => {
     try {
       const hash = await sweepAllEthFromKey({
         variant: opts.variant,
@@ -281,8 +412,11 @@ export async function consolidateEth(opts: {
       if (hash) hashes.push(hash);
     } catch (err) {
       errors.push(err instanceof Error ? err.message : "SEND_FAILED");
+    } finally {
+      done += 1;
+      opts.onProgress?.(`ETH sweep ${done}/${opts.keys.length}`);
     }
-  }
+  });
   if (!hashes.length) {
     throw new Error(errors[0] || "NOTHING_TO_SEND");
   }
@@ -371,34 +505,13 @@ function nftCalldata(
   });
 }
 
-/** MetaMask-low: live base fee + 12.5% + tiny tip. Re-quoted each retry. */
-async function quoteLowGas(
-  publicClient: ReturnType<typeof createPublicClient>,
-  variant: HoodRpcVariant,
-): Promise<{ maxFeePerGas: bigint; maxPriorityFeePerGas: bigint }> {
-  const block = await publicClient.getBlock({ blockTag: "latest" });
-  const fees = await publicClient.estimateFeesPerGas().catch(() => null);
-  const baseFee =
-    block.baseFeePerGas ??
-    fees?.maxFeePerGas ??
-    parseGwei(variant === "eth" ? "0.2" : "0.01");
-  let tip = fees?.maxPriorityFeePerGas ?? parseGwei("0.01");
-  const tipFloor = parseGwei(variant === "eth" ? "0.01" : "0.001");
-  const tipCap = parseGwei(variant === "eth" ? "0.15" : "0.02");
-  if (tip < tipFloor) tip = tipFloor;
-  if (tip > tipCap) tip = tipCap;
-  return {
-    maxPriorityFeePerGas: tip,
-    maxFeePerGas: baseFee + (baseFee * BigInt(125)) / BigInt(1000) + tip,
-  };
-}
-
 async function fetchOwnedNfts(
   apiBase: string,
   addresses: string[],
 ): Promise<OwnedNft[]> {
   const res = await fetch(`${apiBase}/owned-nfts`, {
     method: "POST",
+    credentials: "same-origin",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ addresses }),
   });
@@ -425,6 +538,7 @@ export async function consolidateNfts(opts: {
   apiBase: string;
   keys: Hex[];
   to: Address;
+  onProgress?: (text: string) => void;
 }): Promise<NftSweepResult> {
   const dest = opts.to.toLowerCase() as Address;
   const byOwner = new Map<string, Hex>();
@@ -438,40 +552,61 @@ export async function consolidateNfts(opts: {
   }
   if (!addrs.length) throw new Error("NO_SQUAD_KEYS");
 
+  opts.onProgress?.(`Scanning ${addrs.length} wallets for NFTs…`);
   const owned = await fetchOwnedNfts(opts.apiBase, addrs);
   if (!owned.length) throw new Error("NO_NFTS");
 
-  const chain = chainFor(opts.variant);
-  const publicClient = createPublicClient({
-    chain,
-    transport: http(rpcFor(opts.variant)),
-  });
+  const grouped = new Map<string, OwnedNft[]>();
+  for (const nft of owned.slice(0, 120)) {
+    const owner = nft.owner.toLowerCase();
+    const list = grouped.get(owner) || [];
+    list.push(nft);
+    grouped.set(owner, list);
+  }
 
+  const pub = publicClient(opts.variant);
   const hashes: Hex[] = [];
   const errors: string[] = [];
   let skipped = 0;
+  let sent = 0;
+  const owners = [...grouped.entries()];
 
-  for (const nft of owned.slice(0, 40)) {
-    const pk = byOwner.get(nft.owner.toLowerCase());
+  await runPool(owners, 4, async ([owner, nfts]) => {
+    const pk = byOwner.get(owner);
     if (!pk) {
-      skipped += 1;
-      continue;
+      skipped += nfts.length;
+      return;
     }
-    try {
-      const hash = await transferOneNft({
-        variant: opts.variant,
-        apiBase: opts.apiBase,
-        publicClient,
-        privateKey: pk,
-        nft,
-        to: dest,
-      });
-      hashes.push(hash);
-    } catch (err) {
-      skipped += 1;
-      errors.push(err instanceof Error ? err.message : "NFT_SEND_FAILED");
+    let nonce = await pub.getTransactionCount({
+      address: owner as Address,
+      blockTag: "pending",
+    });
+    for (const nft of nfts) {
+      try {
+        const hash = await transferOneNft({
+          variant: opts.variant,
+          apiBase: opts.apiBase,
+          publicClient: pub,
+          walletClient: walletClient(opts.variant, privateKeyToAccount(pk)),
+          privateKey: pk,
+          nft,
+          to: dest,
+          nonce,
+        });
+        hashes.push(hash);
+        nonce += 1;
+        sent += 1;
+        opts.onProgress?.(`NFT sweep ${sent} sent`);
+      } catch (err) {
+        skipped += 1;
+        errors.push(err instanceof Error ? err.message : "NFT_SEND_FAILED");
+        nonce = await pub.getTransactionCount({
+          address: owner as Address,
+          blockTag: "pending",
+        });
+      }
     }
-  }
+  });
 
   if (!hashes.length) {
     throw new Error(errors[0] || "NO_NFTS_SENT");
@@ -482,37 +617,32 @@ export async function consolidateNfts(opts: {
 async function transferOneNft(opts: {
   variant: HoodRpcVariant;
   apiBase: string;
-  publicClient: ReturnType<typeof createPublicClient>;
+  publicClient: ReturnType<typeof publicClient>;
+  walletClient: ReturnType<typeof walletClient>;
   privateKey: Hex;
   nft: OwnedNft;
   to: Address;
+  nonce: number;
 }): Promise<Hex> {
   const account = privateKeyToAccount(opts.privateKey);
-  const walletClient = createWalletClient({
-    account,
-    chain: chainFor(opts.variant),
-    transport: http(rpcFor(opts.variant)),
-  });
   const from = account.address;
   let useSafe = true;
-  let nonce = await opts.publicClient.getTransactionCount({
-    address: from,
-    blockTag: "pending",
-  });
+  let nonce = opts.nonce;
 
   let lastErr = "NFT_SEND_FAILED";
-  for (let attempt = 0; attempt < 8; attempt++) {
+  for (let attempt = 0; attempt < 6; attempt++) {
     const data = nftCalldata(opts.nft, from, opts.to, useSafe);
     const to = opts.nft.contract as Address;
-    const fees = await quoteLowGas(opts.publicClient, opts.variant);
-    let gas = opts.nft.tokenType === "ERC1155" ? BigInt(120000) : BigInt(85000);
+    const fees = await quoteFees(opts.variant, attempt > 1 ? "hyper" : "fast");
+    let gas = opts.nft.tokenType === "ERC1155" ? BigInt(150000) : BigInt(120000);
     try {
-      gas = await opts.publicClient.estimateGas({
+      const est = await opts.publicClient.estimateGas({
         account: from,
         to,
         data,
       });
-      gas = (gas * BigInt(110)) / BigInt(100);
+      const padded = (est * BigInt(13)) / BigInt(10);
+      if (padded > gas) gas = padded;
     } catch (err) {
       const msg = err instanceof Error ? err.message : "";
       if (useSafe && opts.nft.tokenType === "ERC721") {
@@ -523,9 +653,8 @@ async function transferOneNft(opts: {
     }
 
     let { maxFeePerGas, maxPriorityFeePerGas } = fees;
-    if (attempt > 0) {
-      maxFeePerGas +=
-        (maxFeePerGas * BigInt(attempt) * BigInt(125)) / BigInt(1000);
+    if (maxPriorityFeePerGas >= maxFeePerGas) {
+      maxFeePerGas = maxPriorityFeePerGas + BigInt(1);
     }
     const bal = await opts.publicClient.getBalance({ address: from });
     const need = gas * maxFeePerGas;
@@ -536,7 +665,7 @@ async function transferOneNft(opts: {
     }
 
     try {
-      const signedTx = await walletClient.signTransaction({
+      const signedTx = await opts.walletClient.signTransaction({
         to,
         data,
         value: BigInt(0),
@@ -562,7 +691,7 @@ async function transferOneNft(opts: {
         continue;
       }
       if (
-        /max fee per gas less than|underpriced|fee too low|replacement/i.test(
+        /max fee per gas less than|underpriced|fee too low|replacement|timeout|429|502|503/i.test(
           lastErr,
         )
       ) {

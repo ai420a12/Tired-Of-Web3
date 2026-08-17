@@ -10,8 +10,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const KEY_LIKE = /^(0x)?[0-9a-fA-F]{64}$/;
-const MAX_ADDRS = 40;
-const MAX_NFTS = 80;
+const MAX_ADDRS = 80;
+const MAX_NFTS = 120;
 
 export type OwnedNftRow = {
   owner: string;
@@ -236,49 +236,96 @@ async function alchemyNfts(owner: string): Promise<OwnedNftRow[]> {
   return [...indexed, ...extra].slice(0, MAX_NFTS);
 }
 
-async function blockscoutNfts(owner: string): Promise<OwnedNftRow[]> {
+async function blockscoutNfts(
+  owner: string,
+  host: string,
+): Promise<OwnedNftRow[]> {
   const rows: OwnedNftRow[] = [];
-  let url: string | null =
-    `https://robinhoodchain.blockscout.com/api/v2/addresses/${owner}/nft?type=ERC-721,ERC-1155`;
-  for (let i = 0; i < 6 && url && rows.length < MAX_NFTS; i++) {
-    const res = await fetch(url, { cache: "no-store" });
-    if (!res.ok) break;
-    const data = (await res.json()) as {
-      items?: {
-        id?: string;
-        value?: string;
-        token?: { address_hash?: string; address?: string; type?: string };
-      }[];
-      next_page_params?: Record<string, string | number>;
-    };
-    for (const item of data.items || []) {
-      const contract = (
-        item.token?.address_hash ||
-        item.token?.address ||
-        ""
-      ).toLowerCase();
-      const tokenId = parseTokenId(item.id);
-      if (!isAddress(contract) || !tokenId) continue;
-      const kind = (item.token?.type || "ERC-721").toUpperCase();
-      rows.push({
-        owner: owner.toLowerCase(),
-        contract,
-        tokenId,
-        tokenType: kind.includes("1155") ? "ERC1155" : "ERC721",
-        balance: String(item.value || "1"),
-      });
-      if (rows.length >= MAX_NFTS) break;
+  const seen = new Set<string>();
+  const starts = [
+    `https://${host}/api/v2/addresses/${owner}/nft?type=ERC-721`,
+    `https://${host}/api/v2/addresses/${owner}/nft?type=ERC-1155`,
+    `https://${host}/api/v2/addresses/${owner}/nft`,
+  ];
+  for (const start of starts) {
+    let url: string | null = start;
+    for (let i = 0; i < 4 && url && rows.length < MAX_NFTS; i++) {
+      const res = await fetch(url, { cache: "no-store" }).catch(() => null);
+      if (!res?.ok) break;
+      const data = (await res.json()) as {
+        items?: {
+          id?: string;
+          value?: string;
+          token?: {
+            address_hash?: string;
+            address?: string;
+            type?: string;
+          };
+        }[];
+        next_page_params?: Record<string, string | number>;
+      };
+      for (const item of data.items || []) {
+        const contract = (
+          item.token?.address_hash ||
+          item.token?.address ||
+          ""
+        ).toLowerCase();
+        const tokenId = parseTokenId(item.id);
+        if (!isAddress(contract) || !tokenId) continue;
+        const key = `${contract}:${tokenId}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const kind = (item.token?.type || "ERC-721").toUpperCase();
+        rows.push({
+          owner: owner.toLowerCase(),
+          contract,
+          tokenId,
+          tokenType: kind.includes("1155") ? "ERC1155" : "ERC721",
+          balance: String(item.value || "1"),
+        });
+        if (rows.length >= MAX_NFTS) break;
+      }
+      const next = data.next_page_params;
+      if (!next || !Object.keys(next).length) break;
+      const q = new URLSearchParams(
+        Object.fromEntries(
+          Object.entries(next).map(([k, v]) => [k, String(v)]),
+        ),
+      );
+      url = `https://${host}/api/v2/addresses/${owner}/nft?${q}`;
     }
-    const next = data.next_page_params;
-    if (!next || !Object.keys(next).length) break;
-    const q = new URLSearchParams(
-      Object.fromEntries(
-        Object.entries(next).map(([k, v]) => [k, String(v)]),
-      ),
-    );
-    url = `https://robinhoodchain.blockscout.com/api/v2/addresses/${owner}/nft?${q}`;
   }
   return rows;
+}
+
+async function nftsForOwner(
+  variant: "eth" | "hood",
+  owner: string,
+): Promise<OwnedNftRow[]> {
+  if (variant === "eth") {
+    const alchemy = await alchemyNfts(owner).catch(() => []);
+    if (alchemy.length) return alchemy;
+    return blockscoutNfts(owner, "eth.blockscout.com").catch(() => []);
+  }
+  return blockscoutNfts(owner, "robinhoodchain.blockscout.com").catch(() => []);
+}
+
+async function mapPool<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const out: R[] = new Array(items.length);
+  let i = 0;
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length || 1) }, async () => {
+      while (i < items.length) {
+        const idx = i++;
+        out[idx] = await fn(items[idx]);
+      }
+    }),
+  );
+  return out;
 }
 
 export async function POST(req: Request) {
@@ -308,19 +355,23 @@ export async function POST(req: Request) {
   }
 
   const variant = resolveApiVariant(req);
+  const batches = await mapPool(addrs, 6, (owner) => nftsForOwner(variant, owner));
   const nfts: OwnedNftRow[] = [];
-  for (const owner of addrs) {
-    const rows =
-      variant === "eth"
-        ? await alchemyNfts(owner)
-        : await blockscoutNfts(owner);
-    nfts.push(...rows);
+  const seen = new Set<string>();
+  for (const rows of batches) {
+    for (const nft of rows || []) {
+      const key = `${nft.owner}:${nft.contract}:${nft.tokenId}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      nfts.push(nft);
+      if (nfts.length >= MAX_NFTS) break;
+    }
     if (nfts.length >= MAX_NFTS) break;
   }
 
   return NextResponse.json({
     ok: true,
     chain: variant,
-    nfts: nfts.slice(0, MAX_NFTS),
+    nfts,
   });
 }
