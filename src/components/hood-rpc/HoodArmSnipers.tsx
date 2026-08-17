@@ -109,6 +109,7 @@ export default function HoodArmSnipers({
   pushTicker,
 }: Props) {
   const chain = variant === "eth" ? "ethereum" : "robinhood";
+  const customGwei = variant === "eth";
   const [contractCa, setContractCa] = useState("");
   const [osUrl, setOsUrl] = useState("");
   const [targets, setTargets] = useState<NftTarget[]>([
@@ -139,6 +140,10 @@ export default function HoodArmSnipers({
   useEffect(() => {
     armingRef.current = arming;
   }, [arming]);
+
+  useEffect(() => {
+    if (!customGwei && gasMode === "manual") setGasMode("fast");
+  }, [customGwei, gasMode]);
 
   const [ticker, setTicker] = useState("");
   const [buyEth, setBuyEth] = useState("0.25");
@@ -258,7 +263,7 @@ export default function HoodArmSnipers({
   }, [phases.length]);
 
   function manualValue(): number | undefined {
-    if (gasMode !== "manual") return undefined;
+    if (!customGwei || gasMode !== "manual") return undefined;
     const n = parseFloat(manualGwei);
     return Number.isFinite(n) && n > 0 ? n : undefined;
   }
@@ -367,7 +372,7 @@ export default function HoodArmSnipers({
       onToast("> LOAD A PROJECT FIRST (CONTRACT OR OPENSEA URL)");
       return;
     }
-    if (gasMode === "manual" && !manualValue()) {
+    if (customGwei && gasMode === "manual" && !manualValue()) {
       onToast("> ENTER MANUAL GWEI");
       return;
     }
@@ -421,14 +426,16 @@ export default function HoodArmSnipers({
     setArming(true);
     const qty = mintQty(targets[0].qty);
     const tries = opts?.skipPhaseWait ? 10 : 4;
+    const speed: GasSpeed =
+      customGwei && gasMode === "manual" ? "manual" : gasMode === "manual" ? "fast" : gasMode;
     try {
       const target = await resolveContract(raw);
       const phaseTag = phase?.label ? ` · ${phase.label}` : "";
       const label = `${targets[0].label.trim() || target.name || shortAddr(target.contract)}${phaseTag}`;
       const gasLabel =
-        gasMode === "manual"
+        speed === "manual"
           ? `${manualValue()} gwei`
-          : `${gasMode} · ~${formatLiveGwei(liveGas?.maxFeeGwei || 0)} gwei`;
+          : `${speed} · ~${formatLiveGwei(liveGas?.maxFeeGwei || 0)} gwei`;
 
       async function prepareReady(from: string) {
         let last = "No mint route for this contract";
@@ -469,8 +476,8 @@ export default function HoodArmSnipers({
                   apiBase,
                   privateKey: pk,
                   tx: prepared.tx as PreparedMint,
-                  gasMode,
-                  manualGwei: manualValue(),
+                  gasMode: speed,
+                  manualGwei: speed === "manual" ? manualValue() : undefined,
                 });
                 return { wallet, hash, quantity: prepared.quantity || qty };
               } catch (err) {
@@ -535,8 +542,8 @@ export default function HoodArmSnipers({
         data: prepared.tx!.data,
         value: prepared.tx!.value,
         gas: prepared.tx!.gas,
-        gasMode,
-        manualGwei: manualValue(),
+        gasMode: speed,
+        manualGwei: speed === "manual" ? manualValue() : undefined,
       });
       pushOutcome(
         `Minted ${prepared.quantity || qty} · ${shortAddr(connectedWallet)} · ${hash.slice(0, 10)}…`,
@@ -662,10 +669,11 @@ export default function HoodArmSnipers({
     pushTicker("Meme sniper cleared", "info");
   }
 
-  const liveHint =
-    gasMode === "manual"
+  const liveHint = customGwei
+    ? gasMode === "manual"
       ? `Live ~${formatLiveGwei(liveGas?.liveGwei || 0)} gwei · enter your max fee`
-      : `Live ~${formatLiveGwei(liveGas?.liveGwei || 0)} gwei · ${gasMode} ~${formatLiveGwei(liveGas?.maxFeeGwei || 0)}`;
+      : `Live ~${formatLiveGwei(liveGas?.liveGwei || 0)} gwei · ${gasMode} ~${formatLiveGwei(liveGas?.maxFeeGwei || 0)}`
+    : `Robinhood gas is auto · ${gasMode} ~${formatLiveGwei(liveGas?.maxFeeGwei || 0)} gwei`;
 
   return (
     <>
@@ -847,7 +855,9 @@ export default function HoodArmSnipers({
             </div>
 
             <div className="hrpc-gas-controls" aria-label="Gas presets">
-              <span className="hrpc-preset-label">Gas (gwei)</span>
+              <span className="hrpc-preset-label">
+                {customGwei ? "Gas (gwei)" : "Speed"}
+              </span>
               <div className="hrpc-gas-row">
                 <button
                   type="button"
@@ -870,27 +880,29 @@ export default function HoodArmSnipers({
                 >
                   Hyper
                 </button>
-                <label className={`hrpc-gas-manual ${gasMode === "manual" ? "on" : ""}`}>
-                  <button
-                    type="button"
-                    className={`hrpc-btn ${gasMode === "manual" ? "" : "hrpc-btn-ghost"}`}
-                    onClick={() => setGasMode("manual")}
-                  >
-                    Manual
-                  </button>
-                  <input
-                    className="hrpc-input hrpc-mono hrpc-gas-manual-input"
-                    value={manualGwei}
-                    onChange={(e) => {
-                      setGasMode("manual");
-                      setManualGwei(e.target.value);
-                    }}
-                    onFocus={() => setGasMode("manual")}
-                    inputMode="decimal"
-                    placeholder="gwei"
-                    aria-label="Manual gwei"
-                  />
-                </label>
+                {customGwei ? (
+                  <label className={`hrpc-gas-manual ${gasMode === "manual" ? "on" : ""}`}>
+                    <button
+                      type="button"
+                      className={`hrpc-btn ${gasMode === "manual" ? "" : "hrpc-btn-ghost"}`}
+                      onClick={() => setGasMode("manual")}
+                    >
+                      Manual
+                    </button>
+                    <input
+                      className="hrpc-input hrpc-mono hrpc-gas-manual-input"
+                      value={manualGwei}
+                      onChange={(e) => {
+                        setGasMode("manual");
+                        setManualGwei(e.target.value);
+                      }}
+                      onFocus={() => setGasMode("manual")}
+                      inputMode="decimal"
+                      placeholder="gwei"
+                      aria-label="Manual gwei"
+                    />
+                  </label>
+                ) : null}
               </div>
               <span className="hrpc-gas-live">{liveHint}</span>
             </div>

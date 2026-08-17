@@ -200,7 +200,10 @@ export function getToolTutorial(
           target: "[data-tut='arm-stage']",
         },
         {
-          text: "Set mints per wallet and a gas preset from live quotes. Manual gwei is optional.",
+          text:
+            variant === "eth"
+              ? "Set mints per wallet and a gas preset from live quotes. Manual gwei is optional on Ethereum."
+              : "Set mints per wallet and a speed. Robinhood gas is auto — Normal, Fast, or Hyper. No custom gwei.",
           target: "#arm-nft .hrpc-qty, #arm-nft .hrpc-gas-controls",
         },
         {
