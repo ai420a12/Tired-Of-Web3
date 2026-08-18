@@ -8,11 +8,20 @@ import {
   addressFromPk,
   emptyRow,
   generateSquadWallet,
-  normalizePk,
+  extractPrivateKey,
   parseAddress,
+  parsePasteWallets,
   shortAddr,
   type SquadWallet,
 } from "@/lib/operator-wallets";
+import {
+  clearSquadSession,
+  getMasterSessionPk,
+  replaceSquadSession,
+  setMasterSessionPk,
+  squadSessionKeys,
+  syncPkRef,
+} from "@/lib/squad-session";
 import {
   consolidateEth,
   consolidateNfts,
@@ -67,6 +76,13 @@ export default function HoodTools({
   const [genOut, setGenOut] = useState("");
   const [busy, setBusy] = useState(false);
 
+  useEffect(() => {
+    const stored = getMasterSessionPk();
+    if (!stored || masterPkRef.current) return;
+    masterPkRef.current = stored;
+    setMasterAddr(addressFromPk(stored));
+  }, []);
+
   function requireWallet() {
     if (!connectedWallet) {
       onToast("> CONNECT WALLET FIRST (top right)");
@@ -105,18 +121,18 @@ export default function HoodTools({
   }, [connectedWallet]);
 
   useEffect(() => {
-    function wipeSecrets() {
+    function wipeVisibleSecrets() {
+      // Clear on-screen paste fields only. Session keys stay so sweep / arm /
+      // split still work after tab backgrounding (mobile Safari pagehide).
       setPasteKeys("");
       setMasterPkInput("");
       setGenOut("");
-      masterPkRef.current = null;
-      pkById.current.clear();
     }
-    window.addEventListener("pagehide", wipeSecrets);
+    window.addEventListener("pagehide", wipeVisibleSecrets);
     return () => {
-      window.removeEventListener("pagehide", wipeSecrets);
+      window.removeEventListener("pagehide", wipeVisibleSecrets);
     };
-  }, [pkById]);
+  }, []);
 
   useEffect(() => {
     if (!genOut) return;
@@ -176,49 +192,79 @@ export default function HoodTools({
     }
   }
 
+  function bindSquad(rows: SquadWallet[], keys: { id: number; pk: Hex }[]) {
+    replaceSquadSession(
+      rows.map((w) => ({
+        id: w.id,
+        address: w.address,
+        pk: keys.find((k) => k.id === w.id)?.pk,
+      })),
+    );
+    syncPkRef(pkById);
+    setSquad(rows);
+    setWorkers(rows.length);
+  }
+
   async function loadPasteKeys() {
     if (!requireWallet()) return;
-    const lines = pasteKeys
-      .split(/[\n,]+/)
-      .map((l) => l.trim())
-      .filter(Boolean)
-      .slice(0, 80);
+    const parsed = parsePasteWallets(pasteKeys);
     setPasteKeys("");
-    if (!lines.length) {
-      onToast("> NO KEYS / ADDRESSES FOUND");
+    if (!parsed.length) {
+      onToast("> PASTE PRIVATE KEYS (address-only cannot mint or sweep)");
       return;
     }
-    pkById.current.clear();
-    const rows: SquadWallet[] = [];
-    for (let i = 0; i < lines.length; i++) {
+    const keys: { id: number; pk: Hex }[] = [];
+    const rows: SquadWallet[] = parsed.map((item, i) => {
       const id = i + 1;
-      const pk = normalizePk(lines[i]);
-      if (pk) {
-        const address = addressFromPk(pk);
-        pkById.current.set(id, pk);
-        rows.push(
-          emptyRow(id, address, `Wallet ${id}`, true, "Session key loaded"),
-        );
-        continue;
+      if (item.pk) keys.push({ id, pk: item.pk });
+      return emptyRow(
+        id,
+        item.address,
+        `Wallet ${id}`,
+        Boolean(item.pk),
+        item.pk
+          ? "Session key loaded"
+          : "Address only — paste the private key to mint / sweep",
+      );
+    });
+    bindSquad(rows, keys);
+
+    const firstPk = keys[0]?.pk;
+    if (firstPk && !masterPkRef.current && !getMasterSessionPk()) {
+      masterPkRef.current = firstPk;
+      setMasterSessionPk(firstPk);
+      const addr = addressFromPk(firstPk);
+      setMasterAddr(addr);
+      setNftTo((prev) => (parseAddress(prev) ? prev : connectedWallet || addr));
+      setEthTo((prev) => (parseAddress(prev) ? prev : connectedWallet || addr));
+      try {
+        const wei = await getNativeBalance(variant, addr);
+        setMasterBal(`${formatEth(wei)} ETH`);
+      } catch {
+        setMasterBal("—");
       }
-      const addr = parseAddress(lines[i]);
-      if (addr) {
-        rows.push(
-          emptyRow(id, addr, `Wallet ${id}`, false, "Address loaded"),
-        );
-      }
+      pushOutcome(`Master auto-bound · ${shortAddr(addr)}`, "info");
     }
-    if (!rows.length) {
-      onToast("> NO VALID KEYS OR ADDRESSES");
-      return;
-    }
+
     setBusy(true);
     try {
       const withBal = await applyBalances(rows);
       setSquad(withBal);
-      setWorkers(withBal.length);
-      onToast(`> LOADED ${withBal.length} WALLETS INTO BOT`);
-      pushOutcome(`Loaded ${withBal.length} wallets into bot`);
+      const keyed = keys.length;
+      const watchOnly = rows.length - keyed;
+      onToast(
+        keyed
+          ? `> LOADED ${keyed} SIGNING WALLET${keyed === 1 ? "" : "S"} INTO BOT`
+          : `> LOADED ${rows.length} ADDRESS${rows.length === 1 ? "" : "ES"} — PASTE PRIVATE KEYS TO SIGN`,
+      );
+      pushOutcome(
+        keyed
+          ? `Loaded ${keyed} signing wallet${keyed === 1 ? "" : "s"} into bot${
+              watchOnly ? ` · ${watchOnly} address-only` : ""
+            }`
+          : `Loaded ${rows.length} address-only wallet${rows.length === 1 ? "" : "s"} — paste private keys to mint / sweep`,
+        keyed ? "ok" : "err",
+      );
     } finally {
       setBusy(false);
     }
@@ -240,7 +286,7 @@ export default function HoodTools({
 
   async function saveMaster() {
     if (!requireWallet()) return;
-    const pk = normalizePk(masterPkInput);
+    const pk = extractPrivateKey(masterPkInput);
     setMasterPkInput("");
     if (!pk) {
       onToast("> PASTE MASTER PRIVATE KEY");
@@ -248,6 +294,7 @@ export default function HoodTools({
     }
     const addr = addressFromPk(pk);
     masterPkRef.current = pk;
+    setMasterSessionPk(pk);
     setMasterAddr(addr);
     setNftTo((prev) => (parseAddress(prev) ? prev : addr));
     setEthTo((prev) => (parseAddress(prev) ? prev : addr));
@@ -263,16 +310,35 @@ export default function HoodTools({
 
   async function splitTo(n: number) {
     if (!requireWallet()) return;
-    const pk = masterPkRef.current;
+    const pk =
+      masterPkRef.current ||
+      getMasterSessionPk() ||
+      squadSessionKeys()[0] ||
+      null;
     if (!pk) {
-      onToast("> SET MASTER PRIVATE KEY FIRST");
+      onToast("> SET MASTER PRIVATE KEY FIRST (or load a signing wallet)");
+      pushOutcome(
+        "Split failed · paste a master private key or load a squad key",
+        "err",
+      );
       return;
     }
-    if (squad.length < n) {
-      onToast(`> NEED ${n} SQUAD WALLETS · GENERATE OR PASTE FIRST`);
+    if (!masterPkRef.current) {
+      masterPkRef.current = pk;
+      setMasterSessionPk(pk);
+    }
+    if (!squad.length) {
+      onToast("> LOAD OR GENERATE SQUAD WALLETS FIRST");
       return;
     }
-    const targets = squad.slice(0, n);
+    const count = Math.min(n, squad.length);
+    if (count < n) {
+      pushOutcome(
+        `Split · only ${count} squad wallet${count === 1 ? "" : "s"} loaded · sending to those`,
+        "info",
+      );
+    }
+    const targets = squad.slice(0, count);
     const missing = targets.filter((w) => !w.address);
     if (missing.length) {
       onToast("> SQUAD WALLETS INVALID");
@@ -287,13 +353,13 @@ export default function HoodTools({
         recipients: targets.map((w) => w.address),
         onProgress: (text) => pushOutcome(text, "info"),
       });
-      setWorkers(n);
+      setWorkers(count);
       onToast(
-        `> SPLIT SENT · ${hashes.length}/${n} WALLETS · ${formatEth(perWei)} ETH EACH`,
+        `> SPLIT SENT · ${hashes.length}/${count} WALLETS · ${formatEth(perWei)} ETH EACH`,
       );
       pushOutcome(
-        `Master split → ${hashes.length}/${n} wallets · ${formatEth(perWei)} ETH · ${hashes[0]?.slice(0, 10)}…`,
-        hashes.length === n ? "ok" : "err",
+        `Master split → ${hashes.length}/${count} wallets · ${formatEth(perWei)} ETH · ${hashes[0]?.slice(0, 10)}…`,
+        hashes.length === count ? "ok" : "err",
       );
       const next = await applyBalances(squad);
       setSquad(next);
@@ -313,12 +379,12 @@ export default function HoodTools({
   async function generateWallets() {
     if (!requireWallet()) return;
     const n = Math.min(100, Math.max(1, parseInt(genCount, 10) || 1));
-    pkById.current.clear();
     const rows: SquadWallet[] = [];
+    const keys: { id: number; pk: Hex }[] = [];
     const lines: string[] = [];
     for (let i = 0; i < n; i++) {
       const { wallet, pk } = generateSquadWallet(i + 1);
-      pkById.current.set(wallet.id, pk);
+      keys.push({ id: wallet.id, pk });
       rows.push(wallet);
       lines.push(
         `Wallet ${wallet.id}: ${wallet.address}`,
@@ -326,8 +392,7 @@ export default function HoodTools({
         "",
       );
     }
-    setSquad(rows);
-    setWorkers(n);
+    bindSquad(rows, keys);
     setGenOut(lines.join("\n").trim());
     onToast(`> GENERATED ${n} WALLETS · COPY NOW · KEYS STAY IN THIS TAB`);
     pushOutcome(`Generated ${n} wallets (session)`);
@@ -342,10 +407,25 @@ export default function HoodTools({
       return;
     }
     if (!nftTo.trim()) setNftTo(to);
-    const keys = [...pkById.current.values()];
+    const keys = squadSessionKeys().length
+      ? squadSessionKeys()
+      : [...pkById.current.values()];
     if (!keys.length) {
-      onToast("> SQUAD NEEDS SESSION KEYS (GENERATE / PASTE PKS)");
-      pushOutcome("NFT sweep failed · generate or load wallets first", "err");
+      const why = squad.length
+        ? "loaded wallets are address-only — paste the private key, not just the 0x address"
+        : "generate or paste private keys first";
+      onToast(`> SQUAD NEEDS SESSION KEYS · ${why.toUpperCase()}`);
+      pushOutcome(`NFT sweep failed · ${why}`, "err");
+      return;
+    }
+    const destLower = to.toLowerCase();
+    const sources = keys.filter((pk) => addressFromPk(pk).toLowerCase() !== destLower);
+    if (!sources.length) {
+      onToast("> NFT SWEEP DEST IS THE SAME WALLET — PASTE A DIFFERENT RECIPIENT");
+      pushOutcome(
+        "NFT sweep failed · source and destination are the same wallet",
+        "err",
+      );
       return;
     }
     setBusy(true);
@@ -354,7 +434,7 @@ export default function HoodTools({
       const result = await consolidateNfts({
         variant,
         apiBase,
-        keys,
+        keys: sources,
         to,
         onProgress: (text) => pushOutcome(text, "info"),
       });
@@ -387,9 +467,25 @@ export default function HoodTools({
       return;
     }
     if (!ethTo.trim()) setEthTo(to);
-    const keys = [...pkById.current.values()];
+    const keys = squadSessionKeys().length
+      ? squadSessionKeys()
+      : [...pkById.current.values()];
     if (!keys.length) {
-      onToast("> SQUAD NEEDS SESSION KEYS (GENERATE / PASTE PKS)");
+      const why = squad.length
+        ? "loaded wallets are address-only — paste the private key, not just the 0x address"
+        : "generate or paste private keys first";
+      onToast(`> SQUAD NEEDS SESSION KEYS · ${why.toUpperCase()}`);
+      pushOutcome(`ETH sweep failed · ${why}`, "err");
+      return;
+    }
+    const destLower = to.toLowerCase();
+    const sources = keys.filter((pk) => addressFromPk(pk).toLowerCase() !== destLower);
+    if (!sources.length) {
+      onToast("> ETH SWEEP DEST IS THE SAME WALLET — PASTE A DIFFERENT RECIPIENT");
+      pushOutcome(
+        "ETH sweep failed · source and destination are the same wallet",
+        "err",
+      );
       return;
     }
     setBusy(true);
@@ -398,7 +494,7 @@ export default function HoodTools({
       const hashes = await consolidateEth({
         variant,
         apiBase,
-        keys,
+        keys: sources,
         to,
         onProgress: (text) => pushOutcome(text, "info"),
       });
@@ -493,7 +589,9 @@ export default function HoodTools({
                     <td>{r.id}</td>
                     <td className="hrpc-mono">{r.time}</td>
                     <td className="hrpc-mono hrpc-lime">{r.logBal}</td>
-                    <td className="hrpc-activity">{r.activity}</td>
+                    <td className="hrpc-activity">
+                      {r.hasKey ? "KEY" : "ADDR"} · {r.activity}
+                    </td>
                     <td className="hrpc-mono hrpc-addr">
                       <button
                         type="button"
@@ -525,7 +623,7 @@ export default function HoodTools({
           rows={6}
           value={pasteKeys}
           onChange={(e) => setPasteKeys(e.target.value)}
-          placeholder={"0x… private key or address\n0x…"}
+          placeholder={"Paste private keys, one per line\n0x…64-char key"}
           {...SENSITIVE_INPUT_PROPS}
         />
         <div className="hrpc-row-actions" style={{ marginTop: "0.5rem" }}>
@@ -543,6 +641,8 @@ export default function HoodTools({
             onClick={() => {
               setSquad([]);
               pkById.current.clear();
+              clearSquadSession();
+              masterPkRef.current = null;
               setPasteKeys("");
               onToast("> WALLETS CLEARED");
             }}

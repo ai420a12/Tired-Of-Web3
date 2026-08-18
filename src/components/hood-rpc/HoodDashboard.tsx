@@ -22,6 +22,13 @@ import {
 import type { Hex } from "viem";
 import type { SquadWallet } from "@/lib/operator-wallets";
 import {
+  clearSquadSession,
+  getSquadPk,
+  listSquadSession,
+  sessionRowsToSquad,
+  syncPkRef,
+} from "@/lib/squad-session";
+import {
   safeLocalGet,
   safeLocalSet,
   walletStorageKey,
@@ -76,6 +83,13 @@ export default function HoodDashboard({
   const [launchWalletIds, setLaunchWalletIds] = useState<number[]>([]);
   const [squad, setSquad] = useState<SquadWallet[]>([]);
   const pkById = useRef<Map<number, Hex>>(new Map());
+
+  useEffect(() => {
+    const stored = listSquadSession();
+    if (!stored.length) return;
+    syncPkRef(pkById);
+    setSquad((prev) => (prev.length ? prev : sessionRowsToSquad()));
+  }, []);
   const [outcomes, setOutcomes] = useState<
     { id: string; text: string; kind: "ok" | "err" | "info" }[]
   >([{ id: "1", text: "Bot idle — waiting for arm", kind: "info" }]);
@@ -229,6 +243,7 @@ export default function HoodDashboard({
           setLaunchWalletIds([]);
           setSquad([]);
           pkById.current.clear();
+          clearSquadSession();
           setLaunchEth("0.25");
           setLaunchSlip("12");
           setToast("> WALLET CHANGED · RECONNECT TO VERIFY");
@@ -527,6 +542,7 @@ export default function HoodDashboard({
     setLaunchWalletIds([]);
     setSquad([]);
     pkById.current.clear();
+    clearSquadSession();
     setLaunchEth("0.25");
     setLaunchSlip("12");
     setToast("> WALLET DISCONNECTED");
@@ -813,7 +829,7 @@ export default function HoodDashboard({
           liveListingBuys={variant === "eth"}
           getSnipeWallet={() => {
             for (const w of squad) {
-              const pk = pkById.current.get(w.id);
+              const pk = pkById.current.get(w.id) || getSquadPk(w.id);
               if (pk) return { pk, id: w.id, address: w.address };
             }
             return null;
@@ -821,7 +837,7 @@ export default function HoodDashboard({
           getSquadWallets={() => {
             const out: { pk: Hex; id: number; address: string }[] = [];
             for (const w of squad) {
-              const pk = pkById.current.get(w.id);
+              const pk = pkById.current.get(w.id) || getSquadPk(w.id);
               if (pk) out.push({ pk, id: w.id, address: w.address });
             }
             return out;

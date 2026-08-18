@@ -128,7 +128,9 @@ export default function WalletPickerModal({
                     {shortAddr(w.address)}
                   </button>
                 </span>
-                <span className="hrpc-mono hrpc-lime">{w.live}</span>
+                <span className="hrpc-mono hrpc-lime">
+                  {w.hasKey ? "KEY" : "ADDR"} · {w.live}
+                </span>
               </label>
             );
           })}

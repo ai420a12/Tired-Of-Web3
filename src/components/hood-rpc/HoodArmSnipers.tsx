@@ -25,6 +25,10 @@ import {
   refreshMintPhase,
   type MintPhaseInfo,
 } from "@/lib/mint-phases";
+import {
+  getSquadPk,
+  squadSessionKeys,
+} from "@/lib/squad-session";
 import { ToolHelp } from "./ToolTutorial";
 
 type Props = {
@@ -365,10 +369,11 @@ export default function HoodArmSnipers({
   }
 
   function keyedWallets(ids: number[]) {
-    return ids
+    const selected = ids.length ? ids : squad.map((w) => w.id);
+    return selected
       .map((id) => {
         const wallet = squad.find((w) => w.id === id);
-        const pk = pkById.current.get(id);
+        const pk = pkById.current.get(id) || getSquadPk(id);
         if (!wallet || !pk) return null;
         return { wallet, pk };
       })
@@ -429,12 +434,17 @@ export default function HoodArmSnipers({
 
     const selectedIds = nftWalletIds.length
       ? nftWalletIds
-      : opts?.requireWallets
-        ? squad.map((w) => w.id)
-        : [];
-    const silent = keyedWallets(selectedIds);
-    if (selectedIds.length && !silent.length) {
-      onToast("> PASTE SQUAD KEYS FOR SELECTED WALLETS (or clear selection to mint with MetaMask)");
+      : squad.map((w) => w.id);
+    let silent = keyedWallets(selectedIds);
+    if (!silent.length && squadSessionKeys().length) {
+      silent = keyedWallets(squad.map((w) => w.id));
+    }
+    if (selectedIds.length && !silent.length && !connectedWallet) {
+      onToast("> PASTE SQUAD PRIVATE KEYS (not just the address) OR CONNECT METAMASK");
+      pushOutcome(
+        "Mint failed · loaded wallets have no session keys — paste the private key",
+        "err",
+      );
       return;
     }
 
