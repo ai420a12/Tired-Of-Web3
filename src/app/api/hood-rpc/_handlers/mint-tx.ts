@@ -1,9 +1,67 @@
 import { NextResponse } from "next/server";
 import type { HoodRpcVariant } from "@/lib/hood-rpc-chain";
-import { fetchMintgoMintTx, type MintgoChain } from "@/lib/mintgo";
+import {
+  fetchMintgoCollection,
+  fetchMintgoMintTx,
+  type MintgoChain,
+} from "@/lib/mintgo";
+import {
+  isAllowlistMintError,
+  isStageNotLiveError,
+  quantityCandidates,
+  stageKind,
+} from "@/lib/mint-phases";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+type PhaseHint = {
+  id?: string;
+  label?: string;
+  stageType?: string;
+  priceWei?: string;
+  maxPerWallet?: number;
+};
+
+function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+function padGas(gas?: string): string | undefined {
+  if (!gas) return gas;
+  try {
+    const raw = BigInt(gas);
+    const padded = (raw * BigInt(13)) / BigInt(10);
+    const next = padded > BigInt(500000) ? padded : BigInt(500000);
+    return `0x${next.toString(16)}`;
+  } catch {
+    return gas;
+  }
+}
+
+function analysisMax(analysis?: {
+  maxPerWallet?: number;
+  maxBatch?: number;
+}): number | undefined {
+  const a = Number(analysis?.maxPerWallet || 0);
+  const b = Number(analysis?.maxBatch || 0);
+  const n = Math.max(a, b);
+  return n > 0 ? n : undefined;
+}
+
+function stageMismatch(
+  phase: PhaseHint | undefined,
+  analysisLabel: string,
+): string | null {
+  if (!phase?.label && !phase?.stageType) return null;
+  const want = stageKind(
+    `${phase.label || ""} ${phase.stageType || ""}`.trim(),
+  );
+  const have = stageKind(analysisLabel);
+  if (want === "other" || have === "other") return null;
+  if (want === have) return null;
+  return `Mint route is ${have.toUpperCase()} but you picked ${want.toUpperCase()} — switch stage or wait`;
+}
 
 export async function handleMintTx(req: Request, variant: HoodRpcVariant) {
   const { isAccessDenied, requireAccessKey } = await import(
@@ -18,6 +76,8 @@ export async function handleMintTx(req: Request, variant: HoodRpcVariant) {
     from?: string;
     allowPaid?: boolean;
     chain?: string;
+    phase?: PhaseHint;
+    stageOpen?: boolean;
   };
   try {
     body = (await req.json()) as typeof body;
@@ -28,6 +88,9 @@ export async function handleMintTx(req: Request, variant: HoodRpcVariant) {
   const contract = (body.contract || "").trim().toLowerCase();
   const from = (body.from || "").trim().toLowerCase();
   const quantity = Math.floor(Number(body.quantity || 0));
+  const phase = body.phase;
+  const stageOpen = Boolean(body.stageOpen);
+
   if (!/^0x[a-f0-9]{40}$/.test(contract) || !/^0x[a-f0-9]{40}$/.test(from)) {
     return NextResponse.json(
       { ok: false, error: "Invalid contract or wallet" },
@@ -48,21 +111,66 @@ export async function handleMintTx(req: Request, variant: HoodRpcVariant) {
         ? "ethereum"
         : "robinhood";
 
-  const quantities = [quantity];
-  if (quantity >= 80) {
-    for (const fallback of [99, 90, 80, 50]) {
-      if (fallback < quantity && !quantities.includes(fallback)) {
-        quantities.push(fallback);
+  let collectionAnalysis:
+    | {
+        ready?: boolean;
+        reason?: string;
+        functionLabel?: string;
+        maxPerWallet?: number;
+        maxBatch?: number;
       }
-    }
+    | undefined;
+  try {
+    const raw = await fetchMintgoCollection(chain, contract);
+    const mintAnalysis = raw.mintAnalysis as
+      | {
+          ready?: boolean;
+          reason?: string;
+          functionLabel?: string;
+          maxPerWallet?: number;
+          maxBatch?: number;
+        }
+      | undefined;
+    if (mintAnalysis) collectionAnalysis = mintAnalysis;
+  } catch {
+    /* MintGo collection optional */
   }
+
+  const maxHint = analysisMax(collectionAnalysis);
+  const phaseCap =
+    phase?.maxPerWallet && phase.maxPerWallet > 0
+      ? phase.maxPerWallet
+      : undefined;
+  const quantities = quantityCandidates(quantity, { maxPerWallet: phaseCap || 0 }, maxHint);
+
+  const mismatch = stageMismatch(
+    phase,
+    String(collectionAnalysis?.functionLabel || ""),
+  );
+  if (mismatch && collectionAnalysis?.ready && !stageOpen) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: mismatch,
+        analysis: collectionAnalysis || null,
+      },
+      { status: 422 },
+    );
+  }
+
+  const attempts = stageOpen ? 14 : 6;
 
   try {
     let lastError = "No mint route for this contract";
     let lastAnalysis: Awaited<
       ReturnType<typeof fetchMintgoMintTx>
     >["analysis"];
-    for (let attempt = 0; attempt < 4; attempt++) {
+
+    for (let attempt = 0; attempt < attempts; attempt++) {
+      if (attempt > 0) {
+        await sleep(stageOpen ? 500 + attempt * 450 : 700 + attempt * 400);
+      }
+
       for (const qty of quantities) {
         const payload = await fetchMintgoMintTx({
           chain,
@@ -74,21 +182,15 @@ export async function handleMintTx(req: Request, variant: HoodRpcVariant) {
         lastAnalysis = payload.analysis || lastAnalysis;
         if (payload?.ok && payload.tx?.to && payload.tx?.data) {
           if (payload.tx.gas) {
-            try {
-              const raw = BigInt(payload.tx.gas);
-              const padded = (raw * BigInt(13)) / BigInt(10);
-              const gas = padded > BigInt(500000) ? padded : BigInt(500000);
-              payload.tx.gas = `0x${gas.toString(16)}`;
-            } catch {
-              /* keep MintGo gas */
-            }
+            payload.tx.gas = padGas(payload.tx.gas);
           }
           return NextResponse.json({
             ok: true,
             chain,
             quantity: qty,
             requested: quantity,
-            analysis: payload.analysis || null,
+            phase: phase || null,
+            analysis: payload.analysis || collectionAnalysis || null,
             tx: payload.tx,
             gasValidated: Boolean(payload.gasValidated),
           });
@@ -98,23 +200,29 @@ export async function handleMintTx(req: Request, variant: HoodRpcVariant) {
           payload?.reason ||
           payload?.analysis?.reason ||
           lastError;
-        const simFail = /simulation failed|grouped mint|not (yet )?live|not started|inactive|allowlist/i.test(
-          lastError,
-        );
-        if (!simFail && attempt === 0) break;
+
+        if (isAllowlistMintError(lastError)) break;
+        if (!isStageNotLiveError(lastError) && attempt === 0) break;
       }
+
+      if (isAllowlistMintError(lastError)) break;
+
       const retryable =
-        /simulation failed|not (yet )?live|not started|inactive|timeout|502|503|429|MintGo mint-tx/i.test(
-          lastError,
-        );
-      if (!retryable || attempt === 3) break;
-      await new Promise((r) => setTimeout(r, 700 + attempt * 400));
+        isStageNotLiveError(lastError) ||
+        /timeout|502|503|429|MintGo mint-tx/i.test(lastError);
+      if (!retryable) break;
     }
+
+    if (isAllowlistMintError(lastError)) {
+      lastError =
+        "Wallet not on allowlist for this stage — use a whitelisted wallet or wait for public";
+    }
+
     return NextResponse.json(
       {
         ok: false,
         error: lastError,
-        analysis: lastAnalysis || null,
+        analysis: lastAnalysis || collectionAnalysis || null,
       },
       { status: 422 },
     );

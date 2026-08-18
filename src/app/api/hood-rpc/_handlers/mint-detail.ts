@@ -5,21 +5,18 @@ import {
   type MintgoChain,
   type MintgoMintAnalysis,
 } from "@/lib/mintgo";
+import {
+  isAllowlistMintError,
+  isStageNotLiveError,
+  normalizeMintPhases,
+  phaseStatus,
+  type MintPhaseInfo,
+} from "@/lib/mint-phases";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export type MintPhase = {
-  id: string;
-  label: string;
-  stageType: string;
-  priceWei: string;
-  priceEth: number;
-  startAt: number;
-  endAt: number;
-  maxPerWallet: number;
-  status: "live" | "upcoming" | "ended";
-};
+export type MintPhase = MintPhaseInfo;
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object"
@@ -27,10 +24,8 @@ function asRecord(value: unknown): Record<string, unknown> {
     : {};
 }
 
-function phaseStatus(startAt: number, endAt: number, now: number): MintPhase["status"] {
-  if (endAt && now >= endAt) return "ended";
-  if (startAt && now < startAt) return "upcoming";
-  return "live";
+function phaseStatusLocal(startAt: number, endAt: number, now: number) {
+  return phaseStatus(startAt, endAt, now);
 }
 
 function weiToEth(wei: string): number {
@@ -79,7 +74,7 @@ async function fetchOpenSeaDrop(
         max_per_wallet?: string | number;
       }[])
     : [];
-  const phases = stages
+  const rawPhases = stages
     .map((stage, i) => {
       const startAt = Date.parse(stage.start_time || "") || 0;
       const endAt = Date.parse(stage.end_time || "") || 0;
@@ -99,16 +94,10 @@ async function fetchOpenSeaDrop(
         startAt,
         endAt,
         maxPerWallet: Math.max(0, Number(stage.max_per_wallet || 0)),
-        status: phaseStatus(startAt, endAt, now),
+        status: phaseStatusLocal(startAt, endAt, now),
       } satisfies MintPhase;
-    })
-    .sort((a, b) => {
-      const order = { live: 0, upcoming: 1, ended: 2 };
-      if (order[a.status] !== order[b.status]) {
-        return order[a.status] - order[b.status];
-      }
-      return (a.startAt || 0) - (b.startAt || 0);
     });
+  const phases = normalizeMintPhases(rawPhases, now);
   return {
     phases,
     contract: extractAddress(
@@ -332,7 +321,7 @@ export async function handleMintDetail(
     floor,
     holders,
     priceLabel,
-    phases,
+    phases: normalizeMintPhases(phases, Date.now()),
     analysis,
   });
 }

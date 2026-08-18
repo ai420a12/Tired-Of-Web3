@@ -19,6 +19,12 @@ import {
   explorerMintTx,
   signAndBroadcastMint,
 } from "@/lib/seadrop-mint";
+import {
+  normalizeMintPhases,
+  phaseQtyCap,
+  refreshMintPhase,
+  type MintPhaseInfo,
+} from "@/lib/mint-phases";
 import { ToolHelp } from "./ToolTutorial";
 
 type Props = {
@@ -34,17 +40,7 @@ type Props = {
 
 type NftTarget = { label: string; ca: string; qty: string };
 
-type MintPhase = {
-  id: string;
-  label: string;
-  stageType: string;
-  priceWei: string;
-  priceEth: number;
-  startAt: number;
-  endAt: number;
-  maxPerWallet: number;
-  status: "live" | "upcoming" | "ended";
-};
+type MintPhase = MintPhaseInfo;
 
 type PreparedMint = {
   to: string;
@@ -89,13 +85,6 @@ function formatPhaseWhen(phase: MintPhase, now: number) {
   const sec = s % 60;
   if (h >= 24) return `${Math.floor(h / 24)}d ${String(h % 24).padStart(2, "0")}h`;
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
-}
-
-function refreshPhaseStatus(phase: MintPhase, now = Date.now()): MintPhase {
-  let status: MintPhase["status"] = "live";
-  if (phase.endAt && now >= phase.endAt) status = "ended";
-  else if (phase.startAt && now < phase.startAt) status = "upcoming";
-  return { ...phase, status };
 }
 
 export default function HoodArmSnipers({
@@ -204,7 +193,7 @@ export default function HoodArmSnipers({
         phases?: MintPhase[];
       };
       if (seq !== loadSeq.current) return;
-      const next = (data.phases || []).map((p) => refreshPhaseStatus(p));
+      const next = normalizeMintPhases(data.phases || []);
       setPhases(next);
       if (!data.ok) {
         setPhasesNote(data.error || "Could not load project");
@@ -255,9 +244,19 @@ export default function HoodArmSnipers({
   );
 
   useEffect(() => {
+    if (!selectedPhase?.maxPerWallet) return;
+    setTargets((cur) => {
+      const q = mintQty(cur[0].qty);
+      const capped = phaseQtyCap(q, selectedPhase);
+      if (capped === q) return cur;
+      return [{ ...cur[0], qty: String(capped) }];
+    });
+  }, [selectedPhase?.id, selectedPhase?.maxPerWallet]);
+
+  useEffect(() => {
     if (!phases.length) return;
     const id = window.setInterval(() => {
-      setPhases((prev) => prev.map((p) => refreshPhaseStatus(p)));
+      setPhases((prev) => normalizeMintPhases(prev));
     }, 1000);
     return () => window.clearInterval(id);
   }, [phases.length]);
@@ -293,7 +292,13 @@ export default function HoodArmSnipers({
     return { contract: resolved, name: data.name || "" };
   }
 
-  async function prepareMint(from: string, contract: string, quantity: number) {
+  async function prepareMint(
+    from: string,
+    contract: string,
+    quantity: number,
+    phase: MintPhase | null,
+    stageOpen: boolean,
+  ) {
     const res = await fetch(`${apiBase}/mint-tx`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -303,6 +308,16 @@ export default function HoodArmSnipers({
         from,
         allowPaid: true,
         chain,
+        phase: phase
+          ? {
+              id: phase.id,
+              label: phase.label,
+              stageType: phase.stageType,
+              priceWei: phase.priceWei,
+              maxPerWallet: phase.maxPerWallet,
+            }
+          : undefined,
+        stageOpen,
       }),
     });
     const data = (await res.json()) as {
@@ -377,7 +392,7 @@ export default function HoodArmSnipers({
       return;
     }
 
-    const phase = selectedPhase ? refreshPhaseStatus(selectedPhase) : null;
+    const phase = selectedPhase ? refreshMintPhase(selectedPhase) : null;
     if (!opts?.skipPhaseWait && phases.length && !phase) {
       onToast("> PICK A MINT STAGE");
       return;
@@ -424,8 +439,9 @@ export default function HoodArmSnipers({
     }
 
     setArming(true);
-    const qty = mintQty(targets[0].qty);
-    const tries = opts?.skipPhaseWait ? 10 : 4;
+    const qty = phaseQtyCap(mintQty(targets[0].qty), phase);
+    const tries = opts?.skipPhaseWait ? 14 : 4;
+    const stageOpen = Boolean(opts?.skipPhaseWait);
     const speed: GasSpeed =
       customGwei && gasMode === "manual" ? "manual" : gasMode === "manual" ? "fast" : gasMode;
     try {
@@ -441,7 +457,7 @@ export default function HoodArmSnipers({
         let last = "No mint route for this contract";
         for (let i = 0; i < tries; i++) {
           try {
-            return await prepareMint(from, target.contract, qty);
+            return await prepareMint(from, target.contract, qty, phase, stageOpen);
           } catch (err) {
             last = walletErrorText(err);
             if (/rejected|4001|Invalid contract|ACCESS_REQUIRED/i.test(last)) {
@@ -583,10 +599,11 @@ export default function HoodArmSnipers({
 
       const now = Date.now();
       const phase = phases.find((p) => p.id === armed.phaseId);
-      const live = phase ? refreshPhaseStatus(phase) : null;
+      const live = phase ? refreshMintPhase(phase) : null;
       const startAt = armed.startAt || phase?.startAt || 0;
       const endAt = armed.endAt || phase?.endAt || 0;
       const label = live?.label || armed.name;
+      const stageOpenAt = startAt ? startAt + 800 : 0;
 
       if (endAt && now >= endAt) {
         onToast(`> ${label.toUpperCase()} ENDED`);
@@ -602,6 +619,11 @@ export default function HoodArmSnipers({
 
       if (live?.status === "upcoming" && startAt && now < startAt) {
         timer = setTimeout(armTick, Math.min(400, startAt - now + 50));
+        return;
+      }
+
+      if (stageOpenAt && now < stageOpenAt) {
+        timer = setTimeout(armTick, Math.min(500, stageOpenAt - now));
         return;
       }
 
